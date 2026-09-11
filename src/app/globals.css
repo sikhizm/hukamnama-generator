@@ -1,0 +1,142 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&family=Noto+Sans+Gurmukhi:wght@400;500;600;700;800&family=Noto+Serif+Gurmukhi:wght@400;500;600;700&family=Tiro+Gurmukhi&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* ChatrikUni — brand Gurmukhi typeface.                               */
+/* Place ChatrikUni.ttf / .otf into public/fonts/ (see fonts/README).  */
+/* The app can also register the file at runtime via the Font badge.   */
+/* ------------------------------------------------------------------ */
+@font-face {
+  font-family: "ChatrikUni";
+  src:
+    url("/fonts/ChatrikUni.ttf") format("truetype"),
+    url("/fonts/ChatrikUni.otf") format("opentype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+
+/* ------------------------------------------------------------------ */
+/* Gurmukhi-UCSB-Uni — classic legacy Gurmukhi typeface.               */
+/* Place Gurmukhi-UCSB-Uni.ttf / .otf into public/fonts/, or load it   */
+/* at runtime via the Font section (same flow as ChatrikUni).         */
+/* ------------------------------------------------------------------ */
+@font-face {
+  font-family: "Gurmukhi-UCSB-Uni";
+  src:
+    url("/fonts/Gurmukhi-UCSB-Uni.ttf") format("truetype"),
+    url("/fonts/Gurmukhi-UCSB-Uni.otf") format("opentype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: #0a0b10;
+  color: #e4e4e7;
+  font-family: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Gurmukhi text (inputs, previews, brand marks) */
+.font-pa {
+  font-family:
+    "ChatrikUni",
+    "Noto Sans Gurmukhi",
+    "Raavi",
+    "Mukta Mahee",
+    "Noto Color Emoji",
+    "Apple Color Emoji",
+    "Segoe UI Emoji",
+    sans-serif;
+}
+
+/* Preview stage backdrop */
+.stage-bg {
+  background-color: #08090d;
+  background-image:
+    radial-gradient(ellipse 70% 55% at 50% 38%, rgba(245, 180, 60, 0.05), transparent),
+    linear-gradient(rgba(255, 255, 255, 0.024) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.024) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    26px 26px,
+    26px 26px;
+}
+
+/* Slim scrollbars */
+.studio-scroll::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+.studio-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.studio-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.09);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.studio-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* Range sliders */
+input[type="range"].u-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  background: transparent;
+  cursor: pointer;
+}
+.u-slider::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.u-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -5.5px;
+  height: 14px;
+  width: 14px;
+  border-radius: 99px;
+  background: #fbbf24;
+  border: 2px solid #0c0d13;
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.45);
+  transition: transform 0.15s;
+}
+.u-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+.u-slider::-moz-range-track {
+  height: 3px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.u-slider::-moz-range-thumb {
+  height: 14px;
+  width: 14px;
+  border-radius: 99px;
+  background: #fbbf24;
+  border: 2px solid #0c0d13;
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.45);
+}
+
+/* Native date picker in dark UI */
+.u-date {
+  color-scheme: dark;
+}
+
+::selection {
+  background: rgba(251, 191, 36, 0.3);
+}
