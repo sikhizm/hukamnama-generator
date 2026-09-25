@@ -478,6 +478,7 @@ export function ContentSection(p: PanelProps) {
 
 export function TypographySection(p: PanelProps) {
   const { state, patchTypo } = p;
+  const ratio = state.typo.originalSizeRatio.toFixed(2);
   return (
     <Section icon={SlidersHorizontal} title="Text layout" subtitle="Auto-fit + justified Gurmukhi">
       <ToggleRow
@@ -488,20 +489,46 @@ export function TypographySection(p: PanelProps) {
       />
       <ToggleRow
         label="Auto-fit text"
-        desc={`Start at ${FIT_MAX_PX}px and shrink until the text fills its panel — never below ${FIT_MIN_PX}px.`}
+        desc={`Fit both texts optimally — original ${ratio}× translation size (when enabled).`}
         checked={state.typo.autoFit}
         onChange={(v) => patchTypo({ autoFit: v })}
       />
-      <SliderRow
-        label="Manual font size"
-        value={state.typo.manualSize}
-        min={22}
-        max={60}
-        step={1}
-        format={(v) => `${v}px`}
-        disabled={state.typo.autoFit}
-        onChange={(v) => patchTypo({ manualSize: v })}
-      />
+      
+      {state.typo.autoFit ? (
+        <>
+          <SliderRow
+            label="Size ratio (Original ÷ Translation)"
+            value={state.typo.originalSizeRatio}
+            min={1.0}
+            max={2.0}
+            step={0.05}
+            format={(v) => `${v.toFixed(2)}×`}
+            onChange={(v) => patchTypo({ originalSizeRatio: v })}
+          />
+        </>
+      ) : (
+        <>
+          <SliderRow
+            label="Original (Mool) font size"
+            value={state.typo.originalSize}
+            min={22}
+            max={80}
+            step={1}
+            format={(v) => `${v}px`}
+            onChange={(v) => patchTypo({ originalSize: v })}
+          />
+          <SliderRow
+            label="Translation font size"
+            value={state.typo.translationSize}
+            min={18}
+            max={60}
+            step={1}
+            format={(v) => `${v}px`}
+            onChange={(v) => patchTypo({ translationSize: v })}
+          />
+        </>
+      )}
+
       <SliderRow
         label="Line height"
         value={state.typo.lineHeight}

@@ -264,19 +264,38 @@ export function computeLayout(
     const availH = Math.max(80 * unit, availBottom - availTop);
     const textW = cw - pPadX * 2;
 
-    const pass = (px: number) => {
-      const mO = measureAt(ctx, state.original, px, textW, lh);
-      const mT = measureAt(ctx, state.translation, px, textW, lh);
-      return { mO, mT, stackH: chromeH * 2 + panelGap + mO.contentH + mT.contentH };
-    };
+    let pxO: number; // original size
+    let pxT: number; // translation size
+    let r: { mO: any; mT: any; stackH: number };
 
-    let px = Math.floor(typo.autoFit ? maxPx : typo.manualSize * unit);
-    let r = pass(px);
     if (typo.autoFit) {
-      while (px > minPx && r.stackH > availH) {
-        px -= 1;
-        r = pass(px);
+      // Auto-fit with ratio: start at maxPx for translation, apply ratio for original
+      let basePx = maxPx;
+      const ratio = clamp(typo.originalSizeRatio, 1.0, 2.0);
+      
+      const pass = (basePx: number) => {
+        const pxT = basePx;
+        const pxO = basePx * ratio;
+        const mO = measureAt(ctx, state.original, pxO, textW, lh);
+        const mT = measureAt(ctx, state.translation, pxT, textW, lh);
+        return { pxO, pxT, mO, mT, stackH: chromeH * 2 + panelGap + mO.contentH + mT.contentH };
+      };
+
+      let result = pass(basePx);
+      while (basePx > minPx && result.stackH > availH) {
+        basePx -= 1;
+        result = pass(basePx);
       }
+      pxO = result.pxO;
+      pxT = result.pxT;
+      r = result;
+    } else {
+      // Manual sizing with separate original and translation sizes
+      pxO = typo.originalSize * unit;
+      pxT = typo.translationSize * unit;
+      const mO = measureAt(ctx, state.original, pxO, textW, lh);
+      const mT = measureAt(ctx, state.translation, pxT, textW, lh);
+      r = { mO, mT, stackH: chromeH * 2 + panelGap + mO.contentH + mT.contentH };
     }
 
     let textHO = r.mO.contentH;
@@ -303,7 +322,8 @@ export function computeLayout(
       y: number,
       textH: number,
       content: { lines: string[]; lineH: number; contentH: number },
-      fits: boolean
+      fits: boolean,
+      fontSize: number
     ): BlockLayout => {
       const rect: Rect = { x: x0, y, w: cw, h: chromeH + textH };
       const dividerY = rect.y + pPadTop + headingLineH + dividerGap;
@@ -320,7 +340,7 @@ export function computeLayout(
         headingPx,
         headingBaseline: rect.y + pPadTop + headingPx * 0.92,
         dividerY,
-        px,
+        px: fontSize,
         lines: content.lines,
         lineH: content.lineH,
         contentH: content.contentH,
@@ -331,9 +351,9 @@ export function computeLayout(
     };
 
     const y1 = availTop + shift;
-    blocks.push(mk(PANEL_HEADING_ORIGINAL, y1, textHO, r.mO, fitsO));
+    blocks.push(mk(PANEL_HEADING_ORIGINAL, y1, textHO, r.mO, fitsO, pxO));
     const y2 = y1 + chromeH + textHO + panelGap;
-    blocks.push(mk(PANEL_HEADING_TRANSLATION, y2, textHT, r.mT, fitsT));
+    blocks.push(mk(PANEL_HEADING_TRANSLATION, y2, textHT, r.mT, fitsT, pxT));
 
     return {
       w, h, unit, pad, safeInset, landscape,

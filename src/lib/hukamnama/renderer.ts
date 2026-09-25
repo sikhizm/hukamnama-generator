@@ -311,19 +311,26 @@ export function drawHukamnama(
     ctx.shadowBlur = 5 * unit;
     const justify = state.typo.justify;
     const align = state.header.align;
+    
+    // Calculate max lines that can fit
+    const maxVisibleLines = Math.floor(block.textRect.h / block.lineH);
+    
     block.lines.forEach((line, i) => {
-      const baseline = block.textRect.y + block.vOffset + i * block.lineH + block.px * 0.92;
-      const paragraphEnd = i === block.lines.length - 1 || line.trim() === "";
-      drawLine(
-        ctx,
-        line,
-        block.textRect.x,
-        baseline,
-        block.textRect.w,
-        align,
-        justify,
-        paragraphEnd
-      );
+      // Only render lines that fit within the box height
+      if (i < maxVisibleLines) {
+        const baseline = block.textRect.y + block.vOffset + i * block.lineH + block.px * 0.92;
+        const paragraphEnd = i === block.lines.length - 1 || line.trim() === "";
+        drawLine(
+          ctx,
+          line,
+          block.textRect.x,
+          baseline,
+          block.textRect.w,
+          align,
+          justify,
+          paragraphEnd
+        );
+      }
     });
     ctx.restore();
   }

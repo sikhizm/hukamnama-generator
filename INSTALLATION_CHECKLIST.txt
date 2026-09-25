@@ -1,0 +1,79 @@
+================================================================================
+HUKAMNAMA GENERATOR - TEXT SIZE CONTROL ENHANCEMENT
+Installation Checklist
+================================================================================
+
+STEP 1: BACKUP YOUR PROJECT
+□ Create a backup of your current project
+□ Or create a git branch: git checkout -b hukamnama-text-sizing
+
+STEP 2: COPY MODIFIED FILES
+Copy each file to your project, maintaining the directory structure:
+
+  modified-source-files/src/lib/hukamnama/types.ts
+  → Your Project/src/lib/hukamnama/types.ts
+  
+  modified-source-files/src/lib/hukamnama/defaults.ts
+  → Your Project/src/lib/hukamnama/defaults.ts
+  
+  modified-source-files/src/lib/hukamnama/layout.ts
+  → Your Project/src/lib/hukamnama/layout.ts
+  
+  modified-source-files/src/lib/hukamnama/renderer.ts
+  → Your Project/src/lib/hukamnama/renderer.ts
+  
+  modified-source-files/src/components/studio/panels.tsx
+  → Your Project/src/components/studio/panels.tsx
+
+STEP 3: RESTART DEV SERVER
+□ Stop the dev server: Ctrl+C
+□ Restart: npm run dev
+□ Wait for compilation to complete
+
+STEP 4: VERIFY INSTALLATION
+□ Open the app in browser
+□ Go to "Text layout" section in left panel
+□ Check for new controls:
+  ✓ When Auto-fit is ON: "Size ratio" slider should appear
+  ✓ When Auto-fit is OFF: Two sliders should appear
+     - "Original (Mool) font size"
+     - "Translation font size"
+
+STEP 5: TEST THE FEATURES
+□ Adjust the ratio slider (if auto-fit enabled)
+□ Change sizes and watch preview update
+□ Test export functionality
+□ Verify text stays within red boxes
+
+STEP 6: SUCCESS!
+If all above steps completed:
+✓ Installation is complete
+✓ Ready to use the new text sizing features
+✓ See USAGE_EXAMPLES.md for inspiration
+
+DOCUMENTATION FILES (Read in this order):
+1. README.md                    ← Start here for overview
+2. CHANGES_SUMMARY.md           ← What changed and why
+3. INSTALLATION_GUIDE.md        ← Detailed installation help
+4. USAGE_EXAMPLES.md            ← Real-world scenarios
+5. UI_COMPARISON_AND_FAQ.md    ← Visual guide + Q&A
+6. DETAILED_CODE_CHANGES.md    ← Technical reference
+
+TROUBLESHOOTING:
+If something goes wrong:
+1. Check INSTALLATION_GUIDE.md - Troubleshooting section
+2. Check UI_COMPARISON_AND_FAQ.md - FAQ
+3. Clear browser cache and hard refresh (Ctrl+Shift+R)
+4. Restart dev server
+5. Check browser console (F12) for errors
+
+NEED HELP?
+- See INSTALLATION_GUIDE.md for step-by-step guide
+- See UI_COMPARISON_AND_FAQ.md for questions
+- Check DETAILED_CODE_CHANGES.md for technical details
+
+================================================================================
+Total Time: ~30 minutes
+Difficulty: Easy (file replacement only)
+Risk Level: None (backward compatible)
+================================================================================

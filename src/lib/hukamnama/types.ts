@@ -132,6 +132,12 @@ export interface TypoSettings {
   autoFit: boolean;
   /** Manual font size (px at 1080-ref) used when autoFit is off. */
   manualSize: number;
+  /** Manual font size for original/Mool Hukamnama (px at 1080-ref). */
+  originalSize: number;
+  /** Manual font size for translation (px at 1080-ref). */
+  translationSize: number;
+  /** Ratio multiplier for original vs translation when autoFit is on (1.0–2.0). */
+  originalSizeRatio: number;
   /** Line-height multiplier 1.3–1.9. */
   lineHeight: number;
 }
