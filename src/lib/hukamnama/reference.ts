@@ -8,12 +8,16 @@ export const REFERENCE = {
     src: "/images/templates/1080.png", stripe: [0, 343, 1080, 36],
     original: [39, 394, 1002, 326], translation: [41, 725, 998, 506],
     date: [390, 1268, 640, 38], originalPx: 53, translationPx: 38,
+    bodyTop: 379, bodyBottom: 1231, separatorY: 0,
+    gapBeforeSeparator: 22, gapAfterSeparator: 16,
     authorX: 41, metaY: 369, metaPx: 24, rightX: 1029,
   },
   vertical: {
     src: "/images/templates/1920.png", stripe: [0, 429, 1080, 54],
     original: [88, 508, 904, 420], translation: [88, 1037, 904, 546],
     date: [140, 1645, 802, 45], originalPx: 56, translationPx: 37,
+    bodyTop: 483, bodyBottom: 1583, separatorY: 974,
+    gapBeforeSeparator: 26, gapAfterSeparator: 63,
     authorX: 90, metaY: 465, metaPx: 28, rightX: 992,
   },
 } as const;
@@ -34,26 +38,78 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
   setActiveFontStack(state.fontId);
   const c = referenceConfig(preset.id);
   const warnings: string[] = [];
-  const blocks = [state.original, state.translation].map((text, i): BlockLayout => {
-    const box = rect(i === 0 ? c.original : c.translation);
-    const cap = i === 0 ? c.originalPx : c.translationPx;
-    let px = state.typo.autoFit ? cap : (i === 0 ? state.typo.originalSize : state.typo.translationSize);
-    // Match the PSD's regular weight and compact leading; never reduce below readable bounds.
-    const leading = 1.2;
-    const minimum = i === 0 ? 32 : 28;
-    let m = measureAt(ctx, text, px, box.w, leading, 400);
-    while (state.typo.autoFit && m.contentH > box.h && px > minimum) {
-      px -= 1;
-      m = measureAt(ctx, text, px, box.w, leading, 400);
+  const originalTop = c.original[1];
+  const originalW = c.original[2];
+  const translationW = c.translation[2];
+  const lineHeight = 1.2;
+  const minOriginalPx = 32;
+  const minTranslationPx = 28;
+  const maxOriginalPx = state.typo.autoFit ? c.originalPx : state.typo.originalSize;
+  const maxTranslationPx = state.typo.autoFit ? c.translationPx : state.typo.translationSize;
+  const ratio = Math.max(1, state.typo.originalSizeRatio);
+
+  const measurePair = (originalPx: number, translationPx: number) => {
+    const original = measureAt(ctx, state.original, originalPx, originalW, lineHeight, 400);
+    const wantedDividerY = c.separatorY
+      ? Math.max(c.separatorY, originalTop + original.contentH + c.gapBeforeSeparator)
+      : originalTop + original.contentH + c.gapBeforeSeparator;
+    const dividerY = Math.min(wantedDividerY, c.bodyBottom - c.gapAfterSeparator);
+    const translationTop = Math.max(c.translation[1], dividerY + c.gapAfterSeparator);
+    const translation = measureAt(ctx, state.translation, translationPx, translationW, lineHeight, 400);
+    const originalBoxBottom = dividerY - (c.separatorY ? c.gapBeforeSeparator : 0);
+    const originalBoxH = Math.max(0, originalBoxBottom - originalTop);
+    const translationBoxH = Math.max(0, c.bodyBottom - translationTop);
+    return { original, translation, dividerY, translationTop, originalBoxH, translationBoxH };
+  };
+
+  let originalPx = maxOriginalPx;
+  let translationPx = maxTranslationPx;
+  let pair = measurePair(originalPx, translationPx);
+  if (state.typo.autoFit) {
+    // Scale both scripts together so the chosen size ratio stays intact while
+    // the divider and translation start are allowed to move with the content.
+    const steps = Math.max(1, Math.ceil(maxOriginalPx - minOriginalPx));
+    for (let step = 0; step <= steps; step++) {
+      const candidateOriginalPx = Math.max(minOriginalPx, maxOriginalPx - step);
+      const candidateTranslationPx = Math.max(
+        minTranslationPx,
+        Math.min(maxTranslationPx, Math.round(candidateOriginalPx / ratio)),
+      );
+      const candidate = measurePair(candidateOriginalPx, candidateTranslationPx);
+      if (candidate.original.contentH <= candidate.originalBoxH
+          && candidate.translation.contentH <= candidate.translationBoxH) {
+        originalPx = candidateOriginalPx;
+        translationPx = candidateTranslationPx;
+        pair = candidate;
+        break;
+      }
+      originalPx = candidateOriginalPx;
+      translationPx = candidateTranslationPx;
+      pair = candidate;
     }
-    const fits = m.contentH <= box.h && m.lines.every(line => {
-      ctx.font = fontFor(px, 400);
-      return ctx.measureText(line).width <= box.w + 0.5;
-    });
-    if (!fits) warnings.push(`${i === 0 ? "Gurbani" : "Translation"} does not fit. Export is blocked; use additional slides or edit the layout.`);
-    return { heading: "", rect: box, textRect: box, headingPx: 0, headingBaseline: 0,
-      dividerY: 0, px, ...m, fits, overflowPx: Math.max(0, m.contentH - box.h), vOffset: 0 };
+  }
+
+  const originalFits = pair.original.contentH <= pair.originalBoxH
+    && pair.dividerY <= c.bodyBottom - c.gapAfterSeparator;
+  const translationFits = pair.translation.contentH <= pair.translationBoxH;
+  const textFits = (lines: string[], px: number, width: number) => lines.every(line => {
+    ctx.font = fontFor(px, 400);
+    return ctx.measureText(line).width <= width + 0.5;
   });
+  const originalFitsWidth = textFits(pair.original.lines, originalPx, originalW);
+  const translationFitsWidth = textFits(pair.translation.lines, translationPx, translationW);
+  const originalRect = rect([c.original[0], originalTop, originalW, pair.originalBoxH]);
+  const translationRect = rect([c.translation[0], pair.translationTop, translationW, pair.translationBoxH]);
+  const blocks: BlockLayout[] = [
+    { heading: "", rect: originalRect, textRect: originalRect, headingPx: 0, headingBaseline: 0,
+      dividerY: pair.dividerY, px: originalPx, ...pair.original,
+      fits: originalFits && originalFitsWidth, overflowPx: Math.max(0, pair.original.contentH - pair.originalBoxH), vOffset: 0 },
+    { heading: "", rect: translationRect, textRect: translationRect, headingPx: 0, headingBaseline: 0,
+      dividerY: 0, px: translationPx, ...pair.translation,
+      fits: translationFits && translationFitsWidth, overflowPx: Math.max(0, pair.translation.contentH - pair.translationBoxH), vOffset: 0 },
+  ];
+  if (!blocks[0].fits) warnings.push("Gurbani does not fit. Export is blocked; reduce both text sizes or use additional slides.");
+  if (!blocks[1].fits) warnings.push("Translation does not fit. Export is blocked; reduce both text sizes or use additional slides.");
   return { w: preset.w, h: preset.h, unit: 1, pad: c.original[0], safeInset: 80, landscape: false,
     header: { align: "center", x: 0, w: 1080, anchorX: 540, l1Px: 0, l1Y: 0, l2Px: 0, l2Y: 0 },
     date: { rect: rect(c.date), px: 28, baseline: c.date[1] + c.date[3] * .75 },
@@ -61,17 +117,20 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
 }
 
 /** Reference PNGs preserve all fixed artwork. Clear every variable region before drawing new text. */
-export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImageElement | null, id: string) {
+export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImageElement | null, id: string, layout: LayoutResult) {
   const c = referenceConfig(id);
   ctx.fillStyle = "#fbd58c";
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   if (img) ctx.drawImage(img, 0, 0);
-  // Clear full body areas, including glyphs outside the PSD text bounding boxes.
+  // Clear the complete variable body so both text blocks and the separator
+  // can be positioned from the measured content instead of fixed PSD boxes.
   ctx.fillStyle = "#fbd58c";
-  if (id === "feed") ctx.fillRect(0, 379, 1080, 865);
-  else {
-    ctx.fillRect(0, 483, 1080, 467);
-    ctx.fillRect(0, 1005, 1080, 610);
+  ctx.fillRect(0, c.bodyTop, 1080, c.date[1] - c.bodyTop);
+  if (id === "vertical" && img) {
+    const dividerY = layout.blocks[0].dividerY;
+    const crop = { x: 400, y: 956, w: 280, h: 36 };
+    ctx.drawImage(img, crop.x, crop.y, crop.w, crop.h,
+      crop.x, dividerY - crop.h / 2, crop.w, crop.h);
   }
   ctx.fillStyle = "#ba0000";
   ctx.fillRect(c.stripe[0], c.stripe[1], c.stripe[2], c.stripe[3]);
