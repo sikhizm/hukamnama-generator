@@ -236,7 +236,8 @@ export default function Studio() {
     (async () => {
       setFontStatus("checking");
       try {
-        await Promise.allSettled([
+        // Supplementary web fonts must not delay the bundled brand font.
+        void Promise.allSettled([
           document.fonts.load("16px 'Noto Sans Gurmukhi'", "ਵਾਹਿਗੁਰੂ"),
           document.fonts.load("16px 'Space Grotesk'", "Studio"),
           document.fonts.load("16px 'LEMON MILK'", "SGGS"),
