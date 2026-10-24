@@ -23,6 +23,9 @@ for (const id of ['feed', 'vertical']) {
   const s = { ...defaultState(), presetId: id, original: 'ਵਾਹਿਗੁਰੂ', translation: 'ਵਾਹਿਗੁਰੂ' };
   const l = computeLayout(s, getPreset(id), ctx);
   assert(l.blocks.every(b => b.fits));
+  const longerOriginal = computeLayout({ ...s, original: 'ਵਾਹਿਗੁਰੂ '.repeat(35) }, getPreset(id), ctx);
+  assert(longerOriginal.blocks[0].dividerY > l.blocks[0].dividerY, 'separator moves down when the original Hukamnama is longer');
+  assert(longerOriginal.blocks[1].textRect.y > l.blocks[1].textRect.y, 'translation follows the dynamically placed separator');
   for (const b of l.blocks) {
     assert(b.textRect.y + b.textRect.h < l.date.rect.y);
     assert(b.textRect.x >= 0 && b.textRect.x + b.textRect.w <= l.w);
@@ -33,9 +36,11 @@ for (const id of ['feed', 'vertical']) {
   const manual = computeLayout({ ...s, original: 'ਵਾਹਿਗੁਰੂ '.repeat(500), typo: { ...s.typo, autoFit: false, originalSize: 70 } }, getPreset(id), ctx);
   assert.equal(manual.blocks[0].fits, false);
   const clears = [];
-  referenceComposite({ canvas: {width: 1080, height: getPreset(id).h}, fillRect(...r) { clears.push(r); }, drawImage() {} }, null, id);
+  const imageDraws = [];
+  referenceComposite({ canvas: {width: 1080, height: getPreset(id).h}, fillRect(...r) { clears.push(r); }, drawImage(...r) { imageDraws.push(r); } }, {}, id, l);
   assert(clears.some(r => r[1] === (id === 'feed' ? 379 : 483)), 'clear old Gurbani');
   assert(clears.some(r => r[1] === (id === 'feed' ? 1268 : 1645)), 'clear old date');
+  if (id === 'vertical') assert.equal(imageDraws.at(-1)[6], l.blocks[0].dividerY - 18, 'reuse the original floral divider at its measured position');
 
   const mixed = { ...s, dateText: '24-October-2026 | ਕੱਤਕ (KATAK) 10 | ਸ਼ਨੀਚਰਵਾਰ (SATURDAY)', banikar: 'ਗੁਰੂ ਨਾਨਕ ਦੇਵ ਜੀ' };
   const drawn = [];
