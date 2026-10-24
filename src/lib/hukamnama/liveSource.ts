@@ -1,6 +1,7 @@
 export interface LiveHukamnama {
   sourceDateISO: string;
   sourceTime: string;
+  sourceName: string;
   isToday: boolean;
   checkedAt: string;
   dateText: string;
@@ -126,12 +127,64 @@ export function parseSgpcPage(html: string, todayISO: string, checkedAt = new Da
   return {
     sourceDateISO,
     sourceTime: stamp[4].replace(/\s+/g, " ").toUpperCase(),
+    sourceName: "SGPC Sachkhand live page",
     isToday: sourceDateISO === todayISO,
     checkedAt,
     dateText: dateText || sourceDateISO,
     original,
     translation,
     ang,
+    matchedAuthor: null,
+    metadataMatched: false,
+  };
+}
+
+const GREGORIAN_PUNJABI_MONTHS: Record<string, string> = {
+  "ਜਨਵਰੀ": "01", "ਫਰਵਰੀ": "02", "ਮਾਰਚ": "03", "ਅਪ੍ਰੈਲ": "04", "ਮਈ": "05", "ਜੂਨ": "06",
+  "ਜੁਲਾਈ": "07", "ਅਗਸਤ": "08", "ਸਤੰਬਰ": "09", "ਅਕਤੂਬਰ": "10", "ਨਵੰਬਰ": "11", "ਦਸੰਬਰ": "12",
+};
+
+/** SGPC's public Daily Mukhwak page is an official fallback when hs.sgpc.net blocks server requests. */
+export function parseSgpcDailyMukhwakPage(html: string, todayISO: string, checkedAt = new Date().toISOString()): LiveHukamnama {
+  const lines = htmlToLines(html);
+  const headingIndex = lines.findIndex((line) => line.includes("ਮੁੱਖਵਾਕ - ਸੱਚਖੰਡ ਸ੍ਰੀ ਹਰਿਮੰਦਰ ਸਾਹਿਬ"));
+  if (headingIndex < 0) throw new Error("SGPC Daily Mukhwak page did not contain its daily Hukamnama heading.");
+  const dateIndex = lines.findIndex((line, index) => index > headingIndex && /ਅੰਗ\s*[:：]/u.test(line)
+    && /ਸੰਮਤ|ਨਾਨਕਸ਼ਾਹੀ|ਨਾਨਕਸ਼ਾਹੀ/u.test(line));
+  if (dateIndex < 0) throw new Error("SGPC Daily Mukhwak page did not contain its date and Ang.");
+
+  const dateLine = lines[dateIndex];
+  const dateDigits = (value: string) => value.replace(/[੦-੯]/g, (digit) => GURMUKHI_DIGITS[digit] ?? digit);
+  const gregorian = dateLine.match(new RegExp(`([੦-੯0-9]{1,2})\\s*(${Object.keys(GREGORIAN_PUNJABI_MONTHS).join("|")})[, ]+([੦-੯0-9]{4})`, "u"));
+  const angRaw = dateLine.match(/ਅੰਗ\s*[:：]\s*([੦-੯0-9]+)/u)?.[1] ?? "";
+  if (!gregorian || !angRaw) throw new Error("Could not read the Gregorian date or Ang from SGPC Daily Mukhwak.");
+  const day = dateDigits(gregorian[1]).padStart(2, "0");
+  const sourceDateISO = `${dateDigits(gregorian[3])}-${GREGORIAN_PUNJABI_MONTHS[gregorian[2]]}-${day}`;
+
+  const title = lines[headingIndex + 1] ?? "";
+  const mangal = lines.slice(headingIndex + 1, dateIndex).findIndex((line) => line.includes("ੴ"));
+  if (mangal < 0) throw new Error("Could not locate the Mool Mantar in SGPC Daily Mukhwak.");
+  const original = lines.slice(headingIndex + 1, dateIndex).join(" ").trim();
+  const nanakshahiMonth = Object.keys(PUNJABI_MONTHS).find((month) => dateLine.includes(month));
+  const nanakshahiDay = dateLine.match(/[੦-੯0-9]+(?=\s*(?:ਚੇਤ|ਵੈਸਾਖ|ਜੇਠ|ਹਾੜ|ਸਾਵਣ|ਭਾਦੋਂ|ਅੱਸੂ|ਕੱਤਕ|ਮੱਘਰ|ਪੋਹ|ਮਾਘ|ਫੱਗਣ))/u)?.[0];
+  const weekdayPa = PUNJABI_WEEKDAYS.find((weekday) => dateLine.includes(weekday));
+  const weekdayEn = new Date(`${sourceDateISO}T00:00:00.000Z`).toLocaleString("en-US", { weekday: "long", timeZone: "UTC" });
+  const gregorianMonth = new Date(`${sourceDateISO}T00:00:00.000Z`).toLocaleString("en-US", { month: "long", timeZone: "UTC" });
+  const dateText = nanakshahiMonth && nanakshahiDay && weekdayPa
+    ? `${Number(day)}-${gregorianMonth}-${dateDigits(gregorian[3])} | ${nanakshahiMonth} (${PUNJABI_MONTHS[nanakshahiMonth]}) ${dateDigits(nanakshahiDay).padStart(2, "0")} | ${weekdayPa} (${weekdayEn})`
+    : sourceDateISO;
+
+  if (!title || !original) throw new Error("SGPC Daily Mukhwak page is missing the Hukamnama text.");
+  return {
+    sourceDateISO,
+    sourceTime: "",
+    sourceName: "SGPC Daily Mukhwak page",
+    isToday: sourceDateISO === todayISO,
+    checkedAt,
+    dateText,
+    original,
+    translation: "",
+    ang: dateDigits(angRaw),
     matchedAuthor: null,
     metadataMatched: false,
   };
@@ -190,5 +243,33 @@ export function findSikhizmPdfUrl(html: string, articleUrl: string): string | nu
   const directPdf = candidates.find((candidate) => candidate.path.endsWith(".pdf"));
   const anyDownload = candidates.find((candidate) => /\/download\//.test(candidate.path));
   return preferred?.url ?? directPdf?.url ?? anyDownload?.url ?? null;
+}
+
+/** Return Sikhizm's Punjabi teeka only when the dated post has the same Ang and Gurbani opening. */
+export function parseSikhizmPunjabiTranslation(html: string, expectedOriginal: string, expectedAng: string): string | null {
+  const lines = htmlToLines(html);
+  const angMatches = lines.some((line, index) => /^ang$/i.test(line) && lines[index + 1]?.trim() === expectedAng)
+    || lines.some((line) => new RegExp(`\\bAng\\s*${expectedAng}\\b`, "i").test(line));
+  if (!angMatches) return null;
+
+  const mangal = expectedOriginal.match(/ੴ\s*ਸਤਿਗੁਰ\s*ਪ੍ਰਸਾਦਿ\s*॥/u);
+  if (!mangal) return null;
+  const sourceOpening = normalizeGurbani(expectedOriginal.slice((mangal.index ?? 0) + mangal[0].length)).slice(0, 36);
+  const articleText = normalizeGurbani(lines.join(" "));
+  if (sourceOpening.length < 24 || !articleText.includes(sourceOpening)) return null;
+
+  const heading = "Punjabi Translation by Prof Sahib Singh Ji";
+  let sectionIndex = -1;
+  for (let index = 0; index < lines.length; index += 1) {
+    if (lines[index].endsWith(heading)) sectionIndex = index;
+  }
+  if (sectionIndex < 0) return null;
+  const translationLines: string[] = [];
+  for (const line of lines.slice(sectionIndex + 1)) {
+    if (/^(?:ਸ਼ਬਦ ਦਾ ਭਾਵ:|ਸ਼ਬਦ ਦਾ ਭਾਵ:|Tags:|Previous Post|Related Entries|\d+\. )/u.test(line)) break;
+    if (/[\u0A00-\u0A7F]/u.test(line)) translationLines.push(line);
+  }
+  const translation = translationLines.join(" ").trim();
+  return translation || null;
 }
 

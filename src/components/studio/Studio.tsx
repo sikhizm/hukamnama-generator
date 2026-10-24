@@ -125,9 +125,13 @@ export default function Studio() {
       dateManual: true,
       dateText: record.dateText,
     }));
-    notify(record.matchedAuthor
-      ? `Loaded today’s SGPC text and matched ${record.matchedAuthor}, Ang ${record.ang}.`
-      : "Loaded today’s SGPC text and Ang. No verified author match was available, so your author selection is unchanged.");
+    const authorNotice = record.matchedAuthor
+      ? `Matched ${record.matchedAuthor}`
+      : "No verified author match; kept your author selection";
+    const translationNotice = record.translation
+      ? ""
+      : " The SGPC fallback has no Punjabi explanation, so add it manually before export.";
+    notify(`Loaded today’s SGPC Gurbani and Ang ${record.ang}. ${authorNotice}.${translationNotice}`);
   }, [notify]);
   const patchBg = useCallback((p: Partial<BgSettings>) => {
     setState((prev) => ({ ...prev, bg: { ...prev.bg, ...p } }));

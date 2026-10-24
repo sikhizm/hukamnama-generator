@@ -13,7 +13,7 @@ const { computeLayout } = require('../src/lib/hukamnama/layout.ts');
 const { getPreset } = require('../src/lib/hukamnama/types.ts');
 const { wrapText } = require('../src/lib/hukamnama/text.ts');
 const { buildSocialCaption } = require('../src/lib/hukamnama/socialCaption.ts');
-const { parseSgpcPage, parseSikhizmFeed, findSikhizmPdfUrl, matchGurbaniNowMetadata } = require('../src/lib/hukamnama/liveSource.ts');
+const { parseSgpcPage, parseSgpcDailyMukhwakPage, parseSikhizmFeed, parseSikhizmPunjabiTranslation, findSikhizmPdfUrl, matchGurbaniNowMetadata } = require('../src/lib/hukamnama/liveSource.ts');
 const { referenceComposite, drawReference } = require('../src/lib/hukamnama/reference.ts');
 // Deterministic measurement tests exercise bounds, not visual font equivalence.
 const ctx = { font: '', measureText(text) {
@@ -87,6 +87,25 @@ assert.equal(live.ang, '718');
 assert(live.original.includes('ਟੋਡੀ ਬਾਣੀ ਭਗਤਾਂ ਕੀ ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ'));
 assert(live.translation.includes('ਕੋਈ ਮਨੁੱਖ ਆਖਦਾ ਹੈ'));
 assert.equal(live.dateText, '24-October-2026 | ਕੱਤਕ (Katak) 08 | ਸ਼ਨਿਚਰਵਾਰ (Saturday)');
+const fallback = parseSgpcDailyMukhwakPage(`<html><body>
+  <h2>ਰੋਜ਼ਾਨਾ ਮੁੱਖਵਾਕ / Daily Mukhwak</h2>
+  <h3>ਮੁੱਖਵਾਕ - ਸੱਚਖੰਡ ਸ੍ਰੀ ਹਰਿਮੰਦਰ ਸਾਹਿਬ ਸ੍ਰੀ ਅੰਮ੍ਰਿਤਸਰ</h3>
+  <h4>ਟੋਡੀ ਬਾਣੀ ਭਗਤਾਂ ਕੀ</h4><p>ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥</p>
+  <p>ਕੋਈ ਬੋਲੈ ਨਿਰਵਾ ਕੋਈ ਬੋਲੈ ਦੂਰਿ ॥ ਜਲ ਕੀ ਮਾਛੁਲੀ ਚਰੈ ਖਜੂਰਿ ॥੧॥ ਕਾਂਇ ਰੇ ਬਕਬਾਦੁ ਲਾਇਓ ॥ ਜਿਨਿ ਹਰਿ ਪਾਇਓ ਤਿਨਹਿ ਛਪਾਇਓ ॥੧॥ ਰਹਾਉ ॥</p>
+  <p>ਸ਼ਨਿਚਰਵਾਰ, ੮ ਕੱਤਕ (ਸੰਮਤ ੫੫੮ ਨਾਨਕਸ਼ਾਹੀ) ੨੪ ਅਕਤੂਬਰ, ੨੦੨੬ (ਅੰਗ: ੭੧੮)</p>
+</body></html>`, '2026-10-24', '2026-10-24T12:00:00.000Z');
+assert.equal(fallback.isToday, true);
+assert.equal(fallback.sourceName, 'SGPC Daily Mukhwak page');
+assert.equal(fallback.ang, '718');
+assert.equal(fallback.dateText, '24-October-2026 | ਕੱਤਕ (Katak) 08 | ਸ਼ਨਿਚਰਵਾਰ (Saturday)');
+assert.equal(fallback.translation, '', 'official SGPC fallback must not invent a Punjabi translation');
+const matchedTranslation = parseSikhizmPunjabiTranslation(`<html><body>
+  <p>Ang</p><p>718</p><p>ਟੋਡੀ ਬਾਣੀ ਭਗਤਾਂ ਕੀ ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਕੋਈ ਬੋਲੈ ਨਿਰਵਾ ਕੋਈ ਬੋਲੈ ਦੂਰਿ ॥ ਜਲ ਕੀ ਮਾਛੁਲੀ ਚਰੈ ਖਜੂਰਿ ॥੧॥ ਕਾਂਇ ਰੇ ਬਕਬਾਦੁ ਲਾਇਓ ॥ ਜਿਨਿ ਹਰਿ ਪਾਇਓ ਤਿਨਹਿ ਛਪਾਇਓ ॥੧॥ ਰਹਾਉ ॥</p>
+  <h3>4. Punjabi Translation by Prof Sahib Singh Ji</h3>
+  <p>ਕੋਈ ਮਨੁੱਖ ਆਖਦਾ ਹੈ ਕਿ ਪ੍ਰਭੂ ਨੇੜੇ ਹੈ।</p><p>ਇੱਕ ਹੋਰ ਪੈਰਾ।</p><p>ਸ਼ਬਦ ਦਾ ਭਾਵ: ਇਹ ਸਿਰਫ ਜਾਂਚ ਲਈ ਹੈ।</p>
+</body></html>`, fallback.original, fallback.ang);
+assert.equal(matchedTranslation, 'ਕੋਈ ਮਨੁੱਖ ਆਖਦਾ ਹੈ ਕਿ ਪ੍ਰਭੂ ਨੇੜੇ ਹੈ। ਇੱਕ ਹੋਰ ਪੈਰਾ।', 'accept same Ang and matching Gurbani translation from Sikhizm article');
+assert.equal(parseSikhizmPunjabiTranslation('<p>Ang</p><p>719</p>', fallback.original, fallback.ang), null, 'reject translation from a different Ang');
 const matchedMetadata = {
   date: { gregorian: { year: 2026, monthno: 10, date: 24 } },
   hukamnamainfo: { pageno: 718, writer: { unicode: 'ਭਗਤ ਨਾਮਦੇਵ ਜੀ' } },
@@ -104,4 +123,4 @@ const feed = parseSikhizmFeed(`<rss><channel><item>
 assert.equal(feed[0].localDateISO, '2026-10-24', 'RSS publication time is interpreted in India time');
 assert.equal(feed[0].link, 'https://sikhizm.com/koi-bole-nirva-koi-bole-door/');
 assert.equal(findSikhizmPdfUrl(feed[0].content, feed[0].link), 'https://sikhizm.com/download/281582/?tmstv=1749252210');
-console.log('Renderer, caption, and live-feed invariants passed: both formats, overflow, manual sizing, date erasure, graphemes, SGPC parsing, guarded GurbaniNow author matching, Sikhizm RSS/PDF link parsing, and caption fields.');
+console.log('Renderer, caption, and live-feed invariants passed: both formats, overflow, manual sizing, date erasure, graphemes, primary/fallback SGPC parsing, guarded author matching, same-day Sikhizm translation matching, RSS/PDF links, and caption fields.');
