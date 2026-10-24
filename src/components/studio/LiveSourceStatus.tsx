@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CircleCheck, CloudDownload, LoaderCircle, RefreshCw, TriangleAlert } from "lucide-react";
 import type { LiveHukamnama } from "@/lib/hukamnama/liveSource";
+import { indiaClock } from "@/lib/morningPlan";
 
 interface Props {
   onUse: (record: LiveHukamnama) => void;
@@ -23,7 +24,7 @@ function inReleaseWindow(): boolean {
   }).formatToParts(new Date());
   const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   const minutes = Number(value.hour) * 60 + Number(value.minute);
-  return minutes >= 4 * 60 + 15 && minutes <= 5 * 60 + 45;
+  return minutes >= 4 * 60 + 15 && minutes <= 10 * 60 + 30;
 }
 
 export default function LiveSourceStatus({ onUse, onStatus }: Props) {
@@ -56,7 +57,8 @@ export default function LiveSourceStatus({ onUse, onStatus }: Props) {
   useEffect(() => {
     void check();
     const timer = window.setInterval(() => {
-      if (inReleaseWindow() && !recordRef.current?.isToday) void check();
+      const current = recordRef.current;
+      if (inReleaseWindow() && (current?.sourceDateISO !== indiaClock().day || !current?.translation || !current?.matchedAuthor)) void check();
     }, 5 * 60 * 1000);
     return () => window.clearInterval(timer);
   }, [check]);
@@ -93,7 +95,7 @@ export default function LiveSourceStatus({ onUse, onStatus }: Props) {
         )}
         {checkedAt && <span className="ml-1.5 text-zinc-600">checked {indiaTime(checkedAt)} IST</span>}
         {notice && <span className="ml-2 text-emerald-300">{notice}</span>}
-        {record?.isToday && <p className="mt-0.5 text-zinc-500">The app checks every 5 minutes during the release window while it is open. Loading text into the template is a separate button.{record.sourceName.startsWith("Sikhizm") && " SGPC blocked the server request, so this same-day post is the fallback; verify the Nanakshahi date before publishing."}{!record.translation && " The source does not include a verified Punjabi explanation."}</p>}
+        {record?.isToday && <p className="mt-0.5 text-zinc-500">The app checks every 5 minutes from 4:15 to 10:30 a.m. IST while open. Load text manually here, or let the armed morning publisher load complete verified content.{record.sourceName.startsWith("Sikhizm") && " SGPC blocked the server request, so this same-day post is the fallback; verify the Nanakshahi date before publishing."}{!record.translation && " The source does not include a verified Punjabi explanation."}</p>}
       </div>
       <button type="button" disabled={loading} onClick={() => void check(true)} className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-semibold text-zinc-300 hover:bg-white/[0.08] disabled:opacity-50">
         <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> Check SGPC

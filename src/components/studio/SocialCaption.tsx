@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Clipboard, Link2, LoaderCircle, MessageCircle, Send } from "lucide-react";
 import type { StudioState } from "@/lib/hukamnama/types";
 import { buildSocialCaption, DEFAULT_ARTICLE_URL, DEFAULT_PDF_URL } from "@/lib/hukamnama/socialCaption";
+import MorningPublisher from "./MorningPublisher";
+import type { LiveHukamnama } from "@/lib/hukamnama/liveSource";
 
 const LINKS_KEY = "hukamnama-social-links-v1";
 
@@ -13,9 +15,12 @@ interface SocialCaptionProps {
   sgpcDateISO: string | null;
   createImage: () => Promise<File | null>;
   disabled: boolean;
+  live: LiveHukamnama | null;
+  onLoadLive: (record: LiveHukamnama) => void;
+  createFormatImage: (format: "feed" | "vertical") => Promise<Blob | null>;
 }
 
-export default function SocialCaption({ state, notify, sgpcDateISO, createImage, disabled }: SocialCaptionProps) {
+export default function SocialCaption({ state, notify, sgpcDateISO, createImage, disabled, live, onLoadLive, createFormatImage }: SocialCaptionProps) {
   const [articleUrl, setArticleUrl] = useState(DEFAULT_ARTICLE_URL);
   const [pdfUrl, setPdfUrl] = useState(DEFAULT_PDF_URL);
   const [linksLoaded, setLinksLoaded] = useState(false);
@@ -179,6 +184,7 @@ export default function SocialCaption({ state, notify, sgpcDateISO, createImage,
         <p className="text-[10px] leading-relaxed text-zinc-500">
           Download the image separately, then use Copy text template and paste it as the next message or post. The image and text stay separate, as in your current workflow.
         </p>
+        <MorningPublisher state={state} caption={caption} articleUrl={articleUrl} pdfUrl={pdfUrl} live={live} onLoadLive={onLoadLive} createImage={createFormatImage} disabled={disabled} />
       </div>
     </details>
   );
