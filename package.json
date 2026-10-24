@@ -8,9 +8,11 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:renderer": "node tests/renderer.cjs",
-    "test:social": "node tests/meta-connection.cjs && node tests/social-publish.cjs"
+    "test:reel": "node tests/reel-http.cjs",
+    "test:social": "node tests/meta-connection.cjs && node tests/social-publish.cjs && node tests/morning-media.cjs"
   },
   "dependencies": {
+    "@ffmpeg-installer/linux-x64": "4.1.0",
     "dotenv": "17.3.1",
     "drizzle-orm": "0.45.2",
     "lucide-react": "^1.44.0",

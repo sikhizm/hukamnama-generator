@@ -280,7 +280,89 @@ More Q&A in **UI_COMPARISON_AND_FAQ.md**.
 
 ---
 
-## Gurbani Posts
+## Morning publishing and reels
+
+In the generator, expand **Social caption & sharing → Morning posts, reels &
+stories**. This is an **app-open runner**, not a server scheduler. Keep the app
+visible on an awake, online laptop. A screen wake lock is requested when supported,
+but cannot wake a sleeping computer. No service worker or PWA background posting
+is promised. WhatsApp still uses the manual share steps.
+
+The default selection is Facebook feed image (1080×1350), Instagram reel and
+YouTube Short (1080×1920 MP4), and Facebook/Instagram image stories (1080×1920).
+Every destination has an independent checkbox; Facebook reels and Instagram feed
+images are optional. The 10- or 15-second reel uses the vertical template and
+your audio; arbitrary landscape images are padded without cropping. H.264,
+yuv420p, 30 fps, AAC 48 kHz audio and MP4 faststart are used.
+
+1. Upload your chosen short chant, under 1.8 MB. It is stored in IndexedDB on
+   this browser and reused. Shorter audio loops; no recording is supplied by the app.
+2. Create a reel preview and download it before testing public posting.
+3. Select destinations and review the shared caption. A short editable template
+   is the default. The full existing template is optional; Instagram captions
+   must fit within 2,200 characters. No Gurbani is truncated to fit.
+4. Enter the existing social setup key. Select a start time between 04:00 and
+   10:30 IST (default 05:45), approve public posting, and turn **AUTO ON**.
+   Reloading turns the runner off and clears the in-memory setup key. Settings,
+   audio and posting records remain on this browser.
+
+The runner waits for a same-day live record with complete Gurbani, translation,
+date, Ang and a matched author, loads it into the template, and waits for the
+required font and overflow checks. It resolves same-day article/PDF links before
+each batch. If links are unavailable it uses `/hukamnama-sahib/` and leaves the
+PDF blank. It never reuses yesterday's record or links. Morning polling stops
+at 10:30 IST; there is also a manual **Publish today's pending destinations now**.
+
+Per-date, per-destination records are written to localStorage before dispatch.
+Web Locks serialize tabs in the same browser. Failed or unconfirmed requests are
+not automatically retried. Check the destination first, then explicitly allow
+a retry. These records do not coordinate separate devices/browsers and are lost
+if browser storage is cleared. Turning AUTO OFF stops future dispatches; a
+request already in flight may still finish.
+
+Meta uses the existing Page credentials. Instagram stories require a **Business**
+account; Creator accounts can still publish reels. Meta may require additional
+account eligibility or permissions. Upload acceptance is shown separately from
+final platform processing; inspect the account after the first live tests.
+
+### YouTube connection
+
+Enable **YouTube Data API v3** in a Google Cloud project, configure its OAuth
+consent screen and your account as a test user if applicable, and create a Web
+application OAuth client. Register this redirect URI for production:
+
+`https://hukamnama-generator-nine.vercel.app/api/social/youtube/callback`
+
+Set these server environment variables and redeploy:
+
+- `YOUTUBE_CLIENT_ID`: Web application OAuth client ID.
+- `YOUTUBE_CLIENT_SECRET`: OAuth client secret.
+- `YOUTUBE_REDIRECT_URI`: the exact registered callback URI above.
+- `YOUTUBE_CHANNEL_ID`: optional expected channel ID to enforce the intended channel.
+
+Click **Connect YouTube**, choose the intended Sikhizm channel, then **Check
+channel**. Upload and read-only channel scopes are requested. The refresh token
+is encrypted with AES-GCM under a key derived from `SOCIAL_ADMIN_KEY` and held
+in a Secure, HttpOnly, SameSite=Lax cookie on this browser. It is never returned
+to JavaScript or committed. OAuth state is signed/encrypted, short-lived and
+verified on callback. Each upload checks the authorized channel again. Rotating
+the setup key, revoking Google access, or clearing cookies requires reconnection.
+Google's consent mode and token expiry rules still apply. Uploads request public
+visibility; Google/channel policy and processing determine final availability.
+
+The FFmpeg executable is a pinned Linux dependency, explicitly traced into only
+the reel function; intermediate files exist only in a per-request `/tmp`
+directory and are deleted afterward. The input body must be under 4 MB and the
+finished video under 4 MB to fit Vercel's request/response limit. Reel creation
+has a 120-second budget. No separate database or media store is required.
+
+Validation: `npm run test:social` covers mocked image/reel/story uploads, safe
+upload hosts, uncertain outcomes, OAuth encryption, YouTube channel checks and
+upload, template expansion, morning timing and midnight guards. Real FFmpeg
+checks confirmed 1080×1920 H.264/AAC outputs lasting exactly 10 and 15 seconds.
+Live account publishing and Google OAuth must be tested after deployment.
+
+## Manual Gurbani image posts
 
 Open `/posts` using the **Gurbani Posts** link in the studio header. Upload a
 JPG, PNG or WebP (up to 20 MB), enter a caption and hashtags, select Facebook
@@ -303,7 +385,8 @@ Results are tracked per platform for the current composer session. Successful
 platforms are skipped on retry; ambiguous network failures pause retries so the
 operator can check their account. This is not durable cross-session deduplication:
 after a refresh or an unconfirmed result, check Meta before publishing again.
-No automatic posting, scheduling, reel generation or YouTube publishing is enabled.
+This separate composer remains manual; the generator's morning controls are
+described above.
 Run `npm run test:social` for mocked connection and publishing checks. A live
 manual post is still needed to confirm the account's publishing permissions.
 

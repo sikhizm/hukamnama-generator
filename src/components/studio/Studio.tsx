@@ -560,6 +560,9 @@ export default function Studio() {
           <ContentSection {...panelProps()} />
           <SocialCaption
             state={state}
+            live={liveRecord}
+            onLoadLive={useLiveHukamnama}
+            createFormatImage={async (format) => renderToBlob(getPreset(format), "jpeg")}
             notify={notify}
             sgpcDateISO={liveRecord?.isToday ? liveRecord.sourceDateISO : null}
             createImage={async () => {
