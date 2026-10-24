@@ -8,7 +8,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:renderer": "node tests/renderer.cjs",
-    "test:social": "node tests/meta-connection.cjs"
+    "test:social": "node tests/meta-connection.cjs && node tests/social-publish.cjs"
   },
   "dependencies": {
     "dotenv": "17.3.1",

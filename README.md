@@ -280,6 +280,33 @@ More Q&A in **UI_COMPARISON_AND_FAQ.md**.
 
 ---
 
+## Gurbani Posts
+
+Open `/posts` using the **Gurbani Posts** link in the studio header. Upload a
+JPG, PNG or WebP (up to 20 MB), enter a caption and hashtags, select Facebook
+and/or Instagram, review the prepared preview, enter the social setup key and
+press **Publish image post**. The image is converted locally to a JPEG under
+3 MB; artwork outside the supported feed proportions is padded, never cropped.
+Captions including hashtags are limited to 2,200 characters and 30 hashtags.
+
+Uses the existing server settings: `SOCIAL_ADMIN_KEY`, `META_PAGE_ACCESS_TOKEN`,
+`META_PAGE_ID`, and `META_GRAPH_VERSION`. Meta credentials never go to the
+browser. Requires Page posting permissions and, for Instagram, the linked
+professional `@sikhizmcom` account with content publishing permission.
+
+Facebook publishes a photo with the caption. Instagram first uploads an
+unpublished Facebook photo, reads its image URL, creates a media container,
+checks readiness and publishes it. Unpublished staging photos remain in Meta;
+this feature does not configure separate storage or delete media automatically.
+
+Results are tracked per platform for the current composer session. Successful
+platforms are skipped on retry; ambiguous network failures pause retries so the
+operator can check their account. This is not durable cross-session deduplication:
+after a refresh or an unconfirmed result, check Meta before publishing again.
+No automatic posting, scheduling, reel generation or YouTube publishing is enabled.
+Run `npm run test:social` for mocked connection and publishing checks. A live
+manual post is still needed to confirm the account's publishing permissions.
+
 ## 📊 Statistics
 
 - **Files modified**: 5
