@@ -6,7 +6,7 @@ import { PublishError } from "@/lib/socialPost";
 export const maxDuration = 180;
 export async function POST(request: NextRequest) {
   const reply = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
-  const auth = authorizeSocial(request);
+  const auth = await authorizeSocial(request);
   if (auth) return reply({ error: auth }, 401);
   try {
     const config = metaConfig();

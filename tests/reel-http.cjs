@@ -13,7 +13,7 @@ const path = require('node:path');
   const port = 3197;
   const key = 'local-test-key-00000000000000000000';
   const server = spawn(process.execPath, ['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port',String(port)], {
-    env: { ...process.env, SOCIAL_ADMIN_KEY: key, META_PAGE_ACCESS_TOKEN: '', YOUTUBE_CLIENT_ID: '', YOUTUBE_CLIENT_SECRET: '' }, stdio: ['ignore','pipe','pipe'],
+    env: { ...process.env, SOCIAL_ADMIN_KEY: key, APP_USERNAME: 'qa-user', APP_PASSWORD: 'qa-password-123456!', META_PAGE_ACCESS_TOKEN: '', YOUTUBE_CLIENT_ID: '', YOUTUBE_CLIENT_SECRET: '' }, stdio: ['ignore','pipe','pipe'],
   });
   try {
     await new Promise((resolve, reject) => {
@@ -22,7 +22,16 @@ const path = require('node:path');
       server.stdout.on('data', chunk => { if (chunk.toString().includes('Ready')) { clearTimeout(timer); resolve(); } });
     });
     const base = `http://127.0.0.1:${port}`, origin = `http://localhost:${port}`;
-    let response = await fetch(base);
+    let response = await fetch(base, { redirect: 'manual' });
+    assert.equal(response.status,307); assert.ok(response.headers.get('location').endsWith('/login'));
+    response = await fetch(`${base}/login`); assert.equal(response.status,200); assert.ok((await response.text()).includes('Username'));
+    const credentials = JSON.stringify({username:'qa-user',password:'qa-password-123456!'});
+    response = await fetch(`${base}/api/auth/login`,{method:'POST',headers:{origin:'https://other.example','content-type':'application/json'},body:credentials});assert.equal(response.status,403);
+    response = await fetch(`${base}/api/auth/login`,{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({username:'qa-user',password:'wrong'})});assert.equal(response.status,401);
+    response = await fetch(`${base}/api/auth/login`,{method:'POST',headers:{origin,'content-type':'application/json'},body:credentials});assert.equal(response.status,200);
+    const setCookie=response.headers.get('set-cookie');assert.ok(/httponly/i.test(setCookie));assert.ok(/secure/i.test(setCookie));assert.ok(/samesite=lax/i.test(setCookie));
+    const cookie=setCookie.split(';')[0];
+    response = await fetch(base, {headers:{cookie}});
     assert.equal(response.status, 200);
     assert.ok((await response.text()).includes('Morning posts, reels'));
     for (const asset of ['fonts/ChatrikUni.ttf', 'audio/waheguru-waheguru.mp3']) {
@@ -32,22 +41,25 @@ const path = require('node:path');
     }
     response = await fetch(`${base}/api/social/reel`, { method: 'POST', headers: { origin } });
     assert.equal(response.status, 401);
-    response = await fetch(`${base}/api/social/reel`, { method: 'POST', headers: { origin:'https://other.example', authorization:`Bearer ${key}` } });
+    response = await fetch(`${base}/api/social/reel`, { method: 'POST', headers: { origin:'https://other.example', cookie } });
     assert.equal(response.status, 401);
-    response = await fetch(`${base}/api/social/youtube?status=1`, { method:'POST', headers:{ origin, authorization:`Bearer ${key}` } });
+    response = await fetch(`${base}/api/social/youtube?status=1`, { method:'POST', headers:{ origin, cookie } });
     assert.equal(response.status, 401);
     assert.equal((await response.json()).error, 'Connect your YouTube channel first.');
     const body = new FormData();
     body.set('image', new Blob([fs.readFileSync(image)], {type:'image/jpeg'}), 'image.jpg');
-    body.set('audio', new Blob([fs.readFileSync('public/audio/waheguru-waheguru.mp3')], {type:'audio/mpeg'}), 'chant.mp3'); body.set('duration','10');
-    response = await fetch(`${base}/api/social/reel`, { method:'POST', headers:{ origin, authorization:`Bearer ${key}` }, body });
+    body.set('audio', new Blob([fs.readFileSync('public/audio/waheguru-waheguru.mp3')], {type:'audio/mpeg'}), 'chant.mp3'); body.set('duration','full');
+    response = await fetch(`${base}/api/social/reel`, { method:'POST', headers:{ origin, cookie }, body });
     if (!response.ok) throw new Error(await response.text());
     assert.ok(response.headers.get('content-type').includes('video/mp4'));
     const file = path.join(directory, 'output.mp4'); fs.writeFileSync(file, Buffer.from(await response.arrayBuffer()));
     const probe = JSON.parse(execFileSync('ffprobe', ['-v','error','-show_entries','stream=codec_name,width,height,pix_fmt,sample_rate:format=duration','-of','json',file], {encoding:'utf8'}));
     assert.equal(probe.streams[0].codec_name,'h264'); assert.equal(probe.streams[0].width,1080); assert.equal(probe.streams[0].height,1920); assert.equal(probe.streams[0].pix_fmt,'yuv420p');
-    assert.equal(probe.streams[1].codec_name,'aac'); assert.equal(probe.streams[1].sample_rate,'48000'); assert.equal(Number(probe.format.duration),10);
+    assert.equal(probe.streams[1].codec_name,'aac'); assert.equal(probe.streams[1].sample_rate,'48000'); assert.ok(Number(probe.format.duration)>17.8 && Number(probe.format.duration)<18.2);
     assert.ok(fs.statSync(file).size < 4000000);
-    console.log('Production HTTP reel generation, codecs, dimensions, duration and authorization checks passed. No social posts created.');
+    response = await fetch(`${base}/api/social/reel`, {method:'POST',headers:{origin,cookie:cookie.slice(0,100)+(cookie[100]==='a'?'b':'a')+cookie.slice(101)}});assert.equal(response.status,401);
+    response = await fetch(`${base}/api/auth/logout`,{method:'POST',headers:{origin,cookie}});assert.equal(response.status,200);assert.ok(response.headers.get('set-cookie').includes('sikhizm-app-session='));
+    response = await fetch(`${base}/api/social/reel`,{method:'POST',headers:{origin,authorization:`Bearer ${key}`}});assert.equal(response.status,401,'the old setup key must not bypass login');
+    console.log('Production login/logout, session-only publishing, static assets and full-audio MP4 checks passed. No social posts created.');
   } finally { server.kill(); fs.rmSync(directory, {recursive:true,force:true}); }
 })().catch(error => { console.error(error); process.exitCode=1; });

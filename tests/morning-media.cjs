@@ -39,8 +39,8 @@ function sequence(responses, check = []) {
   assert.equal(verifyMorningState(state, { ...live, metadataMatched: false }, '2026-10-24').validLive, false);
   assert.equal(verifyMorningState({ ...state, banikar: 'old author' }, live, '2026-10-24').matchesLive, false);
   assert.equal(verifyMorningState(state, { ...live, translation: '' }, '2026-10-24').validLive, false);
-  assert.throws(() => reelArgs('image','audio','output',12), /10 or 15/);
-  const args = reelArgs('image','audio','output',15); assert.ok(args.includes('libx264')); assert.ok(args.includes('aac')); assert.ok(args.includes('yuv420p')); assert.ok(args.some(arg => arg.includes('pad=1080:1920')));
+  assert.throws(() => reelArgs('image','audio','output',0), /1 and 60/);
+  const args = reelArgs('image','audio','output',17.95); assert.ok(args.includes('libx264')); assert.ok(args.includes('aac')); assert.ok(args.includes('yuv420p')); assert.ok(!args.includes('-stream_loop')); assert.ok(args.some(arg => arg.includes('pad=1080:1920')));
 
   const fb = sequence([page, { video_id: '789', upload_url: 'https://rupload.facebook.com/video-upload/v26.0/789' }, { success: true }, { success: true }], [undefined, (url,o) => assert.equal(o.body.get('upload_phase'), 'start'), (url,o) => { assert.equal(o.headers.file_size, String(video.size)); assert.equal(o.headers.Authorization, 'OAuth PRIVATE'); }, (url,o) => { assert.equal(o.body.get('upload_phase'), 'finish'); assert.equal(o.body.get('description'), 'caption'); }]);
   assert.equal((await publishMedia(cfg,'facebook-reel',video,'caption',fb)).id,'789'); fb.done();

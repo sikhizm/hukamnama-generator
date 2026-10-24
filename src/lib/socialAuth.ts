@@ -1,10 +1,9 @@
 import { NextRequest } from "next/server";
-import { validAdminKey } from "./metaConnection";
+import { APP_COOKIE, readAppSession } from "./appSession";
 
-export function authorizeSocial(request: NextRequest): string | null {
+export async function authorizeSocial(request: NextRequest): Promise<string | null> {
   if (request.headers.get("origin") !== request.nextUrl.origin) return "Open this action from the app.";
-  const expected = process.env.SOCIAL_ADMIN_KEY ?? "";
-  if (!validAdminKey(request.headers.get("authorization")?.replace(/^Bearer /, "") ?? "", expected)) return "Enter the correct social setup key.";
+  if (!await readAppSession(request.cookies.get(APP_COOKIE)?.value)) return "Your session expired. Sign in again.";
   return null;
 }
 

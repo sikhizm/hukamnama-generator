@@ -6,7 +6,7 @@ import { PublishError } from "@/lib/socialPost";
 export const maxDuration = 120;
 export async function POST(request: NextRequest) {
   const reply = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
-  const auth = authorizeSocial(request); if (auth) return reply({ error: auth }, 401);
+  const auth = await authorizeSocial(request); if (auth) return reply({ error: auth }, 401);
   let session: YoutubeSession;
   try { session = unseal<YoutubeSession>(request.cookies.get(YOUTUBE_COOKIE)?.value ?? ""); }
   catch { return reply({ error: "Connect your YouTube channel first." }, 401); }

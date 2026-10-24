@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validAdminKey, verifyMetaConnection } from "@/lib/metaConnection";
+import { verifyMetaConnection } from "@/lib/metaConnection";
+import { authorizeSocial } from "@/lib/socialAuth";
 
 export const runtime = "nodejs";
 
@@ -10,14 +11,8 @@ export async function POST(request: NextRequest) {
   if (request.headers.get("origin") !== request.nextUrl.origin) {
     return reply({ error: "Open this check from the Hukamnama app." }, 403);
   }
-  const adminKey = process.env.SOCIAL_ADMIN_KEY ?? "";
-  if (!adminKey || adminKey.length < 32) {
-    return reply({ error: "Social setup is not configured. Add SOCIAL_ADMIN_KEY (at least 32 characters) in server settings and redeploy." }, 503);
-  }
-  const provided = request.headers.get("authorization")?.replace(/^Bearer /, "") ?? "";
-  if (!validAdminKey(provided, adminKey)) {
-    return reply({ error: "Enter the correct social setup key." }, 401);
-  }
+  const auth = await authorizeSocial(request);
+  if (auth) return reply({ error: auth }, 401);
   const token = process.env.META_PAGE_ACCESS_TOKEN;
   const pageId = process.env.META_PAGE_ID;
   const version = process.env.META_GRAPH_VERSION;

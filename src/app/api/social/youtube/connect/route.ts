@@ -4,7 +4,7 @@ import { authorizeSocial } from "@/lib/socialAuth";
 import { googleConfig, seal, STATE_COOKIE, cookieOptions } from "@/lib/youtube";
 
 export async function POST(request: NextRequest) {
-  const auth = authorizeSocial(request);
+  const auth = await authorizeSocial(request);
   if (auth) return NextResponse.json({ error: auth }, { status: 401 });
   try {
     const config = googleConfig();

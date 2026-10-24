@@ -280,6 +280,44 @@ More Q&A in **UI_COMPARISON_AND_FAQ.md**.
 
 ---
 
+## Private app login
+
+Configure these server environment variables before deploying this change:
+
+- `APP_USERNAME`: your chosen username, for example `sikhizm`.
+- `APP_PASSWORD`: your chosen strong password, at least 12 characters.
+- `APP_SESSION_SECRET`: optional random secret of at least 32 characters. If
+  omitted, the existing server-side `SOCIAL_ADMIN_KEY` is used for session encryption.
+
+Keep `SOCIAL_ADMIN_KEY` in the server settings; it also protects the existing
+YouTube connection cookies. It is no longer entered in any posting screen.
+Never put these values in `NEXT_PUBLIC_` variables or commit credentials.
+
+The login page sets an encrypted, HttpOnly, Secure, SameSite=Lax cookie for
+30 days. Root, posts, source-data and social API routes require a valid session.
+Social route handlers also verify the session and same-origin requests; the
+former bearer setup key no longer bypasses login. Changing the username or
+password invalidates existing sessions. Sign out clears the app and YouTube
+connection cookies. There is no public signup flow. Login has supplemental
+per-instance throttling; it is not a distributed rate-limit service.
+
+Without configured login credentials, the app fails closed and displays setup
+instructions. The browser can save the username/password using its password
+manager. No app credentials are stored in localStorage.
+
+## Full audio and playback
+
+Full audio is the new default, including migration of previously saved 10/15s
+defaults. The supplied MP3 decodes to about 17.963 seconds; the MP4 is about
+17.967 seconds after video-frame rounding. The recording is decoded once into
+continuous 48 kHz stereo PCM before a single 192 kbps AAC encode, removing MP3
+packet timing from the mux. Audio is not looped, speed-changed or faded.
+
+Local decoded waveform comparison found no introduced 100 ms silent gaps and
+correlation above 0.9999 with the original. This does not guarantee playback
+on every browser or after a social platform transcodes the upload. If a preview
+stutters, download the MP4 and listen in a separate player before posting.
+
 ## Morning publishing and reels
 
 In the generator, expand **Social caption & sharing → Morning posts, reels &
@@ -291,21 +329,21 @@ is promised. WhatsApp still uses the manual share steps.
 The default selection is Facebook feed image (1080×1350), Instagram reel and
 YouTube Short (1080×1920 MP4), and Facebook/Instagram image stories (1080×1920).
 Every destination has an independent checkbox; Facebook reels and Instagram feed
-images are optional. The 10- or 15-second reel uses the vertical template and
+images are optional. The reel uses the full recording by default, with optional first-10/15-second excerpts, the vertical template and
 your audio; arbitrary landscape images are padded without cropping. H.264,
 yuv420p, 30 fps, AAC 48 kHz audio and MP4 faststart are used.
 
 1. The supplied **Waheguru Waheguru.mp3** is bundled with the app and loads
-   automatically as the default reel background. Its first 10 or 15 seconds are
-   used. An optional replacement under 1.8 MB can be saved in this browser's
-   IndexedDB; shorter clips loop. **Use bundled Waheguru chant** restores the default.
+   automatically as the default reel background. Its entire recording is used
+   by default. An optional replacement under 1.8 MB can be saved in this browser's
+   IndexedDB. Recordings are never looped; clips from 1 to 60 seconds are supported. **Use bundled Waheguru chant** restores the default.
 2. Create a reel preview and download it before testing public posting.
-3. Select destinations and review the shared caption. A short editable template
+3. Sign in, select destinations and review the shared caption. A short editable template
    is the default. The full existing template is optional; Instagram captions
    must fit within 2,200 characters. No Gurbani is truncated to fit.
-4. Enter the existing social setup key. Select a start time between 04:00 and
+4. Select a start time between 04:00 and
    10:30 IST (default 05:45), approve public posting, and turn **AUTO ON**.
-   Reloading turns the runner off and clears the in-memory setup key. Settings,
+   Reloading turns the runner off, but the login session remains. Settings,
    custom audio and posting records remain on this browser. The bundled chant
    and ChatrikUni font remain available on every device after deployment.
 
@@ -369,7 +407,7 @@ Live account publishing and Google OAuth must be tested after deployment.
 
 Open `/posts` using the **Gurbani Posts** link in the studio header. Upload a
 JPG, PNG or WebP (up to 20 MB), enter a caption and hashtags, select Facebook
-and/or Instagram, review the prepared preview, enter the social setup key and
+and/or Instagram, review the prepared preview, sign in and
 press **Publish image post**. The image is converted locally to a JPEG under
 3 MB; artwork outside the supported feed proportions is padded, never cropped.
 Captions including hashtags are limited to 2,200 characters and 30 hashtags.

@@ -42,7 +42,6 @@ export default function ImagePostComposer() {
   const [caption, setCaption] = useState("");
   const [hashtags, setHashtags] = useState("#Gurbani #Sikhism #Sikhizm");
   const [targets, setTargets] = useState<Record<Platform, boolean>>({ facebook: true, instagram: true });
-  const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const [review, setReview] = useState(false);
@@ -76,13 +75,13 @@ export default function ImagePostComposer() {
         body.set("platform", platform); body.set("image", image.blob, "gurbani-post.jpg"); body.set("caption", caption); body.set("hashtags", hashtags);
         let outcome: Outcome;
         try {
-          const response = await fetch("/api/social/publish", { method: "POST", headers: { Authorization: `Bearer ${key}` }, body });
+          const response = await fetch("/api/social/publish", { method: "POST", body });
           const data = await response.json() as Outcome;
           outcome = response.ok && data.id ? data : { error: data.error ?? "Publishing failed. Check your account before retrying.", uncertain: data.uncertain ?? (response.status >= 500) };
         } catch { outcome = { error: "Connection interrupted. Check your account before retrying to avoid a duplicate.", uncertain: true }; }
         setResults(previous => ({ ...previous, [platform]: outcome }));
       }
-    } finally { setKey(""); setBusy(false); inFlight.current = false; }
+    } finally { setBusy(false); inFlight.current = false; }
   }
 
   return <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_0.9fr]">
@@ -104,16 +103,13 @@ export default function ImagePostComposer() {
           {platform === "facebook" ? "Facebook · Connected Sikhizm Page" : "Instagram · @sikhizmcom"}
         </label>)}
       </fieldset>
-      <label className="block text-sm font-medium">Social setup key
-        <input type="password" autoComplete="off" maxLength={512} value={key} disabled={busy} onChange={event => setKey(event.target.value)} className={inputClass} />
-      </label>
-      <p className="-mt-3 text-xs text-zinc-500">Use the same setup key as the connection checker. It is cleared after publishing.</p>
+      <p className="text-xs text-zinc-500">Publishing uses your signed-in session.</p>
       <label className="flex items-start gap-3 text-sm leading-5"><input type="checkbox" className="mt-1 accent-amber-400" checked={review} disabled={busy} onChange={event => setReview(event.target.checked)} />I have reviewed the image, caption and selected accounts. Publish this post publicly.</label>
       {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
       {captionError && <p className="text-xs text-amber-200">{captionError}</p>}
-      <button onClick={() => void publish()} disabled={busy || preparing || !image || !review || !key || !!captionError || !Object.entries(targets).some(([platform, enabled]) => enabled && !results[platform as Platform]?.id && !results[platform as Platform]?.uncertain)} className="w-full rounded-xl bg-amber-400 px-5 py-3 text-sm font-bold text-zinc-950 disabled:opacity-40">{busy ? "Publishing… Please keep this page open" : Object.keys(results).length ? "Publish remaining accounts" : "Publish image post"}</button>
+      <button onClick={() => void publish()} disabled={busy || preparing || !image || !review || !!captionError || !Object.entries(targets).some(([platform, enabled]) => enabled && !results[platform as Platform]?.id && !results[platform as Platform]?.uncertain)} className="w-full rounded-xl bg-amber-400 px-5 py-3 text-sm font-bold text-zinc-950 disabled:opacity-40">{busy ? "Publishing… Please keep this page open" : Object.keys(results).length ? "Publish remaining accounts" : "Publish image post"}</button>
       <div aria-live="polite" className="space-y-3">{(["facebook", "instagram"] as Platform[]).map(platform => results[platform] && <div key={platform} className="rounded-xl border border-white/10 p-4 text-sm"><p className="mb-1 font-semibold capitalize">{platform}</p>{results[platform]?.id ? <a className="text-emerald-300 underline" href={results[platform]?.url} target="_blank" rel="noopener noreferrer">Published · View post ↗</a> : <p className="text-amber-200">{results[platform]?.error}</p>}{results[platform]?.uncertain && <p className="mt-2 text-xs text-zinc-400">Retry is paused because this post may already exist. Check the account before starting a new post.</p>}</div>)}</div>
-      {Object.keys(results).length > 0 && <button disabled={busy} onClick={() => { setResults({}); setReview(false); setKey(""); setError(""); }} className="text-sm text-amber-300 underline">Start a new post (check any unconfirmed results first)</button>}
+      {Object.keys(results).length > 0 && <button disabled={busy} onClick={() => { setResults({}); setReview(false); setError(""); }} className="text-sm text-amber-300 underline">Start a new post (check any unconfirmed results first)</button>}
       <p className="text-xs leading-5 text-zinc-500">Posts are sent only when you press Publish. For Instagram, the image is first uploaded to Facebook as unpublished media. Automatic posting and reels will be added separately.</p>
     </section>
     <section className="lg:sticky lg:top-8 lg:self-start" aria-label="Post preview">

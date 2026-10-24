@@ -9,12 +9,13 @@
     "typecheck": "tsc --noEmit",
     "test:renderer": "node tests/renderer.cjs",
     "test:reel": "node tests/reel-http.cjs",
-    "test:social": "node tests/meta-connection.cjs && node tests/social-publish.cjs && node tests/morning-media.cjs"
+    "test:social": "node tests/meta-connection.cjs && node tests/social-publish.cjs && node tests/morning-media.cjs && node tests/app-session.cjs"
   },
   "dependencies": {
     "@ffmpeg-installer/linux-x64": "4.1.0",
     "dotenv": "17.3.1",
     "drizzle-orm": "0.45.2",
+    "iron-session": "8.0.4",
     "lucide-react": "^1.44.0",
     "next": "16.2.6",
     "pg": "8.20.0",

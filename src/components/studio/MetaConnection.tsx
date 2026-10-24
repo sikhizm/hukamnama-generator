@@ -10,7 +10,6 @@ interface Result {
 }
 
 export default function MetaConnection() {
-  const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
 
@@ -20,7 +19,6 @@ export default function MetaConnection() {
     try {
       const response = await fetch("/api/social/connection", {
         method: "POST",
-        headers: { Authorization: `Bearer ${key}` },
         cache: "no-store",
       });
       const data = await response.json() as Result;
@@ -28,7 +26,6 @@ export default function MetaConnection() {
     } catch {
       setResult({ error: "Could not reach the connection check. Try again." });
     } finally {
-      setKey("");
       setBusy(false);
     }
   }
@@ -40,10 +37,7 @@ export default function MetaConnection() {
         <p>Connect your Sikhizm accounts first. This step checks the account connection only and does not publish anything.</p>
         <p>Facebook: <a href="https://facebook.com/sikhizmcom" target="_blank" rel="noopener noreferrer" className="text-amber-300">sikhizmcom</a><br />Instagram: <a href="https://instagram.com/sikhizmcom" target="_blank" rel="noopener noreferrer" className="text-amber-300">@sikhizmcom</a></p>
         <form onSubmit={(event) => { event.preventDefault(); void check(); }} className="space-y-2">
-          <label className="block">Social setup key
-            <input type="password" value={key} onChange={(event) => setKey(event.target.value)} autoComplete="off" maxLength={512} disabled={busy} className="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-zinc-200" />
-          </label>
-          <p className="text-[10px]">Use your app’s setup key, never your Facebook password or Meta access token. The key is cleared after checking.</p>
+          <p className="text-[10px]">Your signed-in session authorizes this check.</p>
           <button type="submit" disabled={busy} className="w-full rounded-lg bg-amber-400 px-3 py-2 font-bold text-zinc-950 disabled:opacity-40">{busy ? "Checking accounts…" : "Check account connection"}</button>
         </form>
         {result && <div role="status" aria-live="polite" className="space-y-2 rounded-lg border border-white/10 p-3">

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validAdminKey } from "@/lib/metaConnection";
+import { authorizeSocial } from "@/lib/socialAuth";
 import { composeCaption, publishImage, PublishError } from "@/lib/socialPost";
 
 export const runtime = "nodejs";
@@ -8,9 +8,8 @@ export const maxDuration = 120;
 export async function POST(request: NextRequest) {
   const reply = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
   if (request.headers.get("origin") !== request.nextUrl.origin) return reply({ error: "Open publishing from this app." }, 403);
-  const key = process.env.SOCIAL_ADMIN_KEY ?? "";
-  if (key.length < 32) return reply({ error: "Configure SOCIAL_ADMIN_KEY in server settings first." }, 503);
-  if (!validAdminKey(request.headers.get("authorization")?.replace(/^Bearer /, "") ?? "", key)) return reply({ error: "Enter the correct social setup key." }, 401);
+  const auth = await authorizeSocial(request);
+  if (auth) return reply({ error: auth }, 401);
   const token = process.env.META_PAGE_ACCESS_TOKEN;
   const pageId = process.env.META_PAGE_ID;
   const version = process.env.META_GRAPH_VERSION;

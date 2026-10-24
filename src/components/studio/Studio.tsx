@@ -16,6 +16,7 @@ import {
 import SocialCaption from "./SocialCaption";
 import Link from "next/link";
 import MetaConnection from "./MetaConnection";
+import LogoutButton from "@/components/LogoutButton";
 import LiveSourceStatus from "./LiveSourceStatus";
 import type { LiveHukamnama } from "@/lib/hukamnama/liveSource";
 import {
@@ -496,6 +497,7 @@ export default function Studio() {
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <LogoutButton />
           <Link href="/posts" className="rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-300">Gurbani Posts ↗</Link>
           <button
             type="button"
