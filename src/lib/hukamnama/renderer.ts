@@ -101,7 +101,8 @@ export function buildComposite(
   w: number,
   h: number,
   state: StudioState,
-  img: HTMLImageElement | null
+  img: HTMLImageElement | null,
+  layout: LayoutResult
 ): HTMLCanvasElement {
   const c = document.createElement("canvas");
   c.width = w;
@@ -109,7 +110,7 @@ export function buildComposite(
   const ctx = c.getContext("2d")!;
 
   if (isReference(state)) {
-    referenceComposite(ctx, img, state.presetId);
+    referenceComposite(ctx, img, state.presetId, layout);
     return c;
   }
 
