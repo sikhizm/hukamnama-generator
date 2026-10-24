@@ -27,6 +27,8 @@ import {
   type StudioState,
   type TypoSettings,
 } from "@/lib/hukamnama/types";
+import { isReference, referenceConfig } from "@/lib/hukamnama/reference";
+import referenceSample from "@/lib/hukamnama/reference-sample.json";
 import { defaultState } from "@/lib/hukamnama/defaults";
 import { computeLayout, type LayoutResult } from "@/lib/hukamnama/layout";
 import { buildComposite, drawHukamnama, type LogoImages } from "@/lib/hukamnama/renderer";
@@ -53,6 +55,7 @@ function revive(saved: StudioState): StudioState {
   return {
     ...def,
     ...saved,
+    design: saved.design ?? "studio",
     bg: { ...def.bg, ...(saved.bg ?? {}) },
     header: { ...def.header, ...(saved.header ?? {}) },
     typo: { ...def.typo, ...(saved.typo ?? {}) },
@@ -72,6 +75,7 @@ export default function Studio() {
   const [strictFont, setStrictFontState] = useState(true);
   const [exporting, setExporting] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [backgroundReady, setBackgroundReady] = useState(false);
   const [scale, setScale] = useState(0.25);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -87,6 +91,8 @@ export default function Studio() {
   const fontCustom = customFontIds.has(state.fontId);
 
   const preset = getPreset(state.presetId);
+  const referenceMode = isReference(state);
+  const exportPresets = state.design === "reference" ? PRESETS.filter(p => p.id === "vertical" || p.id === "feed") : PRESETS;
 
   /* ---------------------------------------------------------- toast */
   const notify = useCallback((msg: string) => {
@@ -156,18 +162,26 @@ export default function Studio() {
 
   /* ---------------------------------------------------- background img */
   useEffect(() => {
-    const src = state.bg.dataUrl || DEFAULT_BG;
+    let alive = true;
+    setBackgroundReady(false);
+    bgImgRef.current = null;
+    const src = referenceMode ? referenceConfig(state.presetId).src : state.bg.dataUrl || DEFAULT_BG;
     const img = new Image();
     img.onload = () => {
+      if (!alive) return;
+      setBackgroundReady(true);
       bgImgRef.current = img;
       setBgVersion((v) => v + 1);
     };
     img.onerror = () => {
+      if (!alive) return;
+      setBackgroundReady(false);
       bgImgRef.current = null;
       setBgVersion((v) => v + 1);
     };
     img.src = src;
-  }, [state.bg.dataUrl]);
+    return () => { alive = false; };
+  }, [state.bg.dataUrl, state.presetId, referenceMode]);
 
   /* --------------------------------------------------------- logo imgs */
   useEffect(() => {
@@ -201,6 +215,7 @@ export default function Studio() {
         await Promise.allSettled([
           document.fonts.load("16px 'Noto Sans Gurmukhi'", "ਵਾਹਿਗੁਰੂ"),
           document.fonts.load("16px 'Space Grotesk'", "Studio"),
+          document.fonts.load("16px 'LEMON MILK'", "SGGS"),
           document.fonts.load("16px 'Noto Color Emoji'", "🪯🗓️📜🗒️🌸"),
         ]);
         const def = getFontDef(state.fontId);
@@ -229,7 +244,7 @@ export default function Studio() {
     if (!el) return;
     const ro = new ResizeObserver(() => {
       const r = el.getBoundingClientRect();
-      setScale(Math.min((r.width - 56) / preset.w, (r.height - 56) / preset.h));
+      setScale(Math.max(0.05, Math.min((r.width - 56) / preset.w, (r.height - 56) / preset.h)));
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -246,6 +261,7 @@ export default function Studio() {
     const key = [
       preset.w,
       preset.h,
+      state.design,
       state.bg.mode,
       state.bg.solidColor,
       state.bg.gradFrom,
@@ -299,20 +315,33 @@ export default function Studio() {
   };
 
   /* ----------------------------------------------------------- export */
-  const canExport = fontStatus === "ready" || !strictFont;
+  const fontReady = fontStatus === "ready" || !strictFont;
+  const contentReady = !!(state.original.trim() && state.translation.trim() && state.dateText.trim() && state.banikar.trim() && state.ang.trim());
+  const canExport = contentReady && fontReady && (!referenceMode || backgroundReady) && !!layout && layout.blocks.every(b => b.fits);
 
-  const renderToBlob = (p: PresetDef, format: "png" | "jpeg"): Promise<Blob | null> => {
+  const renderToBlob = async (p: PresetDef, format: "png" | "jpeg"): Promise<Blob | null> => {
     const mctx = measureRef.current;
     if (!mctx) return Promise.resolve(null);
-    const L = computeLayout(state, p, mctx);
-    const comp = buildComposite(p.w, p.h, state, bgImgRef.current);
+    if (!contentReady) throw new Error("Enter complete content and a verified date before exporting.");
+    const exportState = { ...state, presetId: p.id, safeArea: false };
+    const L = computeLayout(exportState, p, mctx);
+    if (L.blocks.some(b => !b.fits)) throw new Error(`${p.label}: text does not fit. Export blocked to prevent incomplete Gurbani.`);
+    let bg = bgImgRef.current;
+    if (isReference(exportState)) {
+      bg = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image(); img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("Template artwork could not load. Please retry."));
+        img.src = referenceConfig(p.id).src;
+      });
+    }
+    const comp = buildComposite(p.w, p.h, exportState, bg);
     const c = document.createElement("canvas");
     c.width = p.w;
     c.height = p.h;
     const ctx = c.getContext("2d");
     if (!ctx) return Promise.resolve(null);
     const logos: LogoImages = { mark: logoMarkRef.current, card: logoCardRef.current };
-    drawHukamnama(ctx, L, state, comp, logos);
+    drawHukamnama(ctx, L, exportState, comp, logos);
     return new Promise((res) =>
       c.toBlob((b) => res(b), format === "png" ? "image/png" : "image/jpeg", 0.92)
     );
@@ -339,8 +368,8 @@ export default function Studio() {
       if (!blob) throw new Error("render failed");
       downloadBlob(blob, `hukamnama-${preset.id}-${preset.w}x${preset.h}-${state.dateISO}.${ext}`);
       notify(`Exported ${preset.w}×${preset.h} ${ext.toUpperCase()}`);
-    } catch {
-      notify("Export failed — please try again");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Export failed — please try again");
     } finally {
       setExporting(null);
     }
@@ -353,14 +382,23 @@ export default function Studio() {
     }
     setExporting("all");
     try {
-      for (const p of PRESETS) {
+      const mctx = measureRef.current;
+      if (!mctx) throw new Error("Canvas is not ready.");
+      for (const p of exportPresets) {
+        if (computeLayout({ ...state, presetId: p.id }, p, mctx).blocks.some(b => !b.fits)) {
+          throw new Error(`${p.label}: text does not fit. No files exported.`);
+        }
+      }
+      for (const p of exportPresets) {
         const blob = await renderToBlob(p, "png");
         if (blob) {
           downloadBlob(blob, `hukamnama-${p.id}-${p.w}x${p.h}-${state.dateISO}.png`);
           await new Promise((r) => setTimeout(r, 400));
         }
       }
-      notify(`Exported all ${PRESETS.length} preset sizes`);
+      notify(`Exported all ${exportPresets.length} preset sizes`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Export failed");
     } finally {
       setExporting(null);
     }
@@ -417,7 +455,7 @@ export default function Studio() {
   };
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#0a0b10] text-zinc-200">
+    <div className="flex min-h-screen w-full flex-col md:h-screen md:overflow-hidden bg-[#0a0b10] text-zinc-200">
       {/* ------------------------------------------------------- topbar */}
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] bg-[#0c0d13] px-4">
         <div className="font-pa grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-amber-300 to-amber-500 text-[13px] font-bold text-zinc-950 shadow-lg shadow-amber-500/25">
@@ -451,9 +489,32 @@ export default function Studio() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col-reverse md:flex-row">
         {/* ----------------------------------------------------- sidebar */}
-        <aside className="studio-scroll w-[360px] shrink-0 overflow-y-auto border-r border-white/[0.06] bg-[#0d0e14]">
+        <aside className="studio-scroll w-full md:w-[360px] shrink-0 md:overflow-y-auto border-r border-white/[0.06] bg-[#0d0e14]">
+          <section className="space-y-3 border-b border-white/10 p-4">
+            <label className="block text-sm font-semibold" htmlFor="design">Design</label>
+            <select id="design" className="w-full rounded bg-zinc-800 p-2" value={state.design}
+              onChange={e => patch({ design: e.target.value as StudioState["design"], presetId: "vertical" })}>
+              <option value="reference">Original Sikhizm template</option><option value="studio">Previous studio design</option>
+            </select>
+            {state.design === "reference" && <>
+              <p className="text-xs text-zinc-400">Original artwork, header, QR and footer. ChatrikUni is required to match the body; Latin labels use LEMON MILK when installed.</p>
+              {!canExport && fontReady && <p role="alert" className="mb-2 text-xs text-red-300">Export blocked: complete the text, author, Ang and verified date; check artwork and text-fit warnings.</p>}
+              <div className="flex gap-2">{exportPresets.map(p => <button key={p.id} type="button"
+                aria-pressed={state.presetId === p.id} onClick={() => patch({ presetId: p.id })}
+                className={`rounded border p-2 text-xs ${state.presetId === p.id ? "border-amber-300 text-amber-200" : "border-zinc-700"}`}>{p.w} × {p.h}</button>)}</div>
+              <button type="button" className="text-xs text-amber-300 underline" onClick={() => {
+                patch({ ...referenceSample, banikar: "Bani Bhagat Namdev Ji", ang: "718", fontId: "chatrikuni",
+                  dateISO: "2026-10-24", dateManual: true,
+                  dateText: "24-October-2026 | ਕੱਤਕ (Katak) 08 | ਸ਼ਨੀਵਾਰ (Saturday)",
+                  typo: { ...state.typo, autoFit: true } });
+                notify("Loaded reference example dated 24 October 2026 — not a live daily fetch.");
+              }}>Load supplied reference example (24 Oct 2026)</button>
+              {!backgroundReady && <p role="status" className="text-xs text-amber-300">Waiting for template artwork. Export remains locked.</p>}
+            </>}
+            <p className="text-xs text-amber-200">Verify the Punjabi date against SGPC and enter the full date manually. The existing automatic calendar is approximate.</p>
+          </section>
           <FontSection
             state={state}
             layout={layout}
@@ -470,18 +531,16 @@ export default function Studio() {
             onUploadBg={() => bgInputRef.current?.click()}
             onResetBg={() => patchBg({ dataUrl: null })}
           />
-          <PresetSection {...panelProps()} />
-          <BackgroundSection {...panelProps()} />
-          <HeaderSection {...panelProps()} />
+          {state.design === "studio" && <><PresetSection {...panelProps()} /><BackgroundSection {...panelProps()} /><HeaderSection {...panelProps()} /></>}
           <DateSection {...panelProps()} />
           <MetaSection {...panelProps()} />
           <ContentSection {...panelProps()} />
           <TypographySection {...panelProps()} />
-          <BrandingSection {...panelProps()} />
+          {state.design === "studio" && <BrandingSection {...panelProps()} />}
 
           {/* ------------------------------------------------ export dock */}
           <div className="sticky bottom-0 z-10 border-t border-white/[0.07] bg-[#0c0d13]/95 px-4 py-3 backdrop-blur">
-            {!canExport && (
+            {!fontReady && (
               <button
                 type="button"
                 onClick={() => fontInputRef.current?.click()}
@@ -530,7 +589,7 @@ export default function Studio() {
               ) : (
                 <Layers size={12} />
               )}
-              Export all {PRESETS.length} presets (PNG)
+              Export all {exportPresets.length} presets (PNG)
             </button>
             <p className="mt-2 text-center text-[9px] leading-snug text-zinc-600">
               Full-resolution export · {preset.w} × {preset.h} · rendered locally, nothing is uploaded
@@ -539,7 +598,7 @@ export default function Studio() {
         </aside>
 
         {/* ------------------------------------------------------- stage */}
-        <main ref={stageRef} className="stage-bg relative min-w-0 flex-1 overflow-hidden">
+        <main ref={stageRef} className="stage-bg relative min-h-[65vh] min-w-0 flex-1 overflow-hidden md:min-h-0">
           <div className="absolute left-4 top-4 z-10 flex max-w-[70%] flex-wrap items-center gap-2">
             {blockChip("Original", 0)}
             {blockChip("Translation", 1)}
@@ -632,3 +691,4 @@ export default function Studio() {
     };
   }
 }
+

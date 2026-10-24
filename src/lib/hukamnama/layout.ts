@@ -23,6 +23,7 @@ import {
   type PresetDef,
   type StudioState,
 } from "./types";
+import { isReference, referenceLayout } from "./reference";
 import { fitOneLine, measureAt, wrapText } from "./text";
 
 export interface Rect {
@@ -147,6 +148,7 @@ export function computeLayout(
   preset: PresetDef,
   ctx: CanvasRenderingContext2D
 ): LayoutResult {
+  if (isReference(state, preset.id)) return referenceLayout(state, preset, ctx);
   setActiveFontStack(state.fontId);
   const { w, h } = preset;
   const landscape = w > h * 1.15;
@@ -443,3 +445,4 @@ export function computeLayout(
     warnings,
   };
 }
+
