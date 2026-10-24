@@ -19,12 +19,10 @@ The existing computed Punjabi calendar uses fixed month boundaries and must not 
 
 `npm run test:renderer` checks bounds in both formats, long/manual text overflow, clearing old daily content, blank initial content and grapheme-safe wrapping. It uses deterministic measurement, not font equivalence. The changed rendering modules pass a strict TypeScript check, and the studio component bundles successfully. Full local installation/build was blocked by unavailable pinned packages; the validation workflow runs the pinned install, full typecheck, renderer tests and production build on GitHub.
 
-## Remaining daily workflow
+## Daily workflow automation groundwork
 
-This change does not fetch SGPC, render video, connect Meta, schedule jobs or publish anything. Those are separate implementation stages:
+The app checks the official SGPC Hukamnama page and shows whether its date is current. While the page is open, it polls every five minutes during 4:15–5:45 a.m. Asia/Kolkata. Loading today's Gurbani, Punjabi explanation, date and Ang into the template remains a deliberate user action. Author metadata is suggested only when GurbaniNow's daily result agrees with the SGPC Gregorian date, Ang and opening Gurbani. GurbaniNow's published API terms specify non-commercial, no-derivatives use; obtain permission or replace the provider before using this matcher in a monetized production workflow.
 
-1. Fetch SGPC text/PDF and verify the release date in Asia/Kolkata. Store source snapshots and a fingerprint; stop on stale/incomplete content.
-2. Match the correct Sikhizm article and PDF. No invented or previous-day URLs.
-3. Generate image sets and caption drafts, with continuation slides for long Hukamnamas. Require review until verified across varied releases.
-4. Add authorized audio/video rendering and destination-specific publishing. Persist per-destination status and reconcile uncertain responses before retrying.
-5. Add a private mobile dashboard, pause control and server-side worker for review/auto modes. WhatsApp Channel/existing group and Facebook-group sharing remain manual until a supported integration is established.
+The text-template composer reads Sikhizm's public Hukamnama RSS feed and updates article/PDF URL fields only after a post matches the SGPC date. WhatsApp sharing offers two distinct steps: share the rendered image, then share the caption as a second post. Native file sharing is used when available; otherwise the image downloads for manual attachment. The operator still chooses the WhatsApp destination and taps Send.
+
+Video/audio rendering, direct Meta or YouTube publishing, a private mobile dashboard and background polling while the app is closed remain later stages. WhatsApp Channel/group and Facebook-group final-send controls remain in WhatsApp/Facebook.
