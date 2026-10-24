@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clipboard, Share2 } from "lucide-react";
+import { Clipboard } from "lucide-react";
 import type { StudioState } from "@/lib/hukamnama/types";
 import { buildSocialCaption, DEFAULT_ARTICLE_URL, DEFAULT_PDF_URL } from "@/lib/hukamnama/socialCaption";
 
@@ -9,12 +9,10 @@ const LINKS_KEY = "hukamnama-social-links-v1";
 
 interface SocialCaptionProps {
   state: StudioState;
-  onShare: (caption: string) => void;
   notify: (message: string) => void;
-  disabled: boolean;
 }
 
-export default function SocialCaption({ state, onShare, notify, disabled }: SocialCaptionProps) {
+export default function SocialCaption({ state, notify }: SocialCaptionProps) {
   const [articleUrl, setArticleUrl] = useState(DEFAULT_ARTICLE_URL);
   const [pdfUrl, setPdfUrl] = useState(DEFAULT_PDF_URL);
   const [linksLoaded, setLinksLoaded] = useState(false);
@@ -73,15 +71,12 @@ export default function SocialCaption({ state, onShare, notify, disabled }: Soci
           <textarea readOnly value={caption} rows={10} className="mt-1 w-full resize-y rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 font-pa text-xs leading-relaxed text-zinc-300 outline-none" />
         </label>
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => void copyCaption()} className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-2.5 text-[11px] font-semibold text-zinc-200 hover:bg-white/[0.08]">
-            <Clipboard size={13} /> Copy caption
-          </button>
-          <button type="button" disabled={disabled} onClick={() => onShare(caption)} className="flex items-center justify-center gap-2 rounded-lg bg-amber-400 px-2 py-2.5 text-[11px] font-bold text-zinc-950 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40">
-            <Share2 size={13} /> Share image + text
+          <button type="button" onClick={() => void copyCaption()} className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-400 px-2 py-2.5 text-[11px] font-bold text-zinc-950 hover:bg-amber-300">
+            <Clipboard size={13} /> Copy text template
           </button>
         </div>
         <p className="text-[10px] leading-relaxed text-zinc-500">
-          The phone’s share sheet may pass both items together. If the selected app drops the text, use Copy caption and paste it into that post’s caption or description. WhatsApp channel/group and social app final-send controls remain in their own apps.
+          Download the image separately, then use Copy text template and paste it as the next message or post. The image and text stay separate, as in your current workflow.
         </p>
       </div>
     </details>
