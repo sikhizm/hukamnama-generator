@@ -270,12 +270,13 @@ export default function Studio() {
       state.bg.gradTop,
       state.bg.gradBottom,
       (state.bg.dataUrl || "").length,
+      L.blocks[0]?.dividerY,
       bgVersion,
     ].join("|");
     if (compositeCache.current?.key !== key) {
       compositeCache.current = {
         key,
-        canvas: buildComposite(preset.w, preset.h, state, bgImgRef.current),
+        canvas: buildComposite(preset.w, preset.h, state, bgImgRef.current, L),
       };
     }
     if (canvas.width !== preset.w) canvas.width = preset.w;
@@ -333,7 +334,7 @@ export default function Studio() {
         img.src = referenceConfig(p.id).src;
       });
     }
-    const comp = buildComposite(p.w, p.h, exportState, bg);
+    const comp = buildComposite(p.w, p.h, exportState, bg, L);
     const c = document.createElement("canvas");
     c.width = p.w;
     c.height = p.h;
