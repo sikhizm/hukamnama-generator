@@ -13,6 +13,7 @@ import {
   RotateCcw,
   CircleCheck,
 } from "lucide-react";
+import SocialCaption from "./SocialCaption";
 import {
   PRESETS,
   getPreset,
@@ -404,6 +405,44 @@ export default function Studio() {
     }
   };
 
+  const doShare = async (caption: string) => {
+    if (!canExport) {
+      notify("Sharing is locked until the Hukamnama text, date, artwork, and font are ready.");
+      return;
+    }
+    setExporting("share");
+    try {
+      const blob = await renderToBlob(preset, "png");
+      if (!blob) throw new Error("Image rendering failed.");
+      const file = new File([blob], `hukamnama-${preset.id}-${preset.w}x${preset.h}-${state.dateISO}.png`, { type: "image/png" });
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: "Daily Hukamnama", text: caption });
+        notify("Share sheet opened. Choose a destination and confirm the post there.");
+        return;
+      }
+      downloadBlob(blob, file.name);
+      try {
+        await navigator.clipboard.writeText(caption);
+        notify("Image downloaded and caption copied. Attach the image, then paste the caption.");
+      } catch {
+        notify("Image downloaded. Copy the caption from Social caption & sharing, then attach both in the app.");
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      // A platform may reject a long text+image payload. Keep a reliable manual fallback.
+      try {
+        const blob = await renderToBlob(preset, "png");
+        if (blob) downloadBlob(blob, `hukamnama-${preset.id}-${preset.w}x${preset.h}-${state.dateISO}.png`);
+        await navigator.clipboard.writeText(caption);
+        notify("This share target could not take both items. Image downloaded and caption copied separately.");
+      } catch {
+        notify(error instanceof Error ? error.message : "Sharing failed. Copy the caption and export the image separately.");
+      }
+    } finally {
+      setExporting(null);
+    }
+  };
+
   const resetAll = () => {
     setState(defaultState());
     notify("Studio reset to defaults");
@@ -530,6 +569,7 @@ export default function Studio() {
           <DateSection {...panelProps()} />
           <MetaSection {...panelProps()} />
           <ContentSection {...panelProps()} />
+          <SocialCaption state={state} onShare={doShare} notify={notify} disabled={!canExport || exporting !== null} />
           <TypographySection {...panelProps()} />
 
           {/* ------------------------------------------------ export dock */}
