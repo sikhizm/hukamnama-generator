@@ -12,6 +12,7 @@ const { defaultState } = require('../src/lib/hukamnama/defaults.ts');
 const { computeLayout } = require('../src/lib/hukamnama/layout.ts');
 const { getPreset } = require('../src/lib/hukamnama/types.ts');
 const { wrapText } = require('../src/lib/hukamnama/text.ts');
+const { buildSocialCaption } = require('../src/lib/hukamnama/socialCaption.ts');
 const { referenceComposite, drawReference } = require('../src/lib/hukamnama/reference.ts');
 // Deterministic measurement tests exercise bounds, not visual font equivalence.
 const ctx = { font: '', measureText(text) {
@@ -59,4 +60,15 @@ const clusters = ['ਕਿ', 'ਕਿ', 'ਕਿ'];
 assert.deepEqual(wrapText(ctx, clusters.join(''), 20, 13), clusters, 'never split a vowel from its consonant');
 assert.equal(defaultState().original, '', 'do not label an example as today’s Hukamnama');
 assert.equal(defaultState().dateText, '', 'require a verified date');
-console.log('Renderer invariants passed: both formats, overflow, manual sizing, date erasure, graphemes, empty initial state.');
+const caption = buildSocialCaption({
+  dateText: '24-October-2026 | ਕੱਤਕ (Katak) 08 | ਸ਼ਨੀਵਾਰ (Saturday)',
+  banikar: 'ਭਗਤ ਨਾਮਦੇਵ ਜੀ', original: 'ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਵਾਹਿਗੁਰੂ ॥', translation: 'ਕੋਈ ਮਨੁੱਖ ਆਖਦਾ ਹੈ।',
+}, 'https://sikhizm.com/today/', 'https://sikhizm.com/download/today.pdf');
+assert(caption.includes('🪯 ਵਾਹਿਗੁਰੂ ਜੀ ਕਾ ਖਾਲਸਾ'));
+assert(caption.includes('🗓️ 24-October-2026'));
+assert(caption.includes('📜 *ਭਗਤ ਨਾਮਦੇਵ ਜੀ* ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਵਾਹਿਗੁਰੂ ॥ 📜'));
+assert(caption.includes('🗒️ ਕੋਈ ਮਨੁੱਖ ਆਖਦਾ ਹੈ।'));
+assert(caption.includes('https://sikhizm.com/today/'));
+assert(caption.includes('https://sikhizm.com/download/today.pdf'));
+assert(caption.endsWith('#waheguruji'));
+console.log('Renderer and social-caption invariants passed: both formats, overflow, manual sizing, date erasure, graphemes, empty initial state, and caption fields.');
