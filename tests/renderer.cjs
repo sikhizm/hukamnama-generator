@@ -62,11 +62,11 @@ assert.equal(defaultState().original, '', 'do not label an example as today’s 
 assert.equal(defaultState().dateText, '', 'require a verified date');
 const caption = buildSocialCaption({
   dateText: '24-October-2026 | ਕੱਤਕ (Katak) 08 | ਸ਼ਨੀਵਾਰ (Saturday)',
-  banikar: 'ਭਗਤ ਨਾਮਦੇਵ ਜੀ', original: 'ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਵਾਹਿਗੁਰੂ ॥', translation: 'ਕੋਈ ਮਨੁੱਖ ਆਖਦਾ ਹੈ।',
+  original: 'ਟੋਡੀ ਬਾਣੀ ਭਗਤਾਂ ਕੀ ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਵਾਹਿਗੁਰੂ ॥', translation: 'ਕੋਈ ਮਨੁੱਖ ਆਖਦਾ ਹੈ।',
 }, 'https://sikhizm.com/today/', 'https://sikhizm.com/download/today.pdf');
 assert(caption.includes('🪯 ਵਾਹਿਗੁਰੂ ਜੀ ਕਾ ਖਾਲਸਾ'));
 assert(caption.includes('🗓️ 24-October-2026'));
-assert(caption.includes('📜 *ਭਗਤ ਨਾਮਦੇਵ ਜੀ* ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਵਾਹਿਗੁਰੂ ॥ 📜'));
+assert(caption.includes('📜 *ਟੋਡੀ ਬਾਣੀ ਭਗਤਾਂ ਕੀ ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਵਾਹਿਗੁਰੂ ॥* 📜'));
 assert(caption.includes('🗒️ ਕੋਈ ਮਨੁੱਖ ਆਖਦਾ ਹੈ।'));
 assert(caption.includes('https://sikhizm.com/today/'));
 assert(caption.includes('https://sikhizm.com/download/today.pdf'));
