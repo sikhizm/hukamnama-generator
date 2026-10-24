@@ -86,11 +86,30 @@ export function drawReference(ctx: CanvasRenderingContext2D, layout: LayoutResul
   ctx.shadowBlur = 0;
   const label = (text: string, x: number, y: number, maxW: number, cap: number, align: CanvasTextAlign) => {
     let px = cap;
-    const stack = `'LEMON MILK', 'ChatrikUni', Arial, sans-serif`;
-    ctx.font = `400 ${px}px ${stack}`;
-    while (ctx.measureText(text).width > maxW && px > 10) ctx.font = `400 ${--px}px ${stack}`;
-    ctx.textAlign = align;
-    ctx.fillText(text, x, y);
+    const segments: { text: string; gurmukhi: boolean }[] = [];
+    for (const char of text) {
+      const gurmukhi = /[\u0A00-\u0A7F]/u.test(char);
+      const previous = segments.at(-1);
+      if (previous?.gurmukhi === gurmukhi) previous.text += char;
+      else segments.push({ text: char, gurmukhi });
+    }
+    const setSegmentFont = (gurmukhi: boolean) => {
+      ctx.font = gurmukhi
+        ? fontFor(px * 1.28, 400)
+        : `400 ${px}px 'LEMON MILK', Arial, sans-serif`;
+    };
+    const measure = () => segments.reduce((width, segment) => {
+      setSegmentFont(segment.gurmukhi);
+      return width + ctx.measureText(segment.text).width;
+    }, 0);
+    while (measure() > maxW && px > 10) px -= 1;
+    let cursor = align === "center" ? x - measure() / 2 : align === "right" ? x - measure() : x;
+    ctx.textAlign = "left";
+    for (const segment of segments) {
+      setSegmentFont(segment.gurmukhi);
+      ctx.fillText(segment.text, cursor, y);
+      cursor += ctx.measureText(segment.text).width;
+    }
   };
   ctx.fillStyle = "#fff";
   label(state.banikar.toUpperCase(), c.authorX, c.metaY, 690, c.metaPx, "left");
