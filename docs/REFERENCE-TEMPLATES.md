@@ -2,7 +2,7 @@
 
 The original-template mode supports 1080×1350 and 1080×1920. It retains the supplied PNG artwork as the fixed design layer and clears all date, author, Ang, Gurbani and translation regions before drawing editable text. The PNGs correspond to the two supplied Photoshop documents. Fixed titles, photograph, QR, divider and footer remain unchanged.
 
-Existing saved projects retain the previous studio design. New projects start blank with a manually verified date. The dated reference example is explicitly loaded by the user and is not a live SGPC fetch. Safe-area guides appear only in the preview. Both single and bulk exports block overflowing text; bulk exports preflight all selected layouts before downloading any file.
+Saved projects are migrated to the Sikhizm artwork while retaining their Hukamnama text. Their size is set to the matching 1080×1350 or 1080×1920 template. New projects start blank with a manually verified date. The dated reference example is explicitly loaded by the user and is not a live SGPC fetch. Safe-area guides appear only in the preview. Both single and bulk exports block overflowing text; bulk exports preflight all selected layouts before downloading any file.
 
 ## Fonts needed to finish visual matching
 
