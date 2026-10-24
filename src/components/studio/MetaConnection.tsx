@@ -1,0 +1,60 @@
+"use client";
+
+import { useState } from "react";
+
+interface Result {
+  facebook?: { name: string; id: string; connected: boolean };
+  instagram?: { username: string | null; connected: boolean };
+  message?: string;
+  error?: string;
+}
+
+export default function MetaConnection() {
+  const [key, setKey] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<Result | null>(null);
+
+  async function check() {
+    setBusy(true);
+    setResult(null);
+    try {
+      const response = await fetch("/api/social/connection", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}` },
+        cache: "no-store",
+      });
+      const data = await response.json() as Result;
+      setResult(response.ok ? data : { error: data.error ?? "Connection check failed." });
+    } catch {
+      setResult({ error: "Could not reach the connection check. Try again." });
+    } finally {
+      setKey("");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <details className="border-b border-white/[0.07]">
+      <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-zinc-200">Facebook &amp; Instagram · Step 1</summary>
+      <div className="space-y-3 px-4 pb-4 text-xs text-zinc-400">
+        <p>Connect your Sikhizm accounts first. This step checks the account connection only and does not publish anything.</p>
+        <p>Facebook: <a href="https://facebook.com/sikhizmcom" target="_blank" rel="noopener noreferrer" className="text-amber-300">sikhizmcom</a><br />Instagram: <a href="https://instagram.com/sikhizmcom" target="_blank" rel="noopener noreferrer" className="text-amber-300">@sikhizmcom</a></p>
+        <form onSubmit={(event) => { event.preventDefault(); void check(); }} className="space-y-2">
+          <label className="block">Social setup key
+            <input type="password" value={key} onChange={(event) => setKey(event.target.value)} autoComplete="off" maxLength={512} disabled={busy} className="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-zinc-200" />
+          </label>
+          <p className="text-[10px]">Use your app’s setup key, never your Facebook password or Meta access token. The key is cleared after checking.</p>
+          <button type="submit" disabled={busy} className="w-full rounded-lg bg-amber-400 px-3 py-2 font-bold text-zinc-950 disabled:opacity-40">{busy ? "Checking accounts…" : "Check account connection"}</button>
+        </form>
+        {result && <div role="status" aria-live="polite" className="space-y-2 rounded-lg border border-white/10 p-3">
+          {result.error ? <p className="text-amber-200">{result.error}</p> : <>
+            <p>Facebook: {result.facebook?.name} · Page ID {result.facebook?.id} · Verified</p>
+            <p>Instagram: {result.instagram?.connected ? "@sikhizmcom · Verified" : "Not connected to the expected account"}</p>
+            <p>{result.message}</p>
+          </>}
+        </div>}
+        <p className="text-[10px]">Automatic posting is not enabled in this step. Next: test one image with its text as the caption, then add the automatic posting switch.</p>
+      </div>
+    </details>
+  );
+}

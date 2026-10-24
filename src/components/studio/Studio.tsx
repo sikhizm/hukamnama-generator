@@ -14,6 +14,7 @@ import {
   CircleCheck,
 } from "lucide-react";
 import SocialCaption from "./SocialCaption";
+import MetaConnection from "./MetaConnection";
 import LiveSourceStatus from "./LiveSourceStatus";
 import type { LiveHukamnama } from "@/lib/hukamnama/liveSource";
 import {
@@ -565,6 +566,7 @@ export default function Studio() {
             }}
             disabled={!canExport}
           />
+          <MetaConnection />
           <TypographySection {...panelProps()} />
 
           {/* ------------------------------------------------ export dock */}

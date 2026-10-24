@@ -16,4 +16,5 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test:renderer
+      - run: npm run test:social
       - run: npm run build
