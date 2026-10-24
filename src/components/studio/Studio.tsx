@@ -35,14 +35,10 @@ import { buildComposite, drawHukamnama, type LogoImages } from "@/lib/hukamnama/
 import { formatHukamDate, isoToDate } from "@/lib/hukamnama/punjabiDate";
 import {
   FontSection,
-  PresetSection,
-  BackgroundSection,
-  HeaderSection,
   DateSection,
   MetaSection,
   ContentSection,
   TypographySection,
-  BrandingSection,
   type FontStatus,
 } from "./panels";
 
@@ -55,7 +51,10 @@ function revive(saved: StudioState): StudioState {
   return {
     ...def,
     ...saved,
-    design: saved.design ?? "studio",
+    // Keep users on the Sikhizm artwork, including those with older saved
+    // settings that selected the previous studio design or an unsupported size.
+    design: "reference",
+    presetId: saved.presetId === "feed" ? "feed" : "vertical",
     bg: { ...def.bg, ...(saved.bg ?? {}) },
     header: { ...def.header, ...(saved.header ?? {}) },
     typo: { ...def.typo, ...(saved.typo ?? {}) },
@@ -92,7 +91,7 @@ export default function Studio() {
 
   const preset = getPreset(state.presetId);
   const referenceMode = isReference(state);
-  const exportPresets = state.design === "reference" ? PRESETS.filter(p => p.id === "vertical" || p.id === "feed") : PRESETS;
+  const exportPresets = PRESETS.filter(p => p.id === "vertical" || p.id === "feed");
 
   /* ---------------------------------------------------------- toast */
   const notify = useCallback((msg: string) => {
@@ -493,12 +492,8 @@ export default function Studio() {
         {/* ----------------------------------------------------- sidebar */}
         <aside className="studio-scroll w-full md:w-[360px] shrink-0 md:overflow-y-auto border-r border-white/[0.06] bg-[#0d0e14]">
           <section className="space-y-3 border-b border-white/10 p-4">
-            <label className="block text-sm font-semibold" htmlFor="design">Design</label>
-            <select id="design" className="w-full rounded bg-zinc-800 p-2" value={state.design}
-              onChange={e => patch({ design: e.target.value as StudioState["design"], presetId: "vertical" })}>
-              <option value="reference">Original Sikhizm template</option><option value="studio">Previous studio design</option>
-            </select>
-            {state.design === "reference" && <>
+            <div>
+              <p className="text-sm font-semibold">Sikhizm Hukamnama template</p>
               <p className="text-xs text-zinc-400">Original artwork, header, QR and footer. ChatrikUni is required to match the body; Latin labels use LEMON MILK when installed.</p>
               {!canExport && fontReady && <p role="alert" className="mb-2 text-xs text-red-300">Export blocked: complete the text, author, Ang and verified date; check artwork and text-fit warnings.</p>}
               <div className="flex gap-2">{exportPresets.map(p => <button key={p.id} type="button"
@@ -512,7 +507,7 @@ export default function Studio() {
                 notify("Loaded reference example dated 24 October 2026 — not a live daily fetch.");
               }}>Load supplied reference example (24 Oct 2026)</button>
               {!backgroundReady && <p role="status" className="text-xs text-amber-300">Waiting for template artwork. Export remains locked.</p>}
-            </>}
+            </div>
             <p className="text-xs text-amber-200">Verify the Punjabi date against SGPC and enter the full date manually. The existing automatic calendar is approximate.</p>
           </section>
           <FontSection
@@ -531,12 +526,10 @@ export default function Studio() {
             onUploadBg={() => bgInputRef.current?.click()}
             onResetBg={() => patchBg({ dataUrl: null })}
           />
-          {state.design === "studio" && <><PresetSection {...panelProps()} /><BackgroundSection {...panelProps()} /><HeaderSection {...panelProps()} /></>}
           <DateSection {...panelProps()} />
           <MetaSection {...panelProps()} />
           <ContentSection {...panelProps()} />
           <TypographySection {...panelProps()} />
-          {state.design === "studio" && <BrandingSection {...panelProps()} />}
 
           {/* ------------------------------------------------ export dock */}
           <div className="sticky bottom-0 z-10 border-t border-white/[0.07] bg-[#0c0d13]/95 px-4 py-3 backdrop-blur">
