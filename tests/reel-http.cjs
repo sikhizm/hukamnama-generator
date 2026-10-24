@@ -1,4 +1,4 @@
-// Production-build integration check. Uses a test tone, never a live account.
+// Production-build integration check. Uses the bundled chant, never a live account.
 const assert = require('node:assert/strict');
 const { spawn, execFileSync } = require('node:child_process');
 const fs = require('node:fs');
@@ -25,6 +25,11 @@ const path = require('node:path');
     let response = await fetch(base);
     assert.equal(response.status, 200);
     assert.ok((await response.text()).includes('Morning posts, reels'));
+    for (const asset of ['fonts/ChatrikUni.ttf', 'audio/waheguru-waheguru.mp3']) {
+      const served = await fetch(`${base}/${asset}`);
+      assert.equal(served.status, 200, `${asset} must load without an upload`);
+      assert.deepEqual(Buffer.from(await served.arrayBuffer()), fs.readFileSync(path.join('public',asset)));
+    }
     response = await fetch(`${base}/api/social/reel`, { method: 'POST', headers: { origin } });
     assert.equal(response.status, 401);
     response = await fetch(`${base}/api/social/reel`, { method: 'POST', headers: { origin:'https://other.example', authorization:`Bearer ${key}` } });
@@ -34,7 +39,7 @@ const path = require('node:path');
     assert.equal((await response.json()).error, 'Connect your YouTube channel first.');
     const body = new FormData();
     body.set('image', new Blob([fs.readFileSync(image)], {type:'image/jpeg'}), 'image.jpg');
-    body.set('audio', new Blob([fs.readFileSync(audio)], {type:'audio/wav'}), 'tone.wav'); body.set('duration','10');
+    body.set('audio', new Blob([fs.readFileSync('public/audio/waheguru-waheguru.mp3')], {type:'audio/mpeg'}), 'chant.mp3'); body.set('duration','10');
     response = await fetch(`${base}/api/social/reel`, { method:'POST', headers:{ origin, authorization:`Bearer ${key}` }, body });
     if (!response.ok) throw new Error(await response.text());
     assert.ok(response.headers.get('content-type').includes('video/mp4'));

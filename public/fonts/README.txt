@@ -5,15 +5,16 @@
 Hukamnama Studio can render Gurmukhi text in any of 4 typefaces,
 picked from the Font section of the sidebar:
 
-  1. ChatrikUni            — brand font, loaded from a local file
+  1. ChatrikUni            — bundled brand font, loaded automatically
   2. Tiro Gurmukhi          — loaded automatically from Google Fonts
   3. Noto Serif Gurmukhi    — loaded automatically from Google Fonts
   4. Gurmukhi-UCSB-Uni      — classic font, loaded from a local file
 
 Local-file fonts (ChatrikUni, Gurmukhi-UCSB-Uni)
 -------------------------------------------------
-These two are not distributed with the app. Each is expected at one
-of these paths:
+ChatrikUni.ttf is included with the app and preloaded automatically.
+No manual upload is required for the brand font. Gurmukhi-UCSB-Uni is
+still optional and can be placed at one of these paths:
 
     public/fonts/ChatrikUni.ttf          or  ChatrikUni.otf
     public/fonts/Gurmukhi-UCSB-Uni.ttf   or  Gurmukhi-UCSB-Uni.otf

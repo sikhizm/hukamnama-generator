@@ -16,6 +16,11 @@ interface Outcome { status: "sending" | "sent" | "failed" | "unknown"; message: 
 type Ledger = Record<string, Partial<Record<Destination, Outcome>>>;
 const SETTINGS_KEY = "sikhizm-morning-settings-v1", LEDGER_KEY = "sikhizm-morning-results-v1";
 const field = "mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-2 py-2 text-xs text-zinc-200 disabled:opacity-40";
+async function bundledChant() {
+  const response = await fetch("/audio/waheguru-waheguru.mp3");
+  if (!response.ok) throw new Error("The bundled chant could not load. Reload the app or upload a replacement.");
+  return { name: "Waheguru Waheguru.mp3", blob: await response.blob() };
+}
 
 export default function MorningPublisher(props: Props) {
   const [targets, setTargets] = useState<MorningTargets>({ ...defaultTargets });
@@ -52,9 +57,13 @@ export default function MorningPublisher(props: Props) {
           setUseFull(saved.useFull === true);
         }
         setLedger(JSON.parse(localStorage.getItem(LEDGER_KEY) ?? "{}"));
-        const savedAudio = await loadChant();
+      } catch { if (!cancelled) setMessage("Saved settings could not be loaded. Check browser storage before arming."); }
+      try {
+        // A saved custom chant takes precedence; the bundled recording works
+        // on new browsers and when IndexedDB is unavailable or cleared.
+        const savedAudio = await loadChant().catch(() => null) ?? await bundledChant();
         if (savedAudio && !cancelled) setAudio({ ...savedAudio, url: URL.createObjectURL(savedAudio.blob) });
-      } catch { if (!cancelled) setMessage("Saved settings or audio could not be loaded. Check browser storage before arming."); }
+      } catch (error) { if (!cancelled) setMessage((error as Error).message); }
       finally { if (!cancelled) setLoaded(true); }
     });
     return () => { cancelled = true; };
@@ -178,9 +187,10 @@ export default function MorningPublisher(props: Props) {
     <div className="space-y-3 px-3 pb-4 text-xs text-zinc-400">
       <p>Select destinations independently. Image posts use the 1080×1350 template; reels and stories use 1080×1920.</p>
       <fieldset disabled={enabled || busy} className="space-y-2">{DESTINATIONS.map(item => <label key={item.id} className="flex items-start gap-2"><input type="checkbox" checked={targets[item.id]} onChange={event => { setConsent(false); setTargets(previous => ({ ...previous, [item.id]: event.target.checked })); }} className="mt-0.5 accent-amber-400" />{item.label}</label>)}</fieldset>
-      <label className="block">Reusable Waheguru chant<input type="file" accept="audio/*" disabled={enabled || busy} onChange={event => void uploadAudio(event.target.files?.[0])} className={field} /></label>
-      {audio && <div><p className="break-all text-emerald-300">Saved: {audio.name}</p><audio controls src={audio.url} className="mt-2 w-full" /></div>}
-      <p className="text-[10px]">Upload your chosen recording once, up to 1.8 MB. Saved on this browser; shorter audio loops to fill the reel. Clearing browser storage removes it.</p>
+      <label className="block">Replace reel background audio (optional)<input type="file" accept="audio/*" disabled={enabled || busy || !loaded} onChange={event => void uploadAudio(event.target.files?.[0])} className={field} /></label>
+      {audio && <div><p className="break-all text-emerald-300">Ready: {audio.name}</p><audio controls src={audio.url} className="mt-2 w-full" /></div>}
+      <button disabled={enabled || busy || !loaded} onClick={async () => { try { const data = await bundledChant(); await saveChant(data).catch(() => null); setAudio({ ...data, url: URL.createObjectURL(data.blob) }); setVideo(null); setMessage("Bundled Waheguru chant selected for future reels."); } catch (error) { setMessage((error as Error).message); } }} className="text-amber-300 underline">Use bundled Waheguru chant</button>
+      <p className="text-[10px]">Your Waheguru recording is included and loads automatically. Reels use its first 10 or 15 seconds. Optional replacements, up to 1.8 MB, are saved on this browser; shorter clips loop.</p>
       <label className="block">Reel duration<select value={duration} disabled={enabled || busy} onChange={event => { setDuration(Number(event.target.value) as 10 | 15); setVideo(null); }} className={field}><option value={10}>10 seconds</option><option value={15}>15 seconds</option></select></label>
       <label className="flex items-start gap-2"><input type="checkbox" checked={useFull} disabled={enabled || busy} onChange={event => { setConsent(false); setUseFull(event.target.checked); }} className="mt-0.5 accent-amber-400" />Use the full text template above for feed posts and reels</label>
       {!useFull && <label className="block">Shared publishing template<textarea value={template} disabled={enabled || busy} onChange={event => { setTemplate(event.target.value); setConsent(false); }} rows={6} className={field} /><span className="text-[10px]">Fields: {"{date}, {articleUrl}, {pdfUrl}, {original}, {translation}"}</span></label>}

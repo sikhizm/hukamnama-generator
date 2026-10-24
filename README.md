@@ -295,8 +295,10 @@ images are optional. The 10- or 15-second reel uses the vertical template and
 your audio; arbitrary landscape images are padded without cropping. H.264,
 yuv420p, 30 fps, AAC 48 kHz audio and MP4 faststart are used.
 
-1. Upload your chosen short chant, under 1.8 MB. It is stored in IndexedDB on
-   this browser and reused. Shorter audio loops; no recording is supplied by the app.
+1. The supplied **Waheguru Waheguru.mp3** is bundled with the app and loads
+   automatically as the default reel background. Its first 10 or 15 seconds are
+   used. An optional replacement under 1.8 MB can be saved in this browser's
+   IndexedDB; shorter clips loop. **Use bundled Waheguru chant** restores the default.
 2. Create a reel preview and download it before testing public posting.
 3. Select destinations and review the shared caption. A short editable template
    is the default. The full existing template is optional; Instagram captions
@@ -304,7 +306,8 @@ yuv420p, 30 fps, AAC 48 kHz audio and MP4 faststart are used.
 4. Enter the existing social setup key. Select a start time between 04:00 and
    10:30 IST (default 05:45), approve public posting, and turn **AUTO ON**.
    Reloading turns the runner off and clears the in-memory setup key. Settings,
-   audio and posting records remain on this browser.
+   custom audio and posting records remain on this browser. The bundled chant
+   and ChatrikUni font remain available on every device after deployment.
 
 The runner waits for a same-day live record with complete Gurbani, translation,
 date, Ang and a matched author, loads it into the template, and waits for the

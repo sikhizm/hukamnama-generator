@@ -15,6 +15,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preload" href="/fonts/ChatrikUni.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
+      </head>
       <body className="bg-[#0a0b10] text-zinc-200 antialiased">{children}</body>
     </html>
   );
