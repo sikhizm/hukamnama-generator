@@ -273,3 +273,55 @@ export function parseSikhizmPunjabiTranslation(html: string, expectedOriginal: s
   return translation || null;
 }
 
+/** Use today's Sikhizm post as a last-resort source when both official SGPC pages block server requests. */
+export function parseSikhizmLiveArticle(
+  html: string,
+  post: Pick<SikhizmFeedPost, "publishedAt" | "localDateISO">,
+  todayISO: string,
+  checkedAt = new Date().toISOString(),
+): LiveHukamnama {
+  const metaTags = [...html.matchAll(/<meta\b[^>]*>/gi)].map((match) => match[0]);
+  const publishedTag = metaTags.find((tag) => /property\s*=\s*(["'])article:published_time\1/i.test(tag));
+  const publishedAt = publishedTag?.match(/content\s*=\s*(["'])(.*?)\1/i)?.[2] ?? post.publishedAt;
+  const publishedDate = new Date(publishedAt);
+  const articleDateISO = Number.isNaN(publishedDate.getTime()) ? "" : new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(publishedDate);
+  if (!articleDateISO || articleDateISO !== post.localDateISO || articleDateISO !== todayISO) {
+    throw new Error("The Sikhizm Hukamnama post is not confirmed for today.");
+  }
+
+  const baniParagraph = html.match(/<p\b[^>]*class\s*=\s*(["'])[^"']*\bBani\b[^"']*\1[^>]*>([\s\S]*?)<\/p\s*>/i)?.[2] ?? "";
+  const original = htmlToLines(baniParagraph).join(" ").trim();
+  if (!original.includes("ੴ") || !/ਸਤਿਗੁਰ\s*ਪ੍ਰਸਾਦਿ/u.test(original)) {
+    throw new Error("Could not locate the complete Gurmukhi Hukamnama in today's Sikhizm post.");
+  }
+
+  const lines = htmlToLines(html);
+  const angIndex = lines.findIndex((line) => /^Ang$/i.test(line) || /^ਅੰਗ$/u.test(line));
+  const angRaw = angIndex >= 0 ? lines[angIndex + 1]?.match(/^([੦-੯0-9]+)/u)?.[1] ?? "" : "";
+  const ang = angRaw.replace(/[੦-੯]/g, (digit) => GURMUKHI_DIGITS[digit] ?? digit);
+  if (!ang) throw new Error("Could not locate the Ang in today's Sikhizm post.");
+
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", weekday: "long" }).format(publishedDate);
+  const month = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", month: "long" }).format(publishedDate);
+  const day = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", day: "numeric" }).format(publishedDate);
+  const year = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", year: "numeric" }).format(publishedDate);
+  const translation = parseSikhizmPunjabiTranslation(html, original, ang) ?? "";
+
+  return {
+    sourceDateISO: articleDateISO,
+    sourceTime: "",
+    sourceName: "Sikhizm same-day Hukamnama post",
+    isToday: true,
+    checkedAt,
+    // Sikhizm's article does not publish the Nanakshahi date in a machine-readable field.
+    // Give the verified Gregorian date only; do not calculate an authoritative-looking lunar date.
+    dateText: `${Number(day)}-${month}-${year} | ${weekday}`,
+    original,
+    translation,
+    ang,
+    matchedAuthor: null,
+    metadataMatched: false,
+  };
+}

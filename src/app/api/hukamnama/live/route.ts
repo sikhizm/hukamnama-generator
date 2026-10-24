@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { matchGurbaniNowMetadata, parseSgpcDailyMukhwakPage, parseSgpcPage, parseSikhizmFeed, parseSikhizmPunjabiTranslation, type LiveHukamnama } from "@/lib/hukamnama/liveSource";
+import { matchGurbaniNowMetadata, parseSgpcDailyMukhwakPage, parseSgpcPage, parseSikhizmFeed, parseSikhizmLiveArticle, parseSikhizmPunjabiTranslation, type LiveHukamnama } from "@/lib/hukamnama/liveSource";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +48,25 @@ async function loadSikhizmTranslation(record: LiveHukamnama): Promise<void> {
   }
 }
 
+async function loadSikhizmToday(todayISO: string, checkedAt: string, refresh: boolean): Promise<LiveHukamnama> {
+  const feedResponse = await fetch("https://sikhizm.com/category/hukamnama/feed/", {
+    headers: { "user-agent": "Sikhizm-Hukamnama-Studio/1.0", accept: "application/rss+xml, application/xml, text/xml" },
+    signal: AbortSignal.timeout(8_000),
+    ...(refresh ? { cache: "no-store" as const } : { next: { revalidate: 60 } }),
+  });
+  if (!feedResponse.ok) throw new Error(`Sikhizm Hukamnama feed returned HTTP ${feedResponse.status}.`);
+  const post = parseSikhizmFeed(await feedResponse.text()).find((candidate) => candidate.localDateISO === todayISO);
+  if (!post || !isSikhizmUrl(post.link)) throw new Error("No same-day Hukamnama post was found in the Sikhizm feed.");
+
+  const articleResponse = await fetch(post.link, {
+    headers: { "user-agent": "Sikhizm-Hukamnama-Studio/1.0", accept: "text/html" },
+    signal: AbortSignal.timeout(8_000),
+    ...(refresh ? { cache: "no-store" as const } : { next: { revalidate: 60 } }),
+  });
+  if (!articleResponse.ok) throw new Error(`Today's Sikhizm Hukamnama post returned HTTP ${articleResponse.status}.`);
+  return parseSikhizmLiveArticle(await articleResponse.text(), post, todayISO, checkedAt);
+}
+
 export async function GET(request: Request) {
   const refresh = new URL(request.url).searchParams.get("refresh") === "1";
   try {
@@ -73,10 +92,23 @@ export async function GET(request: Request) {
       primaryError = error instanceof Error ? error.message : primaryError;
     }
     if (!record) {
-      const fallbackResponse = await fetch("https://sgpc.net/daily-mukhwak-pdf/", fetchOptions("https://sgpc.net/"));
-      if (!fallbackResponse.ok) throw new Error(`${primaryError} The official SGPC Daily Mukhwak fallback returned HTTP ${fallbackResponse.status}.`);
-      record = parseSgpcDailyMukhwakPage(await fallbackResponse.text(), todayISO, checkedAt);
-      if (record.isToday) await loadSikhizmTranslation(record);
+      let officialFallbackError = "The official SGPC Daily Mukhwak fallback could not be fetched.";
+      try {
+        const fallbackResponse = await fetch("https://sgpc.net/daily-mukhwak-pdf/", fetchOptions("https://sgpc.net/"));
+        if (!fallbackResponse.ok) throw new Error(`The official SGPC Daily Mukhwak fallback returned HTTP ${fallbackResponse.status}.`);
+        record = parseSgpcDailyMukhwakPage(await fallbackResponse.text(), todayISO, checkedAt);
+        if (record.isToday) await loadSikhizmTranslation(record);
+      } catch (error) {
+        officialFallbackError = error instanceof Error ? error.message : officialFallbackError;
+      }
+      if (!record) {
+        try {
+          record = await loadSikhizmToday(todayISO, checkedAt, refresh);
+        } catch (error) {
+          const sikhizmError = error instanceof Error ? error.message : "The Sikhizm same-day fallback failed.";
+          throw new Error(`${primaryError} ${officialFallbackError} Sikhizm fallback: ${sikhizmError}`);
+        }
+      }
     }
     if (record.isToday) {
       try {

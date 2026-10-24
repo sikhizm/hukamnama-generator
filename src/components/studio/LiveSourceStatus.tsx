@@ -64,13 +64,14 @@ export default function LiveSourceStatus({ onUse, onStatus }: Props) {
   const useToday = () => {
     if (!record?.isToday) return;
     onUse(record);
+    const usedSikhizmPost = record.sourceName.startsWith("Sikhizm");
     const authorNotice = record.matchedAuthor
       ? `Matched author ${record.matchedAuthor}`
       : "No verified author match was available; the current author was kept";
     const translationNotice = record.translation
       ? ""
-      : " The fallback page has no Punjabi explanation, so add the translation manually before export.";
-    setNotice(`Loaded today’s Gurbani and Ang ${record.ang}. ${authorNotice}.${translationNotice}`);
+      : ` The ${usedSikhizmPost ? "Sikhizm post" : "fallback page"} has no verified Punjabi explanation, so add it manually before export.`;
+    setNotice(`Loaded today’s Gurbani and Ang ${record.ang} from ${record.sourceName}. ${authorNotice}.${translationNotice}`);
     window.setTimeout(() => setNotice(null), 5000);
   };
 
@@ -80,7 +81,7 @@ export default function LiveSourceStatus({ onUse, onStatus }: Props) {
       <div className="min-w-[220px] flex-1 text-[11px] leading-relaxed">
         {record?.isToday ? (
           <>
-            <span className="font-semibold text-emerald-200">SGPC live feed updated for today</span>
+            <span className="font-semibold text-emerald-200">{record.sourceName.startsWith("Sikhizm") ? "Today’s Hukamnama found on Sikhizm" : "SGPC live feed updated for today"}</span>
             <span className="text-zinc-400"> · {record.sourceDateISO} · {record.sourceName}{record.sourceTime ? ` at ${record.sourceTime} IST` : " (release time not shown)"}</span>
           </>
         ) : error ? (
@@ -92,7 +93,7 @@ export default function LiveSourceStatus({ onUse, onStatus }: Props) {
         )}
         {checkedAt && <span className="ml-1.5 text-zinc-600">checked {indiaTime(checkedAt)} IST</span>}
         {notice && <span className="ml-2 text-emerald-300">{notice}</span>}
-        {record?.isToday && <p className="mt-0.5 text-zinc-500">The app checks every 5 minutes during the release window while it is open. Loading text into the template is a separate button.{!record.translation && " This official fallback page does not include the Punjabi explanation."}</p>}
+        {record?.isToday && <p className="mt-0.5 text-zinc-500">The app checks every 5 minutes during the release window while it is open. Loading text into the template is a separate button.{record.sourceName.startsWith("Sikhizm") && " SGPC blocked the server request, so this same-day post is the fallback; verify the Nanakshahi date before publishing."}{!record.translation && " The source does not include a verified Punjabi explanation."}</p>}
       </div>
       <button type="button" disabled={loading} onClick={() => void check(true)} className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-semibold text-zinc-300 hover:bg-white/[0.08] disabled:opacity-50">
         <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> Check SGPC

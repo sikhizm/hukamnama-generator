@@ -13,7 +13,7 @@ const { computeLayout } = require('../src/lib/hukamnama/layout.ts');
 const { getPreset } = require('../src/lib/hukamnama/types.ts');
 const { wrapText } = require('../src/lib/hukamnama/text.ts');
 const { buildSocialCaption } = require('../src/lib/hukamnama/socialCaption.ts');
-const { parseSgpcPage, parseSgpcDailyMukhwakPage, parseSikhizmFeed, parseSikhizmPunjabiTranslation, findSikhizmPdfUrl, matchGurbaniNowMetadata } = require('../src/lib/hukamnama/liveSource.ts');
+const { parseSgpcPage, parseSgpcDailyMukhwakPage, parseSikhizmFeed, parseSikhizmLiveArticle, parseSikhizmPunjabiTranslation, findSikhizmPdfUrl, matchGurbaniNowMetadata } = require('../src/lib/hukamnama/liveSource.ts');
 const { referenceComposite, drawReference } = require('../src/lib/hukamnama/reference.ts');
 // Deterministic measurement tests exercise bounds, not visual font equivalence.
 const ctx = { font: '', measureText(text) {
@@ -106,6 +106,19 @@ const matchedTranslation = parseSikhizmPunjabiTranslation(`<html><body>
 </body></html>`, fallback.original, fallback.ang);
 assert.equal(matchedTranslation, 'ਕੋਈ ਮਨੁੱਖ ਆਖਦਾ ਹੈ ਕਿ ਪ੍ਰਭੂ ਨੇੜੇ ਹੈ। ਇੱਕ ਹੋਰ ਪੈਰਾ।', 'accept same Ang and matching Gurbani translation from Sikhizm article');
 assert.equal(parseSikhizmPunjabiTranslation('<p>Ang</p><p>719</p>', fallback.original, fallback.ang), null, 'reject translation from a different Ang');
+const sikhizmPost = { publishedAt: 'Sat, 24 Oct 2026 00:00:57 +0000', localDateISO: '2026-10-24' };
+const sikhizmLive = parseSikhizmLiveArticle(`<html><head><meta property="article:published_time" content="2026-10-24T00:00:57+00:00"></head><body>
+  <table><tr><td>Ang</td><td>718</td></tr></table>
+  <p class="Bani"><span lang="PA">ਟੋਡੀ ਬਾਣੀ ਭਗਤਾਂ ਕੀ ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਕੋਈ ਬੋਲੈ ਨਿਰਵਾ ਕੋਈ ਬੋਲੈ ਦੂਰਿ ॥ ਜਲ ਕੀ ਮਾਛੁਲੀ ਚਰੈ ਖਜੂਰਿ ॥੧॥ ਕਾਂਇ ਰੇ ਬਕਬਾਦੁ ਲਾਇਓ ॥ ਜਿਨਿ ਹਰਿ ਪਾਇਓ ਤਿਨਹਿ ਛਪਾਇਓ ॥੧॥ ਰਹਾਉ ॥ ਪੰਡਿਤੁ ਹੋਇ ਕੈ ਬੇਦੁ ਬਖਾਨੈ ॥ ਮੂਰਖੁ ਨਾਮਦੇਵ ਰਾਮਹਿ ਜਾਨੈ ॥੨॥੧॥</span></p>
+  <h3>4. Punjabi Translation by Prof Sahib Singh Ji</h3><p>ਕੋਈ ਮਨੁੱਖ ਆਖਦਾ ਹੈ ਕਿ ਪ੍ਰਭੂ ਨੇੜੇ ਹੈ।</p><p>ਸ਼ਬਦ ਦਾ ਭਾਵ: ਇਹ ਸਿਰਫ ਜਾਂਚ ਲਈ ਹੈ।</p>
+</body></html>`, sikhizmPost, '2026-10-24');
+assert.equal(sikhizmLive.isToday, true, 'accept only the same-day Sikhizm post');
+assert.equal(sikhizmLive.ang, '718');
+assert.equal(sikhizmLive.sourceName, 'Sikhizm same-day Hukamnama post');
+assert(sikhizmLive.original.includes('ਕੋਈ ਬੋਲੈ ਨਿਰਵਾ'));
+assert.equal(sikhizmLive.translation, 'ਕੋਈ ਮਨੁੱਖ ਆਖਦਾ ਹੈ ਕਿ ਪ੍ਰਭੂ ਨੇੜੇ ਹੈ।');
+assert.equal(sikhizmLive.dateText, '24-October-2026 | Saturday', 'do not fabricate a Nanakshahi date missing from the post');
+assert.throws(() => parseSikhizmLiveArticle('<p class="Bani">ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਵਾਹਿਗੁਰੂ</p>', sikhizmPost, '2026-10-25'), /not confirmed for today/);
 const matchedMetadata = {
   date: { gregorian: { year: 2026, monthno: 10, date: 24 } },
   hukamnamainfo: { pageno: 718, writer: { unicode: 'ਭਗਤ ਨਾਮਦੇਵ ਜੀ' } },
@@ -123,4 +136,4 @@ const feed = parseSikhizmFeed(`<rss><channel><item>
 assert.equal(feed[0].localDateISO, '2026-10-24', 'RSS publication time is interpreted in India time');
 assert.equal(feed[0].link, 'https://sikhizm.com/koi-bole-nirva-koi-bole-door/');
 assert.equal(findSikhizmPdfUrl(feed[0].content, feed[0].link), 'https://sikhizm.com/download/281582/?tmstv=1749252210');
-console.log('Renderer, caption, and live-feed invariants passed: both formats, overflow, manual sizing, date erasure, graphemes, primary/fallback SGPC parsing, guarded author matching, same-day Sikhizm translation matching, RSS/PDF links, and caption fields.');
+console.log('Renderer, caption, and live-feed invariants passed: both formats, overflow, manual sizing, date erasure, graphemes, primary/fallback SGPC parsing, same-day Sikhizm source and translation matching, guarded author matching, RSS/PDF links, and caption fields.');
