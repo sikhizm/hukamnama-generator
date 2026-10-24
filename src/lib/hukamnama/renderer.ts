@@ -10,6 +10,7 @@ import {
   fontFor,
   type StudioState,
 } from "./types";
+import { isReference, referenceComposite, drawReference } from "./reference";
 import { drawLine } from "./text";
 import type { LayoutResult, Rect } from "./layout";
 
@@ -100,12 +101,18 @@ export function buildComposite(
   w: number,
   h: number,
   state: StudioState,
-  img: HTMLImageElement | null
+  img: HTMLImageElement | null,
+  layout: LayoutResult
 ): HTMLCanvasElement {
   const c = document.createElement("canvas");
   c.width = w;
   c.height = h;
   const ctx = c.getContext("2d")!;
+
+  if (isReference(state)) {
+    referenceComposite(ctx, img, state.presetId, layout);
+    return c;
+  }
 
   if (state.bg.mode === "color") {
     ctx.fillStyle = state.bg.solidColor;
@@ -186,6 +193,10 @@ export function drawHukamnama(
   const { w, h, unit } = layout;
   ctx.textBaseline = "alphabetic";
   ctx.drawImage(composite, 0, 0);
+  if (isReference(state)) {
+    drawReference(ctx, layout, state);
+    return;
+  }
 
   /* ------------------------------------------------------ header */
   ctx.save();
@@ -389,3 +400,4 @@ export function drawHukamnama(
     ctx.restore();
   }
 }
+

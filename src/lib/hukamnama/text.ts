@@ -32,9 +32,9 @@ export function wrapText(
           out.push(line);
           line = "";
         }
-        // char-level hard break for oversized tokens
+        // Keep vowel signs and combining marks attached to their Gurmukhi grapheme.
         let chunk = "";
-        for (const ch of word) {
+        for (const { segment: ch } of new Intl.Segmenter("pa", { granularity: "grapheme" }).segment(word)) {
           if (chunk && ctx.measureText(chunk + ch).width > maxW) {
             out.push(chunk);
             chunk = ch;
@@ -159,3 +159,4 @@ export function drawLine(
     cx += ctx.measureText(w).width + gap;
   }
 }
+

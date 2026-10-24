@@ -1,5 +1,5 @@
 import type { StudioState } from "./types";
-import { formatHukamDate, todayISO } from "./punjabiDate";
+import { todayISO } from "./punjabiDate";
 
 export const DEFAULT_ORIGINAL =
   "📜 ਸਲੋਕੁ ਮਃ ੪ ॥ ਬਿਨੁ ਸਤਿਗੁਰ ਸੇਵੇ ਜੀਅ ਕੇ ਬੰਧਨਾ ਜੇਤੇ ਕਰਮ ਕਮਾਹਿ ॥ ਬਿਨੁ ਸਤਿਗੁਰ ਸੇਵੇ ਠਵਰ ਨ ਪਾਵਹੀ ਮਰਿ ਜੰਮਹਿ ਆਵਹਿ ਜਾਹਿ ॥ ਬਿਨੁ ਸਤਿਗੁਰ ਸੇਵੇ ਫਿਕਾ ਬੋਲਣਾ ਨਾਮੁ ਨ ਵਸੈ ਮਨਿ ਆਇ ॥ ਨਾਨਕ ਬਿਨੁ ਸਤਿਗੁਰ ਸੇਵੇ ਜਮ ਪੁਰਿ ਬਧੇ ਮਾਰੀਅਹਿ ਮੁਹਿ ਕਾਲੈ ਉਠਿ ਜਾਹਿ ॥੧॥ 📜";
@@ -10,6 +10,7 @@ export const DEFAULT_TRANSLATION =
 export function defaultState(): StudioState {
   const iso = todayISO();
   return {
+    design: "reference",
     presetId: "vertical",
     safeArea: false,
     bg: {
@@ -31,12 +32,12 @@ export function defaultState(): StudioState {
       padding: 84,
     },
     dateISO: iso,
-    dateManual: false,
-    dateText: formatHukamDate(new Date()),
-    banikar: "ਗੁਰੂ ਰਾਮਦਾਸ ਜੀ",
-    ang: "552",
-    original: DEFAULT_ORIGINAL,
-    translation: DEFAULT_TRANSLATION,
+    dateManual: true,
+    dateText: "",
+    banikar: "",
+    ang: "",
+    original: "",
+    translation: "",
     typo: {
       justify: true,
       autoFit: true,
@@ -56,3 +57,4 @@ export function defaultState(): StudioState {
     },
   };
 }
+

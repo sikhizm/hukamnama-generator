@@ -413,11 +413,33 @@ export function DateSection(p: PanelProps) {
 
 export function MetaSection(p: PanelProps) {
   const { state, patch } = p;
+  const authorOptions = [
+    "ਗੁਰੂ ਨਾਨਕ ਦੇਵ ਜੀ",
+    "ਗੁਰੂ ਅੰਗਦ ਦੇਵ ਜੀ",
+    "ਗੁਰੂ ਅਮਰਦਾਸ ਜੀ",
+    "ਗੁਰੂ ਰਾਮਦਾਸ ਜੀ",
+    "ਗੁਰੂ ਅਰਜਨ ਦੇਵ ਜੀ",
+    "ਗੁਰੂ ਤੇਗ਼ ਬਹਾਦੁਰ ਜੀ",
+    "ਭਗਤ ਕਬੀਰ ਜੀ",
+    "ਭਗਤ ਨਾਮਦੇਵ ਜੀ",
+    "ਭਗਤ ਰਵਿਦਾਸ ਜੀ",
+  ];
+  const authorChoice = authorOptions.includes(state.banikar) ? state.banikar : "custom";
   return (
     <Section icon={BookOpen} title="Baani metadata" subtitle="ਬਾਣੀਕਾਰ + ਅੰਗ chips">
       <div>
         <FieldLabel>ਬਾਣੀਕਾਰ (Author)</FieldLabel>
-        <TextInput gurmukhi value={state.banikar} onChange={(v) => patch({ banikar: v })} />
+        <select
+          value={authorChoice}
+          onChange={(e) => patch({ banikar: e.target.value === "custom" ? "" : e.target.value })}
+          className="mb-2 w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-[12.5px] text-zinc-100 outline-none focus:border-amber-300/50 font-pa"
+        >
+          {authorOptions.map((author) => <option key={author} value={author}>{author}</option>)}
+          <option value="custom">Custom</option>
+        </select>
+        {authorChoice === "custom" && (
+          <TextInput gurmukhi value={state.banikar} placeholder="Enter author name" onChange={(v) => patch({ banikar: v })} />
+        )}
       </div>
       <div>
         <FieldLabel>ਅੰਗ (Ang)</FieldLabel>
@@ -608,5 +630,6 @@ export function BrandingSection(p: PanelProps) {
     </Section>
   );
 }
+
 
 

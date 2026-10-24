@@ -143,6 +143,7 @@ export interface TypoSettings {
 }
 
 export interface StudioState {
+  design: "reference";
   presetId: string;
   safeArea: boolean;
   bg: BgSettings;
@@ -257,3 +258,4 @@ export function setActiveFontStack(id: FontId): void {
 export function fontFor(px: number, weight: 400 | 500 | 600 | 700 | 800 = 700): string {
   return `${weight} ${Math.max(1, Math.round(px))}px ${ACTIVE_FONT_STACK}`;
 }
+
