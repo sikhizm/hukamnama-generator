@@ -13,6 +13,7 @@ const { computeLayout } = require('../src/lib/hukamnama/layout.ts');
 const { getPreset } = require('../src/lib/hukamnama/types.ts');
 const { wrapText } = require('../src/lib/hukamnama/text.ts');
 const { buildSocialCaption } = require('../src/lib/hukamnama/socialCaption.ts');
+const { parseSgpcPage, parseSikhizmFeed, findSikhizmPdfUrl, matchGurbaniNowMetadata } = require('../src/lib/hukamnama/liveSource.ts');
 const { referenceComposite, drawReference } = require('../src/lib/hukamnama/reference.ts');
 // Deterministic measurement tests exercise bounds, not visual font equivalence.
 const ctx = { font: '', measureText(text) {
@@ -71,4 +72,36 @@ assert(caption.includes('🗒️ ਕੋਈ ਮਨੁੱਖ ਆਖਦਾ ਹੈ�
 assert(caption.includes('https://sikhizm.com/today/'));
 assert(caption.includes('https://sikhizm.com/download/today.pdf'));
 assert(caption.endsWith('#waheguruji'));
-console.log('Renderer and social-caption invariants passed: both formats, overflow, manual sizing, date erasure, graphemes, empty initial state, and caption fields.');
+const live = parseSgpcPage(`<html><body>
+  <h2>ਮੁੱਖਵਾਕ</h2><h2>ਸੱਚਖੰਡ ਸ੍ਰੀ ਹਰਿਮੰਦਰ ਸਾਹਿਬ, ਸ੍ਰੀ ਅੰਮ੍ਰਿਤਸਰ</h2>
+  <p>24-10-2026 05:30 AM</p><p>🎵 Hukamnama Audio</p><p>🎵 Katha Audio</p>
+  <h4>ਟੋਡੀ ਬਾਣੀ ਭਗਤਾਂ ਕੀ</h4><h5>ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥</h5>
+  <p>ਕੋਈ ਬੋਲੈ ਨਿਰਵਾ ਕੋਈ ਬੋਲੈ ਦੂਰਿ ॥ ਜਲ ਕੀ ਮਾਛੁਲੀ ਚਰੈ ਖਜੂਰਿ ॥੧॥</p>
+  <p>ਸ਼ਨਿਚਰਵਾਰ, ੮ ਕੱਤਕ (ਸੰਮਤ ੫੫੮ ਨਾਨਕਸ਼ਾਹੀ)</p><p>(ਅੰਗ: ੭੧੮)</p>
+  <h4>ਪੰਜਾਬੀ ਵਿਆਖਿਆ</h4><p>ਕੋਈ ਮਨੁੱਖ ਆਖਦਾ ਹੈ ਕਿ ਪ੍ਰਭੂ ਨੇੜੇ ਹੈ।</p>
+  <h4>English Translation</h4><h5>Saturday, 8th Katak (Samvat 558 Nanakshahi)</h5><p>Some say that He is near.</p>
+</body></html>`, '2026-10-24', '2026-10-24T09:30:00.000Z');
+assert.equal(live.isToday, true);
+assert.equal(live.sourceTime, '05:30 AM');
+assert.equal(live.ang, '718');
+assert(live.original.includes('ਟੋਡੀ ਬਾਣੀ ਭਗਤਾਂ ਕੀ ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ'));
+assert(live.translation.includes('ਕੋਈ ਮਨੁੱਖ ਆਖਦਾ ਹੈ'));
+assert.equal(live.dateText, '24-October-2026 | ਕੱਤਕ (Katak) 08 | ਸ਼ਨਿਚਰਵਾਰ (Saturday)');
+const matchedMetadata = {
+  date: { gregorian: { year: 2026, monthno: 10, date: 24 } },
+  hukamnamainfo: { pageno: 718, writer: { unicode: 'ਭਗਤ ਨਾਮਦੇਵ ਜੀ' } },
+  hukamnama: [{ line: { gurmukhi: { unicode: 'ਟੋਡੀ ਬਾਣੀ ਭਗਤਾਂ ਕੀ ॥ ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਕੋਈ ਬੋਲੈ ਨਿਰਵਾ ਕੋਈ ਬੋਲੈ ਦੂਰਿ ॥ ਜਲ ਕੀ ਮਾਛੁਲੀ ਚਰੈ ਖਜੂਰਿ ॥੧॥ ਕਾਂਇ ਰੇ ਬਕਬਾਦੁ ਲਾਇਓ ॥ ਜਿਨਿ ਹਰਿ ਪਾਇਓ ਤਿਨਹਿ ਛਪਾਇਓ ॥੧॥ ਰਹਾਉ ॥ ਪੰਡਿਤੁ ਹੋਇ ਕੈ ਬੇਦੁ ਬਖਾਨੈ ॥ ਮੂਰਖੁ ਨਾਮਦੇਉ ਰਾਮਹਿ ਜਾਨੈ ॥੨॥੧॥' } } }],
+};
+assert.equal(matchGurbaniNowMetadata(matchedMetadata, live), 'ਭਗਤ ਨਾਮਦੇਵ ਜੀ', 'accept author only when date, Ang and opening Gurbani all match');
+assert.equal(matchGurbaniNowMetadata({ ...matchedMetadata, hukamnamainfo: { ...matchedMetadata.hukamnamainfo, pageno: 719 } }, live), null, 'reject metadata with a different Ang');
+assert.equal(matchGurbaniNowMetadata({ ...matchedMetadata, date: { gregorian: { year: 2026, monthno: 10, date: 23 } } }, live), null, 'reject a stale daily response');
+assert.equal(matchGurbaniNowMetadata({ ...matchedMetadata, hukamnama: [{ line: { gurmukhi: { unicode: 'ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਕਿਸੇ ਹੋਰ ਸ਼ਬਦ ਦੀ ਤੁਕ ॥' } } }] }, live), null, 'reject a different Gurbani passage');
+const feed = parseSikhizmFeed(`<rss><channel><item>
+  <title>Koi Bole Nirva Koi Bole Door</title><link>https://sikhizm.com/koi-bole-nirva-koi-bole-door/</link>
+  <pubDate>Fri, 23 Oct 2026 19:00:00 +0000</pubDate>
+  <content:encoded><![CDATA[<a href="https://sikhizm.com/download/281582/?tmstv=1749252210">Download Hukamnama PDF</a>]]></content:encoded>
+</item></channel></rss>`);
+assert.equal(feed[0].localDateISO, '2026-10-24', 'RSS publication time is interpreted in India time');
+assert.equal(feed[0].link, 'https://sikhizm.com/koi-bole-nirva-koi-bole-door/');
+assert.equal(findSikhizmPdfUrl(feed[0].content, feed[0].link), 'https://sikhizm.com/download/281582/?tmstv=1749252210');
+console.log('Renderer, caption, and live-feed invariants passed: both formats, overflow, manual sizing, date erasure, graphemes, SGPC parsing, guarded GurbaniNow author matching, Sikhizm RSS/PDF link parsing, and caption fields.');

@@ -14,6 +14,8 @@ import {
   CircleCheck,
 } from "lucide-react";
 import SocialCaption from "./SocialCaption";
+import LiveSourceStatus from "./LiveSourceStatus";
+import type { LiveHukamnama } from "@/lib/hukamnama/liveSource";
 import {
   PRESETS,
   getPreset,
@@ -77,6 +79,7 @@ export default function Studio() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [backgroundReady, setBackgroundReady] = useState(false);
   const [scale, setScale] = useState(0.25);
+  const [liveRecord, setLiveRecord] = useState<LiveHukamnama | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -111,6 +114,21 @@ export default function Studio() {
       return next;
     });
   }, []);
+  const useLiveHukamnama = useCallback((record: LiveHukamnama) => {
+    setState((previous) => ({
+      ...previous,
+      original: record.original,
+      translation: record.translation,
+      ang: record.ang,
+      banikar: record.matchedAuthor ?? previous.banikar,
+      dateISO: record.sourceDateISO,
+      dateManual: true,
+      dateText: record.dateText,
+    }));
+    notify(record.matchedAuthor
+      ? `Loaded today’s SGPC text and matched ${record.matchedAuthor}, Ang ${record.ang}.`
+      : "Loaded today’s SGPC text and Ang. No verified author match was available, so your author selection is unchanged.");
+  }, [notify]);
   const patchBg = useCallback((p: Partial<BgSettings>) => {
     setState((prev) => ({ ...prev, bg: { ...prev.bg, ...p } }));
   }, []);
@@ -490,6 +508,8 @@ export default function Studio() {
         </div>
       </header>
 
+      <LiveSourceStatus onUse={useLiveHukamnama} onStatus={setLiveRecord} />
+
       <div className="flex min-h-0 flex-1 flex-col-reverse md:flex-row">
         {/* ----------------------------------------------------- sidebar */}
         <aside className="studio-scroll w-full md:w-[360px] shrink-0 md:overflow-y-auto border-r border-white/[0.06] bg-[#0d0e14]">
@@ -531,7 +551,16 @@ export default function Studio() {
           <DateSection {...panelProps()} />
           <MetaSection {...panelProps()} />
           <ContentSection {...panelProps()} />
-          <SocialCaption state={state} notify={notify} />
+          <SocialCaption
+            state={state}
+            notify={notify}
+            sgpcDateISO={liveRecord?.isToday ? liveRecord.sourceDateISO : null}
+            createImage={async () => {
+              const blob = await renderToBlob(preset, "png");
+              return blob ? new File([blob], `hukamnama-${preset.id}-${preset.w}x${preset.h}-${state.dateISO}.png`, { type: "image/png" }) : null;
+            }}
+            disabled={!canExport}
+          />
           <TypographySection {...panelProps()} />
 
           {/* ------------------------------------------------ export dock */}
