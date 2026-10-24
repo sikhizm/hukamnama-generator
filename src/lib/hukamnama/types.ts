@@ -143,7 +143,7 @@ export interface TypoSettings {
 }
 
 export interface StudioState {
-  design: "reference" | "studio";
+  design: "reference";
   presetId: string;
   safeArea: boolean;
   bg: BgSettings;
