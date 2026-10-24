@@ -5,7 +5,7 @@ export const DEFAULT_PDF_URL = "https://sikhizm.com/download/281582/?tmstv=17492
 export const DEFAULT_HASHTAGS = "#hukamnama #dailyhukamnama #hukamnamasahib #darbarsahib #amritsar #gurbani #gurbanipage #harmandirsahib #sikh #sikhism #mukhwak #wmk #waheguru #gurugranthsahibji #wmkji #gurugobindsinghji #gurunanakdevji #Guru #goldentemple #trending #bhakti #motivation #satnamwaheguruੴ #guruji #waheguruji";
 
 export function buildSocialCaption(
-  state: Pick<StudioState, "dateText" | "banikar" | "original" | "translation">,
+  state: Pick<StudioState, "dateText" | "original" | "translation">,
   articleUrl: string,
   pdfUrl: string,
 ): string {
@@ -14,7 +14,7 @@ export function buildSocialCaption(
     "🌸 ਅੱਜ ਦਾ ਹੁਕਮਨਾਮਾ, ਸ਼੍ਰੀ ਦਰਬਾਰ ਸਾਹਿਬ, ਹਰਿਮੰਦਿਰ ਸਾਹਿਬ, ਅੰਮ੍ਰਿਤਸਰ 🌸",
     `🗓️ ${state.dateText}`,
     "----",
-    `📜 *${state.banikar}* ${state.original.trim()} 📜`,
+    `📜 *${state.original.trim()}* 📜`,
     "----",
     `🗒️ ${state.translation.trim()}`,
     "----",
