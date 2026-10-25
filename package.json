@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test:renderer": "node tests/renderer.cjs && node tests/live-route.cjs && node tests/excerpt.cjs && node tests/sikhizm-links.cjs",
     "test:reel": "node tests/reel-http.cjs",
-    "test:social": "node tests/meta-connection.cjs && node tests/social-publish.cjs && node tests/morning-media.cjs && node tests/app-session.cjs"
+    "test:social": "node tests/meta-connection.cjs && node tests/social-publish.cjs && node tests/morning-media.cjs && node tests/app-session.cjs",
+    "test:publisher": "node tests/publisher.cjs"
   },
   "dependencies": {
     "@ffmpeg-installer/linux-x64": "4.1.0",

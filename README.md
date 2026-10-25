@@ -496,3 +496,12 @@ All files use Markdown format for easy reading and searching.
 ---
 
 **Happy Hukamnama generating! 🎨✨**
+
+
+## Social Publisher v2
+
+The former Gurbani Posts tab is now Social Publisher. It imports public Sikhizm
+articles into drafts and publishes to configured social accounts. See
+[Social Publisher setup and supported formats](docs/social-publisher-v2.md) for
+credentials, callback URLs, limits and validation. Hukamnama Studio workflows
+retain their existing behaviour.
