@@ -1,6 +1,6 @@
 import { PublishError } from "../socialPost";
-import { type Draft, type Outcome, type Platform, postText } from "./model";
-import { type Connection, mastodonOrigin } from "./connections";
+import { type Draft, type Outcome, type Platform, postText, validPublicImageUrl } from "./model";
+import { type Connection, mastodonOrigin, blogTarget, wordpressHost } from "./connections";
 
 type Json = Record<string, unknown>;
 export async function providerRequest(url: string, options: RequestInit, publishes = false, request: typeof fetch = fetch): Promise<Response> {
@@ -84,22 +84,37 @@ export async function publishExtra(platform: Exclude<Platform, "facebook" | "ins
     if (!boards.some(board => board.id === draft.board)) throw new Error("Choose a board belonging to the connected Pinterest account.");
     const result = await jsonRequest("https://api.pinterest.com/v5/pins", { method: "POST", headers, body: JSON.stringify({ board_id: draft.board, title: draft.title, description: text, ...(draft.url ? { link: draft.url } : {}), alt_text: draft.alt, media_source: { source_type: "image_base64", content_type: "image/jpeg", data: Buffer.from(await image.arrayBuffer()).toString("base64") } }) }, true, request);
     id = result.id; url = `https://www.pinterest.com/pin/${encodeURIComponent(id)}/`;
-  } else if (platform === "linkedin") {
-    if (!connection) throw new Error("Connect LinkedIn first.");
-    const version = process.env.LINKEDIN_API_VERSION;
-    if (!version || !/^\d{6}$/.test(version)) throw new Error("Set a supported LINKEDIN_API_VERSION (YYYYMM) on the server.");
-    const liHeaders = { ...headers, "LinkedIn-Version": version, "X-Restli-Protocol-Version": "2.0.0" };
-    let content: Json | undefined;
-    if (image) {
-      const upload = await jsonRequest("https://api.linkedin.com/rest/images?action=initializeUpload", { method: "POST", headers: liHeaders, body: JSON.stringify({ initializeUploadRequest: { owner: connection.id } }) }, false, request);
-      const destination = new URL(upload.value?.uploadUrl);
-      if (destination.protocol !== "https:" || destination.port || destination.username || destination.password || !(destination.hostname === "linkedin.com" || destination.hostname.endsWith(".linkedin.com"))) throw new Error("LinkedIn returned an unexpected media upload address.");
-      await providerRequest(destination.toString(), { method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "image/jpeg" }, body: image }, false, request);
-      if (!String(upload.value?.image).startsWith("urn:li:image:")) throw new Error("LinkedIn did not return an image reference.");
-      content = { media: { id: upload.value.image, altText: draft.alt } };
+  } else if (["tumblr", "blogger", "wordpress"].includes(platform)) {
+    if (!connection || connection.id !== blogTarget(platform)) throw new Error("Reconnect the configured destination blog before publishing.");
+    if (platform === "tumblr") {
+      const content: Json[] = [];
+      if (draft.title.trim()) content.push({ type: "text", subtype: "heading1", text: draft.title.trim() });
+      if (image) content.push({ type: "image", media: [{ type: "image/jpeg", identifier: "post-image" }], alt_text: draft.alt });
+      for (const paragraph of text.split(/\n\n+/)) {
+        const chars = [...paragraph];
+        for (let start = 0; start < chars.length; start += 4000) content.push({ type: "text", text: chars.slice(start, start + 4000).join("") });
+      }
+      const payload = { content, state: "published", tags: blogTags(draft).join(","), ...(draft.url ? { source_url: draft.url } : {}) };
+      const body = new FormData(); body.set("json", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+      if (image) body.set("post-image", image, "social-post.jpg");
+      const result = await jsonRequest(`https://api.tumblr.com/v2/blog/${encodeURIComponent(connection.id)}/posts`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body }, true, request);
+      id = result.response?.id; if (id) url = `https://${connection.id}.tumblr.com/post/${encodeURIComponent(id)}`;
+    } else if (platform === "blogger") {
+      const body = blogHtml(draft, draft.imageUrl);
+      const result = await jsonRequest(`https://www.googleapis.com/blogger/v3/blogs/${connection.id}/posts?isDraft=false`, { method: "POST", headers, body: JSON.stringify({ kind: "blogger#post", title: draft.title, content: body, labels: blogTags(draft) }) }, true, request);
+      id = result.id; url = safePostUrl(result.url);
+    } else {
+      let mediaUrl = "", mediaId = "";
+      if (image) {
+        const body = new FormData(); body.set("media[]", image, "social-post.jpg");
+        const upload = await jsonRequest(`https://public-api.wordpress.com/rest/v1.1/sites/${connection.id}/media/new`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body }, false, request);
+        const uploaded = upload.media?.[0];
+        mediaUrl = safePostUrl(uploaded?.URL); mediaId = String(uploaded?.ID ?? "");
+        if (!mediaUrl || !/^\d+$/.test(mediaId)) throw new Error("WordPress.com could not prepare the image.");
+      }
+      const result = await jsonRequest(`https://public-api.wordpress.com/rest/v1.1/sites/${connection.id}/posts/new`, { method: "POST", headers, body: JSON.stringify({ title: draft.title, content: blogHtml(draft, mediaUrl), status: "publish", tags: blogTags(draft).join(","), ...(mediaId ? { featured_image: mediaId } : {}) }) }, true, request);
+      id = result.ID; url = wordpressHost(result.URL) ? safePostUrl(result.URL) : "";
     }
-    const response = await providerRequest("https://api.linkedin.com/rest/posts", { method: "POST", headers: liHeaders, body: JSON.stringify({ author: connection.id, commentary: text, visibility: "PUBLIC", distribution: { feedDistribution: "MAIN_FEED", targetEntities: [], thirdPartyDistributionChannels: [] }, lifecycleState: "PUBLISHED", isReshareDisabledByAuthor: false, ...(content ? { content } : {}) }) }, true, request);
-    id = response.headers.get("x-restli-id") ?? ""; url = `https://www.linkedin.com/feed/update/${encodeURIComponent(id)}/`;
   } else if (platform === "x") {
     if (!connection) throw new Error("Connect X first.");
     let mediaId = "";
@@ -148,4 +163,17 @@ export async function publishExtra(platform: Exclude<Platform, "facebook" | "ins
   }
   if (!id) throw new PublishError("The platform did not confirm a post ID. Check your account before retrying.", true);
   return { id: String(id), ...(url ? { url } : {}) };
+}
+
+function blogTags(draft: Draft): string[] { return [...new Set(draft.hashtags.split(/[\s,]+/).map(tag => tag.replace(/^#+/, "")).filter(Boolean))].slice(0, 30); }
+export function escapeHtml(value: string): string { return value.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]!)); }
+function safePostUrl(value: unknown): string {
+  try { const url = new URL(String(value)); return url.protocol === "https:" && !url.username && !url.password ? url.toString() : ""; } catch { return ""; }
+}
+export function blogHtml(draft: Draft, imageUrl = ""): string {
+  if (imageUrl && !validPublicImageUrl(imageUrl)) throw new Error("Use a public HTTPS image URL for the blog image.");
+  const copy = postText({ ...draft, url: "" });
+  return (imageUrl ? `<p><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(draft.alt)}" /></p>` : "")
+    + copy.split(/\n\n+/).filter(Boolean).map(paragraph => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br />")}</p>`).join("")
+    + (draft.url ? `<p><a href="${escapeHtml(draft.url)}">Read the original article</a></p>` : "");
 }

@@ -18,14 +18,12 @@
 
 /* ------------------------------------------------------------------ */
 /* Gurmukhi-UCSB-Uni — classic legacy Gurmukhi typeface.               */
-/* Place Gurmukhi-UCSB-Uni.ttf / .otf into public/fonts/, or load it   */
-/* at runtime via the Font section (same flow as ChatrikUni).         */
+/* Bundled in public/fonts/ and loaded automatically when selected.  */
 /* ------------------------------------------------------------------ */
 @font-face {
   font-family: "Gurmukhi-UCSB-Uni";
   src:
-    url("/fonts/Gurmukhi-UCSB-Uni.ttf") format("truetype"),
-    url("/fonts/Gurmukhi-UCSB-Uni.otf") format("opentype");
+    url("/fonts/Gurmukhi-UCSB-Uni.ttf") format("truetype");
   font-weight: 100 900;
   font-style: normal;
   font-display: block;

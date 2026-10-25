@@ -8,13 +8,13 @@ picked from the Font section of the sidebar:
   1. ChatrikUni            — bundled brand font, loaded automatically
   2. Tiro Gurmukhi          — loaded automatically from Google Fonts
   3. Noto Serif Gurmukhi    — loaded automatically from Google Fonts
-  4. Gurmukhi-UCSB-Uni      — classic font, loaded from a local file
+  4. Gurmukhi-UCSB-Uni      — bundled classic font, loaded automatically
 
 Local-file fonts (ChatrikUni, Gurmukhi-UCSB-Uni)
 -------------------------------------------------
 ChatrikUni.ttf is included with the app and preloaded automatically.
-No manual upload is required for the brand font. Gurmukhi-UCSB-Uni is
-still optional and can be placed at one of these paths:
+Gurmukhi-UCSB-Uni.ttf is also bundled and loads automatically when selected.
+No manual upload is required for either bundled font. File paths:
 
     public/fonts/ChatrikUni.ttf          or  ChatrikUni.otf
     public/fonts/Gurmukhi-UCSB-Uni.ttf   or  Gurmukhi-UCSB-Uni.otf
