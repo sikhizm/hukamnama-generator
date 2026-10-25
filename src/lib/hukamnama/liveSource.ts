@@ -1,3 +1,5 @@
+import { normalizeAuthor } from "./authors";
+
 export interface LiveHukamnama {
   sourceDateISO: string;
   sourceTime: string;
@@ -38,7 +40,7 @@ export function matchGurbaniNowMetadata(payload: unknown, sgpc: Pick<LiveHukamna
   if (sourceOpening.length < 24 || !apiText.includes(sourceOpening)) return null;
 
   const author = info?.writer?.unicode?.trim();
-  return author || null;
+  return normalizeAuthor(author) || null;
 }
 
 const PUNJABI_WEEKDAYS = ["ਐਤਵਾਰ", "ਸੋਮਵਾਰ", "ਮੰਗਲਵਾਰ", "ਬੁੱਧਵਾਰ", "ਵੀਰਵਾਰ", "ਸ਼ੁੱਕਰਵਾਰ", "ਸ਼ੁੱਕਰਵਾਰ", "ਸ਼ਨਿਚਰਵਾਰ", "ਸ਼ਨਿਚਰਵਾਰ"];
@@ -323,6 +325,15 @@ export function parseSikhizmLiveArticle(
   const ang = angRaw.replace(/[੦-੯]/g, (digit) => GURMUKHI_DIGITS[digit] ?? digit);
   if (!ang) throw new Error("Could not locate the Ang in today's Sikhizm post.");
 
+  // Read only the labelled Creator cell of this already date-validated article.
+  const creatorRows = [...html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr\s*>/gi)];
+  const creators = creatorRows.flatMap(row => {
+    const cells = [...row[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]\s*>/gi)];
+    return cells.length === 2 && /^(?:Creator|Author|ਬਾਣੀਕਾਰ)$/iu.test(htmlToLines(cells[0][1]).join(" "))
+      ? [normalizeAuthor(htmlToLines(cells[1][1]).join(" "))] : [];
+  }).filter(Boolean);
+  const matchedAuthor = new Set(creators).size === 1 ? creators[0] : null;
+
   const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", weekday: "long" }).format(publishedDate);
   const month = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", month: "long" }).format(publishedDate);
   const day = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", day: "numeric" }).format(publishedDate);
@@ -341,7 +352,7 @@ export function parseSikhizmLiveArticle(
     original,
     translation,
     ang,
-    matchedAuthor: null,
-    metadataMatched: false,
+    matchedAuthor,
+    metadataMatched: Boolean(matchedAuthor),
   };
 }

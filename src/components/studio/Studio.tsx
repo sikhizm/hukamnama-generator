@@ -1,5 +1,7 @@
 "use client";
 
+import { liveAuthor } from "@/lib/hukamnama/authors";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Download,
@@ -123,14 +125,14 @@ export default function Studio() {
       original: record.original,
       translation: record.translation,
       ang: record.ang,
-      banikar: record.matchedAuthor ?? previous.banikar,
+      banikar: liveAuthor(record.matchedAuthor),
       dateISO: record.sourceDateISO,
       dateManual: true,
       dateText: record.dateText,
     }));
     const authorNotice = record.matchedAuthor
       ? `Matched ${record.matchedAuthor}`
-      : "No verified author match; kept your author selection";
+      : "No verified author match; choose an author before publishing";
     const translationNotice = record.translation
       ? ""
       : " The source has no verified Punjabi explanation, so add it manually before export.";

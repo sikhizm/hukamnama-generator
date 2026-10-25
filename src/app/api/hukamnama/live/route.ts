@@ -38,7 +38,21 @@ async function loadSikhizmTranslation(record: LiveHukamnama): Promise<void> {
       next: { revalidate: 180 },
     });
     if (!articleResponse.ok) return;
-    const translation = parseSikhizmPunjabiTranslation(await articleResponse.text(), record.original, record.ang);
+    const html = await articleResponse.text();
+    const translation = parseSikhizmPunjabiTranslation(html, record.original, record.ang);
+    // The same dated article may also supply its explicitly labelled author.
+    if (translation && !record.matchedAuthor) {
+      try {
+        const article = parseSikhizmLiveArticle(html, post, record.sourceDateISO, record.checkedAt);
+        const normalized = (text: string) => text.normalize("NFC").replace(/[^\p{L}\p{N}]/gu, "");
+        if (article.ang === record.ang && normalized(article.original) === normalized(record.original)) {
+          record.matchedAuthor = article.matchedAuthor;
+          record.metadataMatched = article.metadataMatched;
+        }
+      } catch {
+        // A missing author block must not discard an otherwise matched translation.
+      }
+    }
     if (translation) {
       record.translation = translation;
       record.sourceName = "SGPC Daily Mukhwak + matched Sikhizm Punjabi translation";
@@ -118,7 +132,7 @@ export async function GET(request: Request) {
           cache: "no-store",
         });
         if (metadataResponse.ok) {
-          record.matchedAuthor = matchGurbaniNowMetadata(await metadataResponse.json(), record);
+          record.matchedAuthor = matchGurbaniNowMetadata(await metadataResponse.json(), record) ?? record.matchedAuthor;
           record.metadataMatched = Boolean(record.matchedAuthor);
         }
       } catch {

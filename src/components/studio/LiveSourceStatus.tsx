@@ -69,7 +69,7 @@ export default function LiveSourceStatus({ onUse, onStatus }: Props) {
     const usedSikhizmPost = record.sourceName.startsWith("Sikhizm");
     const authorNotice = record.matchedAuthor
       ? `Matched author ${record.matchedAuthor}`
-      : "No verified author match was available; the current author was kept";
+      : "No verified author match was available; choose an author before publishing";
     const translationNotice = record.translation
       ? ""
       : ` The ${usedSikhizmPost ? "Sikhizm post" : "fallback page"} has no verified Punjabi explanation, so add it manually before export.`;

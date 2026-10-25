@@ -1,3 +1,4 @@
+import { normalizeAuthor } from "./hukamnama/authors";
 import type { StudioState } from "./hukamnama/types";
 import type { LiveHukamnama } from "./hukamnama/liveSource";
 
@@ -30,5 +31,5 @@ export function expandTemplate(template: string, fields: Record<string, string>)
 export function needsReel(targets: MorningTargets) { return targets["facebook-reel"] || targets["instagram-reel"] || targets["youtube-reel"]; }
 export function verifyMorningState(state: StudioState, live: LiveHukamnama | null, day: string) {
   const validLive = live?.sourceDateISO === day && live.isToday && live.metadataMatched && !!live.original && !!live.translation && !!live.dateText && !!live.matchedAuthor;
-  return { validLive, matchesLive: validLive && state.dateISO === day && state.original === live.original && state.translation === live.translation && state.ang === live.ang && state.banikar === live.matchedAuthor && state.dateText === live.dateText };
+  return { validLive, matchesLive: validLive && state.dateISO === day && state.original === live.original && state.translation === live.translation && state.ang === live.ang && normalizeAuthor(state.banikar) === normalizeAuthor(live.matchedAuthor) && state.dateText === live.dateText };
 }
