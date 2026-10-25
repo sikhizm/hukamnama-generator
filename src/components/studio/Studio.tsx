@@ -515,7 +515,7 @@ export default function Studio() {
           <div ref={setAutoTarget} className="shrink-0 lg:absolute lg:left-1/2 lg:-translate-x-1/2" />
           <InstallApp />
           <LogoutButton />
-          <Link href="/posts" className="rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-300"><span className="hidden sm:inline">Gurbani </span>Posts ↗</Link>
+          <Link href="/posts" className="rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-300"><span className="hidden sm:inline">Social </span>Publisher ↗</Link>
           <button
             type="button"
             onClick={() => fontInputRef.current?.click()}

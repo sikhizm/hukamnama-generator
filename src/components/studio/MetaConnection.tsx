@@ -47,7 +47,7 @@ export default function MetaConnection() {
             <p>{result.message}</p>
           </>}
         </div>}
-        <p className="text-[10px]">Create a separate image and caption in <a href="/posts" className="text-amber-300 underline">Gurbani Posts</a>. Automatic posting is not enabled.</p>
+        <p className="text-[10px]">Create a separate image and caption in <a href="/posts" className="text-amber-300 underline">Social Publisher</a>. Automatic posting is not enabled.</p>
       </div>
     </details>
   );
