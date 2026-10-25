@@ -245,7 +245,27 @@ export function findSikhizmPdfUrl(html: string, articleUrl: string): string | nu
   return preferred?.url ?? directPdf?.url ?? anyDownload?.url ?? null;
 }
 
-/** Return Sikhizm's Punjabi teeka only when the dated post has the same Ang and Gurbani opening. */
+/** Read only explicitly marked Gurbani blocks, including nested shortcode markup. */
+function sikhizmGurbaniBlocks(html: string): string[] {
+  const clean = html.replace(/<!--[\s\S]*?-->|<(script|style|noscript)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ");
+  const blocks: string[] = [];
+  const openings = /<(p|div|blockquote)\b[^>]*\bclass\s*=\s*(["'])(.*?)\2[^>]*>/gi;
+  for (const opening of clean.matchAll(openings)) {
+    if (!opening[3].split(/\s+/).some(name => /^(?:Bani|su-box-content|gurbani-text)$/i.test(name))) continue;
+    const start = (opening.index ?? 0) + opening[0].length;
+    const tags = new RegExp(`<\\/?${opening[1]}\\b[^>]*>`, "gi");
+    tags.lastIndex = start;
+    let depth = 1, tag: RegExpExecArray | null;
+    while ((tag = tags.exec(clean))) {
+      if (tag[0].startsWith("</")) depth -= 1;
+      else if (!tag[0].endsWith("/>")) depth += 1;
+      if (depth === 0) { blocks.push(clean.slice(start, tag.index)); break; }
+    }
+  }
+  return blocks;
+}
+
+/** Return Sikhizm's Punjabi explanation only when Ang and Gurbani opening agree. */
 export function parseSikhizmPunjabiTranslation(html: string, expectedOriginal: string, expectedAng: string): string | null {
   const lines = htmlToLines(html);
   const angMatches = lines.some((line, index) => /^ang$/i.test(line) && lines[index + 1]?.trim() === expectedAng)
@@ -258,14 +278,14 @@ export function parseSikhizmPunjabiTranslation(html: string, expectedOriginal: s
   const articleText = normalizeGurbani(lines.join(" "));
   if (sourceOpening.length < 24 || !articleText.includes(sourceOpening)) return null;
 
-  const heading = "Punjabi Translation by Prof Sahib Singh Ji";
-  let sectionIndex = -1;
-  for (let index = 0; index < lines.length; index += 1) {
-    if (lines[index].endsWith(heading)) sectionIndex = index;
-  }
-  if (sectionIndex < 0) return null;
+  const headings = [...html.matchAll(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1\s*>/gi)];
+  const heading = headings.filter(item => /^(?:\d+\.\s*)?Punjabi Translation(?: by Prof\.? Sahib Singh Ji)?$/i.test(htmlToLines(item[2]).join(" "))).at(-1);
+  if (!heading) return null;
+  const start = (heading.index ?? 0) + heading[0].length;
+  const nextHeading = headings.find(item => (item.index ?? 0) >= start)?.index ?? html.length;
+  const section = html.slice(start, nextHeading);
   const translationLines: string[] = [];
-  for (const line of lines.slice(sectionIndex + 1)) {
+  for (const line of htmlToLines(section)) {
     if (/^(?:ਸ਼ਬਦ ਦਾ ਭਾਵ:|ਸ਼ਬਦ ਦਾ ਭਾਵ:|Tags:|Previous Post|Related Entries|\d+\. )/u.test(line)) break;
     if (/[\u0A00-\u0A7F]/u.test(line)) translationLines.push(line);
   }
@@ -291,9 +311,9 @@ export function parseSikhizmLiveArticle(
     throw new Error("The Sikhizm Hukamnama post is not confirmed for today.");
   }
 
-  const baniParagraph = html.match(/<p\b[^>]*class\s*=\s*(["'])[^"']*\bBani\b[^"']*\1[^>]*>([\s\S]*?)<\/p\s*>/i)?.[2] ?? "";
-  const original = htmlToLines(baniParagraph).join(" ").trim();
-  if (!original.includes("ੴ") || !/ਸਤਿਗੁਰ\s*ਪ੍ਰਸਾਦਿ/u.test(original)) {
+  const candidates = sikhizmGurbaniBlocks(html).map(block => htmlToLines(block).join(" ").trim());
+  const original = candidates.find(text => text.includes("ੴ") && /ਸਤਿਗੁਰ\s*ਪ੍ਰਸਾਦਿ/u.test(text) && /[॥।]\s*[੦-੯0-9]+(?:\s*[॥।]\s*[੦-੯0-9]+)*\s*[॥।]\s*$/u.test(text)) ?? "";
+  if (!original) {
     throw new Error("Could not locate the complete Gurmukhi Hukamnama in today's Sikhizm post.");
   }
 
