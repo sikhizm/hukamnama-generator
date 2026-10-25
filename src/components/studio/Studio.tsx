@@ -1,5 +1,6 @@
 "use client";
 
+import { hukamnamaExcerpt } from "@/lib/hukamnama/excerpt";
 import { liveAuthor } from "@/lib/hukamnama/authors";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -283,7 +284,9 @@ export default function Studio() {
     const canvas = canvasRef.current;
     const mctx = measureRef.current;
     if (!canvas || !mctx) return;
-    const L = computeLayout(state, preset, mctx);
+    const excerpt = hukamnamaExcerpt(state.original, state.translation);
+    const mediaState = { ...state, original: excerpt.original, translation: excerpt.translation };
+    const L = computeLayout(mediaState, preset, mctx);
     setLayout(L);
 
     const key = [
@@ -305,14 +308,14 @@ export default function Studio() {
     if (compositeCache.current?.key !== key) {
       compositeCache.current = {
         key,
-        canvas: buildComposite(preset.w, preset.h, state, bgImgRef.current, L),
+        canvas: buildComposite(preset.w, preset.h, mediaState, bgImgRef.current, L),
       };
     }
     if (canvas.width !== preset.w) canvas.width = preset.w;
     if (canvas.height !== preset.h) canvas.height = preset.h;
     const ctx = canvas.getContext("2d");
     const logos: LogoImages = { mark: logoMarkRef.current, card: logoCardRef.current };
-    if (ctx) drawHukamnama(ctx, L, state, compositeCache.current.canvas, logos);
+    if (ctx) drawHukamnama(ctx, L, mediaState, compositeCache.current.canvas, logos);
   }, [state, preset, fontVersion, bgVersion, logoVersion]);
 
   /* ---------------------------------------------------------- uploads */
@@ -346,13 +349,15 @@ export default function Studio() {
   /* ----------------------------------------------------------- export */
   const fontReady = fontStatus === "ready" || !strictFont;
   const contentReady = !!(state.original.trim() && state.translation.trim() && state.dateText.trim() && state.banikar.trim() && state.ang.trim());
-  const canExport = contentReady && fontReady && (!referenceMode || backgroundReady) && !!layout && layout.blocks.every(b => b.fits);
+  const excerpt = hukamnamaExcerpt(state.original, state.translation);
+  const canExport = !excerpt.error && contentReady && fontReady && (!referenceMode || backgroundReady) && !!layout && layout.blocks.every(b => b.fits);
 
   const renderToBlob = async (p: PresetDef, format: "png" | "jpeg"): Promise<Blob | null> => {
     const mctx = measureRef.current;
     if (!mctx) return Promise.resolve(null);
     if (!contentReady) throw new Error("Enter complete content and a verified date before exporting.");
-    const exportState = { ...state, presetId: p.id, safeArea: false };
+    if (excerpt.error) throw new Error(excerpt.error);
+    const exportState = { ...state, original: excerpt.original, translation: excerpt.translation, presetId: p.id, safeArea: false };
     const L = computeLayout(exportState, p, mctx);
     if (L.blocks.some(b => !b.fits)) throw new Error(`${p.label}: text does not fit. Export blocked to prevent incomplete Gurbani.`);
     let bg = bgImgRef.current;
@@ -414,7 +419,7 @@ export default function Studio() {
       const mctx = measureRef.current;
       if (!mctx) throw new Error("Canvas is not ready.");
       for (const p of exportPresets) {
-        if (computeLayout({ ...state, presetId: p.id }, p, mctx).blocks.some(b => !b.fits)) {
+        if (computeLayout({ ...state, original: excerpt.original, translation: excerpt.translation, presetId: p.id }, p, mctx).blocks.some(b => !b.fits)) {
           throw new Error(`${p.label}: text does not fit. No files exported.`);
         }
       }
@@ -529,6 +534,8 @@ export default function Studio() {
             <div>
               <p className="text-sm font-semibold">Sikhizm Hukamnama template</p>
               <p className="text-xs text-zinc-400">Original artwork, header, QR and footer. ChatrikUni is required to match the body; Latin labels use LEMON MILK when installed.</p>
+              {excerpt.error && <p role="alert" className="mb-2 text-xs text-red-300">{excerpt.error}</p>}
+              {excerpt.shortened && <p className="mb-2 text-xs text-amber-200">Image and reel excerpt: {[...excerpt.original].length}/250 characters, with the matching Punjabi explanation. Editors and captions retain the full Hukamnama.</p>}
               {!canExport && fontReady && <p role="alert" className="mb-2 text-xs text-red-300">Export blocked: complete the text, author, Ang and verified date; check artwork and text-fit warnings.</p>}
               <div className="flex gap-2">{exportPresets.map(p => <button key={p.id} type="button"
                 aria-pressed={state.presetId === p.id} onClick={() => patch({ presetId: p.id })}
