@@ -6,7 +6,7 @@ require.extensions['.ts'] = (module, filename) => {
 };
 const { EMPTY_DRAFT, PLATFORMS, validateDraft, postText } = require('../src/lib/publisher/model.ts');
 const { articleUrl, parseArticle, fetchArticleResource, readLimited } = require('../src/lib/publisher/importArticle.ts');
-const { startOAuth, verifyState, finishOAuth, readConnection, cookieName } = require('../src/lib/publisher/connections.ts');
+const { startOAuth, verifyState, finishOAuth, readConnection, cookieName, OAuthConnectionError } = require('../src/lib/publisher/connections.ts');
 const { publishExtra, providerRequest, linkFacets } = require('../src/lib/publisher/adapters.ts');
 const { seal, unseal } = require('../src/lib/youtube.ts');
 const { readLedger, writeLedger, attemptKey, clearAttempt } = require('../src/lib/publisher/attempts.ts');
@@ -64,6 +64,7 @@ function sequence(items, checks = []) {
     assert.throws(()=>verifyState(started.cookie,platform,'different'),/expired/);
     assert.throws(()=>verifyState(started.cookie,platform === 'x' ? 'threads' : 'x',state.state),/expired/);
     if (platform === 'x') assert.equal(url.searchParams.get('code_challenge_method'),'S256');
+    if (platform === 'threads') assert.equal(url.origin,'https://threads.com');
     const who = platform === 'threads' ? {id:'10',username:'sikhizm'} : platform === 'pinterest' ? {username:'sikhizm'} : platform === 'linkedin' ? {sub:'member',name:'Sikhizm'} : platform === 'x' ? {data:{id:'10',username:'sikhizm'}} : {id:'10',acct:'sikhizm'};
     const exchange = sequence([{access_token:'ACCESS',expires_in:3600},who],[(url,o)=>{assert.equal(o.body.get('code'),'CODE');assert.equal(o.body.get('redirect_uri'),`https://app.example/api/social/publisher/callback/${platform}`);if(platform==='x')assert.equal(o.body.get('code_verifier'),state.verifier);}]);
     const session = await finishOAuth(platform,'CODE',state,exchange);exchange.done();
@@ -73,6 +74,15 @@ function sequence(items, checks = []) {
     assert.equal(readConnection(cookie,platform==='x'?'threads':'x'),null);
     assert.equal(readConnection(seal({...session,expires:Date.now()-1}),platform),null);
   }
+  assert.throws(()=>verifyState('', 'threads', 'anything'),error=>error.issue==='state-missing');
+  const flow = startOAuth('threads');
+  const flowState = verifyState(flow.cookie,'threads',new URL(flow.url).searchParams.get('state'));
+  for (const [message, issue] of [['Invalid client secret PRIVATE', 'credentials-rejected'], ['redirect_uri does not match PRIVATE', 'redirect-mismatch'], ['Unspecified PRIVATE', 'token-rejected']]) {
+    const rejectedToken = sequence([Response.json({error:{message,code:100,error_subcode:36008}},{status:400})]);
+    await assert.rejects(finishOAuth('threads','SECRET_CODE',flowState,rejectedToken),error=>error.issue===issue&&error.httpStatus===400&&error.providerCode===100&&!error.message.includes('PRIVATE'));rejectedToken.done();
+  }
+  const rejectedIdentity=sequence([{access_token:'PRIVATE_ACCESS'},Response.json({error:{code:190}},{status:401})]);
+  await assert.rejects(finishOAuth('threads','SECRET_CODE',flowState,rejectedIdentity),error=>error.issue==='identity-rejected'&&error.providerCode===190&&!error.message.includes('PRIVATE'));rejectedIdentity.done();
   const conn = p=>({platform:p,id:p==='linkedin'?'urn:li:person:member':'10',name:'sikhizm',accessToken:'ACCESS',expires:Date.now()+60000});
   const threads = sequence([{id:'20'},{id:'30'},{permalink:'https://www.threads.net/@sikhizm/post/30'}],[(url,o)=>assert.equal(JSON.parse(o.body).text,postText(draft))]);
   assert.equal((await publishExtra('threads',draft,null,conn('threads'),threads)).id,'30'); threads.done();
@@ -124,6 +134,15 @@ function sequence(items, checks = []) {
     assert.equal((await publishRoute(req('publish',missingSession))).status,401);
     assert.equal((await importRoute(req('import',JSON.stringify({url:'https://127.0.0.1/'})))).status,400);
     assert.equal((await importRoute(req('import',JSON.stringify({url:'https://sikhizm.com/a'}),false))).status,401);
+    const accountRoute=require('../src/app/api/social/publisher/accounts/route.ts').POST;
+    process.env.META_PAGE_ACCESS_TOKEN='PRIVATE_META';process.env.META_PAGE_ID='123';process.env.META_GRAPH_VERSION='v26.0';
+    global.fetch=async url=>{if(String(url).includes('graph.facebook.com'))return Response.json({id:'123',name:'Sikhizm',instagram_business_account:{id:'456',username:'sikhizmcom'}});throw new Error('No other real requests allowed');};
+    const verifiedAccounts=(await (await accountRoute(req('accounts',null))).json()).accounts;
+    assert.equal(verifiedAccounts.find(a=>a.platform==='facebook').connected,true);assert.equal(verifiedAccounts.find(a=>a.platform==='instagram').connected,true);
+    global.fetch=async()=>Response.json({error:{code:190,message:'PRIVATE_META'}},{status:400});
+    const failedAccounts=(await (await accountRoute(req('accounts',null))).json()).accounts;
+    const fbFailure=failedAccounts.find(a=>a.platform==='facebook');assert.equal(fbFailure.configured,true);assert.equal(fbFailure.connected,false);assert.match(fbFailure.message,/could not verify this Page token/);assert.ok(!JSON.stringify(failedAccounts).includes('PRIVATE_META'));
+    global.fetch=async()=>{throw new Error('Unexpected external request');};
     const connectRoute=require('../src/app/api/social/publisher/connect/[platform]/route.ts').POST;
     const connected=await connectRoute(req('connect/x',null),{params:Promise.resolve({platform:'x'})});
     assert.equal(connected.status,200);assert.ok(connected.cookies.get('publisher-state-x').value);
@@ -131,6 +150,16 @@ function sequence(items, checks = []) {
     const callback=require('../src/app/api/social/publisher/callback/[platform]/route.ts').GET;
     const failed=await callback(new NextRequest('https://app.example/api/social/publisher/callback/x?state=wrong&code=bad'),{params:Promise.resolve({platform:'x'})});
     assert.ok(failed.headers.get('location').includes('/posts?connectionFailed=x'));
+    assert.equal(new URL(failed.headers.get('location')).searchParams.get('connectionIssue'),'state-missing');
+    const mismatch=await connectRoute(new NextRequest('https://preview.example/api/social/publisher/connect/x',{method:'POST',headers:{Origin:'https://preview.example',Cookie:`${APP_COOKIE}=${appCookie}`}}),{params:Promise.resolve({platform:'x'})});
+    assert.equal(mismatch.status,400);assert.match((await mismatch.json()).error,/same app hostname/);
+    const validFlow=startOAuth('threads'), validState=new URL(validFlow.url).searchParams.get('state');
+    const previous=seal({platform:'threads',accessToken:'PREVIOUS_ACCESS',id:'10',name:'sikhizmcom',expires:Date.now()+60000});
+    global.fetch=async()=>Response.json({error:{message:'Invalid client secret PRIVATE_SECRET',code:100,error_subcode:123}},{status:400});
+    const tokenFailure=await callback(new NextRequest(`https://app.example/api/social/publisher/callback/threads?state=${validState}&code=PRIVATE_CODE`,{headers:{Cookie:`publisher-state-threads=${validFlow.cookie}; publisher-threads=${previous}`}}),{params:Promise.resolve({platform:'threads'})});
+    const failedUrl=new URL(tokenFailure.headers.get('location'));
+    assert.equal(failedUrl.searchParams.get('connectionIssue'),'credentials-rejected');assert.equal(failedUrl.searchParams.get('providerCode'),'100');
+    assert.ok(!tokenFailure.headers.get('location').includes('PRIVATE'));assert.equal(tokenFailure.cookies.get('publisher-threads'),undefined,'failed connection must not overwrite previous cookie');
   } finally {global.fetch=realFetch;}
   console.log('Social Publisher passed: 10-platform validation, safe read-only imports, OAuth/PKCE and expiry, all new publishing adapters, uncertain results, persistent attempt history, authenticated routes. All external requests mocked.');
 })().catch(error=>{console.error(error);process.exitCode=1});

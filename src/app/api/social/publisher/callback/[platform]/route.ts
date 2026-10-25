@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { seal, unseal, googleToken, youtubeChannel, YOUTUBE_COOKIE, cookieOptions } from "@/lib/youtube";
 import { timingSafeEqual } from "node:crypto";
-import { finishOAuth, verifyState, oauthPlatforms, stateName, cookieName, publisherCookie, type OAuthPlatform } from "@/lib/publisher/connections";
+import { finishOAuth, verifyState, oauthPlatforms, stateName, cookieName, publisherCookie, OAuthConnectionError, connectionFailure, type OAuthPlatform } from "@/lib/publisher/connections";
 
 export async function GET(request: NextRequest, context: { params: Promise<{ platform: string }> }) {
   const { platform } = await context.params;
@@ -27,12 +27,21 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pla
   if (!oauthPlatforms.includes(platform as OAuthPlatform)) return response;
   try {
     const saved = verifyState(request.cookies.get(stateName(platform))?.value ?? "", platform as OAuthPlatform, request.nextUrl.searchParams.get("state") ?? "");
-    const code = request.nextUrl.searchParams.get("code"); if (!code || request.nextUrl.searchParams.has("error")) throw new Error("Cancelled");
+    if (request.nextUrl.searchParams.has("error")) throw new OAuthConnectionError("permission-denied");
+    const code = request.nextUrl.searchParams.get("code"); if (!code) throw new OAuthConnectionError("no-code");
     const session = await finishOAuth(platform as OAuthPlatform, code, saved);
-    const value = seal(session); if (value.length > 3600) throw new Error("Provider token exceeds cookie capacity");
+    const value = seal(session); if (value.length > 3600) throw new OAuthConnectionError("cookie-capacity");
     response.cookies.set(cookieName(session.platform), value, { ...publisherCookie, maxAge: Math.max(1, Math.floor((session.expires - Date.now()) / 1000)) });
     destination.searchParams.set("connected", platform);
-  } catch { destination.searchParams.set("connectionFailed", platform); }
+  } catch (error) {
+    const failure = connectionFailure(error);
+    destination.searchParams.set("connectionFailed", platform);
+    destination.searchParams.set("connectionIssue", failure.issue);
+    if (failure.httpStatus !== undefined) destination.searchParams.set("providerStatus", String(failure.httpStatus));
+    if (failure.providerCode !== undefined) destination.searchParams.set("providerCode", String(failure.providerCode));
+    if (failure.providerSubcode !== undefined) destination.searchParams.set("providerSubcode", String(failure.providerSubcode));
+    console.warn("Publisher OAuth callback failed", { platform, issue: failure.issue, httpStatus: failure.httpStatus, providerCode: failure.providerCode, providerSubcode: failure.providerSubcode });
+  }
   response.cookies.set(stateName(platform), "", { ...publisherCookie, maxAge: 0 });
   response.headers.set("Location", destination.toString()); return response;
 }
