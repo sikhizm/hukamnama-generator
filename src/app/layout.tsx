@@ -4,6 +4,9 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Hukamnama Studio — Sikhizm.com",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Hukamnama", statusBarStyle: "black-translucent" },
+  icons: { icon: "/icons/app-192.png", apple: "/icons/app-180.png" },
   description:
     "Create branded Daily Hukamnama visuals for Sikhizm.com: Sri Harmandir Sahib background, ChatrikUni Gurmukhi typography, and one-click exports for WhatsApp, Instagram Reels, YouTube Shorts and Facebook.",
 };

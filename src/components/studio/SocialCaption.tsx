@@ -10,6 +10,7 @@ import type { LiveHukamnama } from "@/lib/hukamnama/liveSource";
 const LINKS_KEY = "hukamnama-social-links-v1";
 
 interface SocialCaptionProps {
+  reelTarget: HTMLElement | null;
   state: StudioState;
   notify: (message: string) => void;
   sgpcDateISO: string | null;
@@ -20,7 +21,7 @@ interface SocialCaptionProps {
   createFormatImage: (format: "feed" | "vertical") => Promise<Blob | null>;
 }
 
-export default function SocialCaption({ state, notify, sgpcDateISO, createImage, disabled, live, onLoadLive, createFormatImage }: SocialCaptionProps) {
+export default function SocialCaption({ reelTarget, state, notify, sgpcDateISO, createImage, disabled, live, onLoadLive, createFormatImage }: SocialCaptionProps) {
   const [articleUrl, setArticleUrl] = useState(DEFAULT_ARTICLE_URL);
   const [pdfUrl, setPdfUrl] = useState(DEFAULT_PDF_URL);
   const [linksLoaded, setLinksLoaded] = useState(false);
@@ -138,7 +139,21 @@ export default function SocialCaption({ state, notify, sgpcDateISO, createImage,
   };
 
   return (
-    <details className="border-b border-white/[0.07]">
+    <section className="border-b border-white/[0.07]">
+      <div className="space-y-3 border-b border-emerald-400/20 bg-emerald-950/20 p-4">
+        <h3 className="flex items-center gap-2 text-lg font-bold text-emerald-200"><MessageCircle size={24} /> Share on WhatsApp</h3>
+        <p className="text-xs leading-5 text-zinc-300">Two easy steps: send the image, then come back and send the text.</p>
+        <button type="button" disabled={disabled || sharingImage} onClick={() => void shareImageFirst()} className="flex min-h-16 w-full items-center justify-center gap-3 rounded-xl bg-emerald-400 px-4 py-4 text-base font-bold text-zinc-950 hover:bg-emerald-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200 disabled:cursor-not-allowed disabled:opacity-40">
+          {sharingImage ? <LoaderCircle size={24} className="animate-spin" /> : <MessageCircle size={24} />}
+          {sharingImage ? "Preparing image…" : "1 · Share image"}
+        </button>
+        <button type="button" disabled={disabled} onClick={() => void shareTextNext()} className={`flex min-h-16 w-full items-center justify-center gap-3 rounded-xl border border-emerald-300/50 px-4 py-4 text-base font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200 disabled:opacity-40 ${whatsappStep === "text" ? "bg-emerald-400 text-zinc-950" : "bg-emerald-950 text-emerald-100"}`}>
+          <Send size={24} /> 2 · Share text
+        </button>
+        <p role="status" className="text-xs text-emerald-100">{disabled ? "Load today’s content and complete the image to unlock sharing." : whatsappStep === "text" ? "Next: share the text to the same group or channel." : "Ready: start with Share image."}</p>
+        <p className="text-[11px] leading-5 text-zinc-400">Choose WhatsApp in the share sheet, select your group or channel, then tap Send. If image sharing is unavailable, the image downloads for you to attach.</p>
+      </div>
+      <details open>
       <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-200 marker:hidden">
         Social caption &amp; sharing
         <span className="ml-2 text-[10px] font-normal text-zinc-500">caption, article link, PDF link</span>
@@ -156,22 +171,6 @@ export default function SocialCaption({ state, notify, sgpcDateISO, createImage,
           PDF download URL
           <input value={pdfUrl} onChange={(event) => setPdfUrl(event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 text-xs text-zinc-200 outline-none focus:border-amber-300/50" />
         </label>
-        <div className="space-y-2 rounded-xl border border-emerald-400/15 bg-emerald-950/10 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200">WhatsApp · image, then text</p>
-          {whatsappStep === "image" ? (
-            <button type="button" disabled={disabled || sharingImage} onClick={() => void shareImageFirst()} className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-400 px-3 py-2.5 text-[11px] font-bold text-zinc-950 hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40">
-              {sharingImage ? <LoaderCircle size={13} className="animate-spin" /> : <MessageCircle size={13} />}
-              {sharingImage ? "Preparing image…" : "1 · Share image on WhatsApp"}
-            </button>
-          ) : (
-            <button type="button" onClick={() => void shareTextNext()} className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-400 px-3 py-2.5 text-[11px] font-bold text-zinc-950 hover:bg-emerald-300">
-              <Send size={13} /> 2 · Share text template next
-            </button>
-          )}
-          <p className="text-[10px] leading-relaxed text-zinc-500">
-            Send the image first, then return and share the text as a second message. Choose your channel or group and tap Send in WhatsApp; the app cannot send either post for you. If file sharing is unavailable, the image downloads so you can attach it manually.
-          </p>
-        </div>
         <label className="block text-[10px] font-medium text-zinc-400">
           Caption preview · {caption.length.toLocaleString()} characters
           <textarea readOnly value={caption} rows={10} className="mt-1 w-full resize-y rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 font-pa text-xs leading-relaxed text-zinc-300 outline-none" />
@@ -184,8 +183,11 @@ export default function SocialCaption({ state, notify, sgpcDateISO, createImage,
         <p className="text-[10px] leading-relaxed text-zinc-500">
           Download the image separately, then use Copy text template and paste it as the next message or post. The image and text stay separate, as in your current workflow.
         </p>
-        <MorningPublisher state={state} caption={caption} articleUrl={articleUrl} pdfUrl={pdfUrl} live={live} onLoadLive={onLoadLive} createImage={createFormatImage} disabled={disabled} />
       </div>
-    </details>
+      </details>
+      <div className="p-4">
+        <MorningPublisher reelTarget={reelTarget} state={state} caption={caption} articleUrl={articleUrl} pdfUrl={pdfUrl} live={live} onLoadLive={onLoadLive} createImage={createFormatImage} disabled={disabled} />
+      </div>
+    </section>
   );
 }
