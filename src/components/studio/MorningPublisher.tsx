@@ -227,18 +227,14 @@ export default function MorningPublisher(props: Props) {
     setEnabled(true);
     setMessage("Armed · all six destinations selected. Waiting for today's fresh, complete source and the morning window.");
   }
-  const autoSwitch = <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-    <div className="min-w-0 flex-1">
-      <p className="text-sm font-semibold text-emerald-100">Unattended auto-post</p>
-      <p role="status" aria-live="polite" className="mt-1 text-xs leading-5 text-zinc-300">{message}</p>
-      <p id="auto-post-description" className="text-[10px] text-zinc-400">ON authorizes public posting to all six destinations · {time}–10:30 IST · fresh data only · keep app open, awake and online.</p>
-    </div>
-    <button type="button" role="switch" aria-label="Unattended auto-post" aria-describedby="auto-post-description" aria-checked={enabled} disabled={!enabled && (busy || !loaded || !audio)} onClick={toggleAutomatic} className={`relative flex min-h-12 shrink-0 items-center gap-3 rounded-full border px-4 py-2 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300 disabled:cursor-not-allowed disabled:opacity-40 ${enabled ? "border-emerald-300 bg-emerald-400/15 text-emerald-100" : "border-zinc-600 bg-zinc-900 text-zinc-300"}`}>
+  const autoSwitch = <>
+    <button type="button" role="switch" aria-label="Unattended auto-post" title={`Auto-post ${enabled ? "ON" : "OFF"} · ${message}`} aria-describedby="auto-post-description" aria-checked={enabled} disabled={!enabled && (busy || !loaded || !audio)} onClick={toggleAutomatic} className={`relative flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300 disabled:cursor-not-allowed disabled:opacity-40 ${enabled ? "border-emerald-300 bg-emerald-400/15 text-emerald-100" : "border-zinc-600 bg-zinc-900 text-zinc-300"}`}>
       {enabled && <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-full border border-emerald-300/50 motion-safe:animate-ping" />}
       <span aria-hidden="true" className={`relative h-6 w-11 rounded-full transition-colors ${enabled ? "bg-emerald-400" : "bg-zinc-600"}`}><span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform motion-reduce:transition-none ${enabled ? "translate-x-5" : "translate-x-0"}`} /></span>
       AUTO {enabled ? "ON" : "OFF"}
     </button>
-  </div>;
+    <span id="auto-post-description" className="sr-only">ON authorizes public posting to all six configured destinations during {time}–10:30 IST, using freshly verified data. Keep the app open, awake and online.</span>
+  </>;
 
   const reelPreview = <section aria-label="Reel preview" className="space-y-3 text-xs text-zinc-300">
     <h3 className="text-sm font-semibold text-amber-200">Reel preview · 1080 × 1920</h3>

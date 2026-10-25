@@ -499,7 +499,7 @@ export default function Studio() {
   return (
     <div className="flex min-h-screen w-full flex-col lg:h-screen lg:overflow-hidden bg-[#0a0b10] text-zinc-200">
       {/* ------------------------------------------------------- topbar */}
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] bg-[#0c0d13] px-4">
+      <header className="relative flex min-h-14 shrink-0 flex-wrap items-center gap-3 py-2 lg:h-14 lg:flex-nowrap lg:py-0 border-b border-white/[0.06] bg-[#0c0d13] px-4">
         <div className="font-pa hidden h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-amber-300 to-amber-500 text-[13px] font-bold text-zinc-950 shadow-lg shadow-amber-500/25 sm:grid">
           ਸਿ
         </div>
@@ -511,14 +511,15 @@ export default function Studio() {
             sikhizm.com · Daily Hukamnama image generator
           </div>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-2 lg:w-auto lg:flex-nowrap">
+          <div ref={setAutoTarget} className="shrink-0 lg:absolute lg:left-1/2 lg:-translate-x-1/2" />
           <InstallApp />
           <LogoutButton />
           <Link href="/posts" className="rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-300"><span className="hidden sm:inline">Gurbani </span>Posts ↗</Link>
           <button
             type="button"
             onClick={() => fontInputRef.current?.click()}
-            className={`hidden items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10.5px] font-medium transition hover:brightness-125 sm:flex ${fontChip.cls}`}
+            className={`hidden items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10.5px] font-medium transition hover:brightness-125 2xl:flex ${fontChip.cls}`}
           >
             {fontChip.icon}
             {fontChip.text}
@@ -534,7 +535,6 @@ export default function Studio() {
         </div>
       </header>
 
-      <div ref={setAutoTarget} className="shrink-0 border-b border-white/10 bg-[#0c1713]" />
       <LiveSourceStatus onUse={useLiveHukamnama} onStatus={setLiveRecord} />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[270px_minmax(0,1fr)_320px] xl:grid-cols-[300px_minmax(0,1fr)_350px]">
