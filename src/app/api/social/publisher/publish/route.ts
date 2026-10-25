@@ -6,6 +6,7 @@ import { publishYoutube, unseal, YOUTUBE_COOKIE, type YoutubeSession } from "@/l
 import { isPlatform, postText, validateDraft, type Draft, type PostKind } from "@/lib/publisher/model";
 import { cookieName, readConnection, oauthPlatforms, identity, type OAuthPlatform } from "@/lib/publisher/connections";
 import { publishExtra, providerRequest } from "@/lib/publisher/adapters";
+import { serverThreadsConnection } from "@/lib/publisher/threads";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
@@ -43,11 +44,14 @@ export async function POST(request: NextRequest) {
       if (!result.id) throw new PublishError("Facebook did not confirm a post ID. Check the Page before retrying.", true);
       return reply({ id: result.id, url: `https://www.facebook.com/${encodeURIComponent(result.id)}` });
     }
-    const session = readConnection(request.cookies.get(cookieName(platform))?.value, platform);
+    const serverSession = platform === "threads" ? await serverThreadsConnection() : null;
+    const session = serverSession ?? readConnection(request.cookies.get(cookieName(platform))?.value, platform);
     if (oauthPlatforms.includes(platform as OAuthPlatform)) {
       if (!session) return reply({ error: "Connect this account before publishing." }, 401);
-      const user = await identity(platform as OAuthPlatform, session.accessToken);
-      if (user.id !== session.id) return reply({ error: "The connected account changed. Reconnect before publishing." }, 409);
+      if (!serverSession) {
+        const user = await identity(platform as OAuthPlatform, session.accessToken);
+        if (user.id !== session.id) return reply({ error: "The connected account changed. Reconnect before publishing." }, 409);
+      }
     }
     return reply(await publishExtra(platform, draft, media, session));
   } catch (error) {

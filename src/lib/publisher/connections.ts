@@ -107,6 +107,7 @@ export async function finishOAuth(platform: OAuthPlatform, code: string, state: 
   return { platform, accessToken: data.access_token, ...details, expires: Date.now() + lifetime * 1000 };
 }
 export function setupMessage(platform: Platform): string {
+  if (platform === "threads") return "Connect with Threads developer credentials, or save a generated tester token as THREADS_ACCESS_TOKEN in Vercel Production and redeploy.";
   if (platform === "telegram") return "Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID on the server; give the bot channel posting permission.";
   if (platform === "bluesky") return "Add BLUESKY_IDENTIFIER and a BLUESKY_APP_PASSWORD on the server. Main account passwords are not used.";
   if (platform === "youtube") return "Uses your existing YouTube connection. Channel owner authorization may be required.";

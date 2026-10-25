@@ -8,6 +8,7 @@ const { EMPTY_DRAFT, PLATFORMS, validateDraft, postText } = require('../src/lib/
 const { articleUrl, parseArticle, fetchArticleResource, readLimited } = require('../src/lib/publisher/importArticle.ts');
 const { startOAuth, verifyState, finishOAuth, readConnection, cookieName, OAuthConnectionError } = require('../src/lib/publisher/connections.ts');
 const { publishExtra, providerRequest, linkFacets } = require('../src/lib/publisher/adapters.ts');
+const { serverThreadsConnection } = require('../src/lib/publisher/threads.ts');
 const { seal, unseal } = require('../src/lib/youtube.ts');
 const { readLedger, writeLedger, attemptKey, clearAttempt } = require('../src/lib/publisher/attempts.ts');
 const draft = { ...EMPTY_DRAFT, title: 'A title', caption: 'An article', url: 'https://sikhizm.com/article/', hashtags: '#Gurbani, Sikhizm #Gurbani', alt: 'A description', board: '123' };
@@ -83,6 +84,14 @@ function sequence(items, checks = []) {
   }
   const rejectedIdentity=sequence([{access_token:'PRIVATE_ACCESS'},Response.json({error:{code:190}},{status:401})]);
   await assert.rejects(finishOAuth('threads','SECRET_CODE',flowState,rejectedIdentity),error=>error.issue==='identity-rejected'&&error.providerCode===190&&!error.message.includes('PRIVATE'));rejectedIdentity.done();
+  delete process.env.THREADS_ACCESS_TOKEN;
+  assert.equal(await serverThreadsConnection(async()=>{throw new Error('No fetch expected');}),null);
+  process.env.THREADS_ACCESS_TOKEN='  SERVER_PRIVATE_TOKEN  ';
+  const serverToken=sequence([{id:'12345',username:'sikhizmcom'}],[(url,o)=>{assert.equal(url,'https://graph.threads.com/v1.0/me?fields=id,username');assert.equal(o.headers.Authorization,'Bearer SERVER_PRIVATE_TOKEN');assert.ok(!url.includes('SERVER_PRIVATE'));}]);
+  assert.equal((await serverThreadsConnection(serverToken)).id,'12345');serverToken.done();
+  const wrongToken=sequence([{id:'12345',username:'different'}]);await assert.rejects(serverThreadsConnection(wrongToken),/another account/);wrongToken.done();
+  const expiredToken=sequence([Response.json({error:{message:'SERVER_PRIVATE_TOKEN'}},{status:401})]);await assert.rejects(serverThreadsConnection(expiredToken),error=>/expired or been revoked/.test(error.message)&&!error.message.includes('SERVER_PRIVATE'));expiredToken.done();
+  delete process.env.THREADS_ACCESS_TOKEN;
   const conn = p=>({platform:p,id:p==='linkedin'?'urn:li:person:member':'10',name:'sikhizm',accessToken:'ACCESS',expires:Date.now()+60000});
   const threads = sequence([{id:'20'},{id:'30'},{permalink:'https://www.threads.net/@sikhizm/post/30'}],[(url,o)=>assert.equal(JSON.parse(o.body).text,postText(draft))]);
   assert.equal((await publishExtra('threads',draft,null,conn('threads'),threads)).id,'30'); threads.done();
@@ -142,6 +151,19 @@ function sequence(items, checks = []) {
     global.fetch=async()=>Response.json({error:{code:190,message:'PRIVATE_META'}},{status:400});
     const failedAccounts=(await (await accountRoute(req('accounts',null))).json()).accounts;
     const fbFailure=failedAccounts.find(a=>a.platform==='facebook');assert.equal(fbFailure.configured,true);assert.equal(fbFailure.connected,false);assert.match(fbFailure.message,/could not verify this Page token/);assert.ok(!JSON.stringify(failedAccounts).includes('PRIVATE_META'));
+    process.env.THREADS_ACCESS_TOKEN='SERVER_PRIVATE_TOKEN';
+    const tokenAccountResponses = async url=>{if(String(url).includes('graph.threads.com'))return Response.json({id:'12345',username:'sikhizmcom'});throw new Error('No other real requests allowed');};
+    global.fetch=tokenAccountResponses;
+    const connectedWithServerToken=(await (await accountRoute(req('accounts',null))).json()).accounts;
+    const connectedThreads=connectedWithServerToken.find(a=>a.platform==='threads');assert.equal(connectedThreads.connected,true);assert.equal(connectedThreads.connection,'server-token');assert.equal(connectedThreads.name,'@sikhizmcom');assert.ok(!JSON.stringify(connectedWithServerToken).includes('SERVER_PRIVATE_TOKEN'));
+    global.fetch=async()=>Response.json({id:'999',username:'wrongaccount'});
+    const wrongAccount=(await (await accountRoute(req('accounts',null))).json()).accounts.find(a=>a.platform==='threads');assert.equal(wrongAccount.connected,false);assert.match(wrongAccount.message,/another account/);
+    const serverPublish=sequence([{id:'12345',username:'sikhizmcom'},{id:'20'},{id:'30'},{permalink:'https://www.threads.com/@sikhizmcom/post/30'}]);global.fetch=serverPublish;
+    const serverBody=new FormData();serverBody.set('platform','threads');serverBody.set('kind','text');serverBody.set('caption','A deliberately mocked test');
+    const serverPublished=await publishRoute(req('publish',serverBody));assert.equal(serverPublished.status,200);assert.equal((await serverPublished.json()).id,'30');serverPublish.done();
+    const rejectedServer=sequence([Response.json({error:{code:190}},{status:401})]);global.fetch=rejectedServer;
+    assert.equal((await publishRoute(req('publish',serverBody))).status,400);rejectedServer.done();
+    delete process.env.THREADS_ACCESS_TOKEN;
     global.fetch=async()=>{throw new Error('Unexpected external request');};
     const connectRoute=require('../src/app/api/social/publisher/connect/[platform]/route.ts').POST;
     const connected=await connectRoute(req('connect/x',null),{params:Promise.resolve({platform:'x'})});

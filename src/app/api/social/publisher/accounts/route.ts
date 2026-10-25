@@ -5,6 +5,7 @@ import { googleConfig, googleToken, unseal, YOUTUBE_COOKIE, youtubeChannel, type
 import { PLATFORMS, type Account } from "@/lib/publisher/model";
 import { oauthConfig, oauthPlatforms, cookieName, readConnection, identity, setupMessage, type OAuthPlatform } from "@/lib/publisher/connections";
 import { blueskySession, telegramIdentity, pinterestBoards } from "@/lib/publisher/adapters";
+import { hasThreadsServerToken, serverThreadsConnection } from "@/lib/publisher/threads";
 
 export const maxDuration = 60;
 export async function POST(request: NextRequest) {
@@ -40,6 +41,13 @@ export async function POST(request: NextRequest) {
       } else if (platform === "bluesky") {
         account.configured = !!(process.env.BLUESKY_IDENTIFIER && process.env.BLUESKY_APP_PASSWORD);
         if (account.configured) { const user = await blueskySession(); return { ...account, connected: true, id: user.id, name: user.name, message: "Account verified with its app password." }; }
+      } else if (platform === "threads" && hasThreadsServerToken()) {
+        account.configured = true;
+        try {
+          const session = await serverThreadsConnection();
+          if (!session) throw new Error("Save a Threads token in Vercel Production and redeploy.");
+          return { ...account, connected: true, id: session.id, name: `@${session.name}`, connection: "server-token", message: "Verified with the saved Threads token. Renew it in Vercel when it expires or is revoked." };
+        } catch (error) { return { ...account, connection: "server-token", message: error instanceof Error ? error.message : "The saved Threads token could not be verified." }; }
       } else if (oauthPlatforms.includes(platform as OAuthPlatform)) {
         try { oauthConfig(platform as OAuthPlatform); account.configured = platform !== "linkedin" || /^\d{6}$/.test(process.env.LINKEDIN_API_VERSION ?? ""); } catch { return account; }
         if (!account.configured) return { ...account, message: "Add LINKEDIN_API_VERSION (YYYYMM) in server settings." };
