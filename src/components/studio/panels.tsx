@@ -27,6 +27,7 @@ import {
   CornerUpLeft,
   CornerUpRight,
 } from "lucide-react";
+import { AUTHOR_OPTIONS, normalizeAuthor } from "@/lib/hukamnama/authors";
 import { Section, SliderRow, ToggleRow, SegRow, FieldLabel, TextInput, TextArea } from "./controls";
 import {
   PRESETS,
@@ -413,18 +414,8 @@ export function DateSection(p: PanelProps) {
 
 export function MetaSection(p: PanelProps) {
   const { state, patch } = p;
-  const authorOptions = [
-    "ਗੁਰੂ ਨਾਨਕ ਦੇਵ ਜੀ",
-    "ਗੁਰੂ ਅੰਗਦ ਦੇਵ ਜੀ",
-    "ਗੁਰੂ ਅਮਰਦਾਸ ਜੀ",
-    "ਗੁਰੂ ਰਾਮਦਾਸ ਜੀ",
-    "ਗੁਰੂ ਅਰਜਨ ਦੇਵ ਜੀ",
-    "ਗੁਰੂ ਤੇਗ਼ ਬਹਾਦੁਰ ਜੀ",
-    "ਭਗਤ ਕਬੀਰ ਜੀ",
-    "ਭਗਤ ਨਾਮਦੇਵ ਜੀ",
-    "ਭਗਤ ਰਵਿਦਾਸ ਜੀ",
-  ];
-  const authorChoice = authorOptions.includes(state.banikar) ? state.banikar : "custom";
+  const author = normalizeAuthor(state.banikar);
+  const authorChoice = AUTHOR_OPTIONS.some(option => option === author) ? author : "custom";
   return (
     <Section icon={BookOpen} title="Baani metadata" subtitle="ਬਾਣੀਕਾਰ + ਅੰਗ chips">
       <div>
@@ -434,7 +425,7 @@ export function MetaSection(p: PanelProps) {
           onChange={(e) => patch({ banikar: e.target.value === "custom" ? "" : e.target.value })}
           className="mb-2 w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-[12.5px] text-zinc-100 outline-none focus:border-amber-300/50 font-pa"
         >
-          {authorOptions.map((author) => <option key={author} value={author}>{author}</option>)}
+          {AUTHOR_OPTIONS.map((author) => <option key={author} value={author}>{author}</option>)}
           <option value="custom">Custom</option>
         </select>
         {authorChoice === "custom" && (

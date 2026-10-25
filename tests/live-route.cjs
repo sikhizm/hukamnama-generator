@@ -34,8 +34,8 @@ const metadata = { date: { gregorian: { year: 2026, monthno: 10, date: 25 } }, h
     assert.equal(data.sourceName, 'Sikhizm same-day Hukamnama post');
     assert.equal(data.sourceDateISO, '2026-10-25'); assert.equal(data.ang, '678');
     assert.equal(data.original, record.original); assert.equal(data.translation, record.translation);
-    assert.equal(data.metadataMatched, mode === 'matched');
-    assert.equal(data.matchedAuthor, mode === 'matched' ? 'ਗੁਰੂ ਅਰਜਨ ਦੇਵ ਜੀ' : null);
+    assert.equal(data.metadataMatched, true, 'verified article author survives a failed or mismatched external lookup');
+    assert.equal(data.matchedAuthor, 'Guru Arjan Dev Ji');
     assert.equal(calls.length, 5);
   }
   console.log('Live route passed: both SGPC pages blocked, legacy Sikhizm fallback, guarded author match, metadata outage and stale-date rejection. No network requests or posts made.');

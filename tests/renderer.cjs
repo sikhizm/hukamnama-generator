@@ -131,8 +131,8 @@ assert.ok(legacyLive.translation.endsWith('੩।੧।੨੯।'), 'preserve ev
 assert.ok(!legacyLive.translation.includes('हिन्दी'), 'stop before the next language heading');
 assert.equal(legacyLive.original.length, 479);
 assert.equal(legacyLive.translation.length, 952);
-assert.equal(legacyLive.metadataMatched, false, 'markup parsing does not invent verified author metadata');
-assert.equal(legacyLive.matchedAuthor, null);
+assert.equal(legacyLive.metadataMatched, true, 'same-day article supplies its explicitly labelled Creator');
+assert.equal(legacyLive.matchedAuthor, 'Guru Arjan Dev Ji');
 assert.throws(() => parseSikhizmLiveArticle(legacyHtml, legacyPost, '2026-10-26'), /not confirmed for today/);
 const nestedLegacy = legacyHtml.replace('<div class="su-box-content">', '<div class="su-box-content"><div><span>').replace('॥੩॥੧॥੨੯॥</div>', '॥੩॥੧॥੨੯॥</span></div></div>');
 assert.equal(parseSikhizmLiveArticle(nestedLegacy, legacyPost, '2026-10-25').original, legacyLive.original, 'nested markup must not cut the shabad');
@@ -144,7 +144,7 @@ const matchedMetadata = {
   hukamnamainfo: { pageno: 718, writer: { unicode: 'ਭਗਤ ਨਾਮਦੇਵ ਜੀ' } },
   hukamnama: [{ line: { gurmukhi: { unicode: 'ਟੋਡੀ ਬਾਣੀ ਭਗਤਾਂ ਕੀ ॥ ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਕੋਈ ਬੋਲੈ ਨਿਰਵਾ ਕੋਈ ਬੋਲੈ ਦੂਰਿ ॥ ਜਲ ਕੀ ਮਾਛੁਲੀ ਚਰੈ ਖਜੂਰਿ ॥੧॥ ਕਾਂਇ ਰੇ ਬਕਬਾਦੁ ਲਾਇਓ ॥ ਜਿਨਿ ਹਰਿ ਪਾਇਓ ਤਿਨਹਿ ਛਪਾਇਓ ॥੧॥ ਰਹਾਉ ॥ ਪੰਡਿਤੁ ਹੋਇ ਕੈ ਬੇਦੁ ਬਖਾਨੈ ॥ ਮੂਰਖੁ ਨਾਮਦੇਉ ਰਾਮਹਿ ਜਾਨੈ ॥੨॥੧॥' } } }],
 };
-assert.equal(matchGurbaniNowMetadata(matchedMetadata, live), 'ਭਗਤ ਨਾਮਦੇਵ ਜੀ', 'accept author only when date, Ang and opening Gurbani all match');
+assert.equal(matchGurbaniNowMetadata(matchedMetadata, live), 'Bhagat Namdev Ji', 'accept author only when date, Ang and opening Gurbani all match');
 assert.equal(matchGurbaniNowMetadata({ ...matchedMetadata, hukamnamainfo: { ...matchedMetadata.hukamnamainfo, pageno: 719 } }, live), null, 'reject metadata with a different Ang');
 assert.equal(matchGurbaniNowMetadata({ ...matchedMetadata, date: { gregorian: { year: 2026, monthno: 10, date: 23 } } }, live), null, 'reject a stale daily response');
 assert.equal(matchGurbaniNowMetadata({ ...matchedMetadata, hukamnama: [{ line: { gurmukhi: { unicode: 'ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਕਿਸੇ ਹੋਰ ਸ਼ਬਦ ਦੀ ਤੁਕ ॥' } } }] }, live), null, 'reject a different Gurbani passage');
@@ -157,3 +157,16 @@ assert.equal(feed[0].localDateISO, '2026-10-24', 'RSS publication time is interp
 assert.equal(feed[0].link, 'https://sikhizm.com/koi-bole-nirva-koi-bole-door/');
 assert.equal(findSikhizmPdfUrl(feed[0].content, feed[0].link), 'https://sikhizm.com/download/281582/?tmstv=1749252210');
 console.log('Renderer, caption, and live-feed invariants passed: both formats, overflow, manual sizing, date erasure, graphemes, primary/fallback SGPC parsing, same-day Sikhizm source and translation matching, guarded author matching, RSS/PDF links, and caption fields.');
+
+const { AUTHOR_OPTIONS, normalizeAuthor, liveAuthor } = require('../src/lib/hukamnama/authors.ts');
+assert.equal(AUTHOR_OPTIONS.length, 9);
+assert.equal(normalizeAuthor('ਗੁਰੂ ਅਰਜਨ ਦੇਵ ਜੀ'), 'Guru Arjan Dev Ji');
+assert.equal(normalizeAuthor('Bani Bhagat Namdev Ji'), 'Bhagat Namdev Ji');
+assert.equal(normalizeAuthor('Guru Amar Das Ji'), 'Guru Amardas Ji');
+assert.equal(normalizeAuthor('Guru Ram Das Ji'), 'Guru Ramdas Ji');
+assert.equal(normalizeAuthor('Bhagat Farid Ji'), 'Bhagat Farid Ji', 'unknown author stays available for Custom');
+assert.equal(liveAuthor(null), '', 'missing author clears yesterday’s selection');
+const creatorFree = legacyHtml.replace('Guru Arjan Dev Ji', '');
+assert.equal(parseSikhizmLiveArticle(creatorFree, legacyPost, '2026-10-25').matchedAuthor, null);
+const customCreator = legacyHtml.replace('Guru Arjan Dev Ji', 'Bhagat Farid Ji');
+assert.equal(parseSikhizmLiveArticle(customCreator, legacyPost, '2026-10-25').matchedAuthor, 'Bhagat Farid Ji');
