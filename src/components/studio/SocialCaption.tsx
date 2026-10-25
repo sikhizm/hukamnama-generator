@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Clipboard, Link2, LoaderCircle, MessageCircle, Send } from "lucide-react";
 import type { StudioState } from "@/lib/hukamnama/types";
-import { buildSocialCaption, DEFAULT_ARTICLE_URL, DEFAULT_PDF_URL } from "@/lib/hukamnama/socialCaption";
+import { buildSocialCaption } from "@/lib/hukamnama/socialCaption";
 import MorningPublisher from "./MorningPublisher";
 import type { LiveHukamnama } from "@/lib/hukamnama/liveSource";
 
-const LINKS_KEY = "hukamnama-social-links-v1";
+import { linkContext, requestEvergreenLinks } from "@/lib/hukamnama/sikhizmLinks";
+const LINKS_KEY = "hukamnama-social-links-v2";
+interface LinkDraft { articleUrl: string; pdfUrl: string; context: string; manual: boolean }
 
 interface SocialCaptionProps {
   reelTarget: HTMLElement | null;
@@ -21,36 +23,59 @@ interface SocialCaptionProps {
   createFormatImage: (format: "feed" | "vertical") => Promise<Blob | null>;
 }
 
-export default function SocialCaption({ reelTarget, state, notify, sgpcDateISO, createImage, disabled, live, onLoadLive, createFormatImage }: SocialCaptionProps) {
-  const [articleUrl, setArticleUrl] = useState(DEFAULT_ARTICLE_URL);
-  const [pdfUrl, setPdfUrl] = useState(DEFAULT_PDF_URL);
+export default function SocialCaption({ reelTarget, state, notify, createImage, disabled, live, onLoadLive, createFormatImage }: SocialCaptionProps) {
+  const context = linkContext(state);
+  const [links, setLinks] = useState<LinkDraft>({ articleUrl: "", pdfUrl: "", context: "", manual: false });
+  const articleUrl = links.context === context ? links.articleUrl : "";
+  const pdfUrl = links.context === context ? links.pdfUrl : "";
+  const requestId = useRef(0);
+  const [linkNotice, setLinkNotice] = useState("");
   const [linksLoaded, setLinksLoaded] = useState(false);
   const [findingLinks, setFindingLinks] = useState(false);
   const [sharingImage, setSharingImage] = useState(false);
   const [whatsappStep, setWhatsappStep] = useState<"image" | "text">("image");
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(LINKS_KEY);
-      if (!saved) return;
-      const links = JSON.parse(saved) as { articleUrl?: string; pdfUrl?: string };
-      if (typeof links.articleUrl === "string") setArticleUrl(links.articleUrl);
-      if (typeof links.pdfUrl === "string") setPdfUrl(links.pdfUrl);
-    } catch {
-      // Keep the editable defaults if storage is unavailable or malformed.
-    } finally {
-      setLinksLoaded(true);
-    }
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem(LINKS_KEY) ?? "null");
+        if (!cancelled && saved && typeof saved.articleUrl === "string" && typeof saved.pdfUrl === "string" && typeof saved.context === "string") setLinks({ ...saved, manual: saved.manual === true });
+      } catch { /* Start without links when saved data cannot be read. */ }
+      finally { if (!cancelled) setLinksLoaded(true); }
+    });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
-    if (!linksLoaded) return;
-    try {
-      localStorage.setItem(LINKS_KEY, JSON.stringify({ articleUrl, pdfUrl }));
-    } catch {
-      // Link edits remain usable for this session if storage is unavailable.
-    }
-  }, [articleUrl, pdfUrl, linksLoaded]);
+    if (linksLoaded) try { localStorage.setItem(LINKS_KEY, JSON.stringify(links)); } catch { /* Session edits remain usable. */ }
+  }, [links, linksLoaded]);
+
+  useEffect(() => {
+    if (!linksLoaded || links.context === context || !state.original || !state.ang || !state.dateText) return;
+    const controller = new AbortController(), id = ++requestId.current;
+    Promise.resolve().then(async () => {
+      if (controller.signal.aborted) return;
+      setFindingLinks(true);
+      setLinkNotice("Searching Sikhizm by Ang and Gurbani…");
+      try {
+        const result = await requestEvergreenLinks({ date: state.dateISO, ang: state.ang, original: state.original }, controller.signal);
+        if (id !== requestId.current || controller.signal.aborted) return;
+        setLinks({ articleUrl: result.articleUrl || "", pdfUrl: result.pdfUrl || "", context, manual: false });
+        setLinkNotice(result.message);
+      } catch {
+        if (id === requestId.current && !controller.signal.aborted) setLinkNotice("Sikhizm lookup was unavailable. No links will be included; retry or add them manually.");
+      } finally { if (id === requestId.current && !controller.signal.aborted) setFindingLinks(false); }
+    });
+    return () => { controller.abort(); };
+  }, [context, links.context, linksLoaded, state.dateISO, state.ang, state.original, state.dateText]);
+
+  function editLink(field: "articleUrl" | "pdfUrl", value: string) {
+    requestId.current++;
+    setFindingLinks(false);
+    setLinkNotice("Manual links selected for this Hukamnama.");
+    setLinks(previous => ({ ...(previous.context === context ? previous : { articleUrl: "", pdfUrl: "" }), [field]: value, context, manual: true }));
+  }
 
   const caption = buildSocialCaption(state, articleUrl, pdfUrl);
 
@@ -64,27 +89,17 @@ export default function SocialCaption({ reelTarget, state, notify, sgpcDateISO, 
   };
 
   const findTodayLinks = async () => {
-    if (!sgpcDateISO) {
-      notify("First wait for SGPC to confirm today’s Hukamnama at the top of the app.");
-      return;
-    }
+    const id = ++requestId.current;
     setFindingLinks(true);
     try {
-      const response = await fetch(`/api/hukamnama/sikhizm-links?date=${encodeURIComponent(sgpcDateISO)}`, { cache: "no-store" });
-      const result = await response.json() as { found?: boolean; articleUrl?: string; pdfUrl?: string | null; message?: string; error?: string };
-      if (!response.ok) throw new Error(result.error ?? "Could not look up today’s Sikhizm links.");
-      if (!result.found || !result.articleUrl) {
-        notify(result.message ?? "No matching Sikhizm post found. Your saved links were left unchanged.");
-        return;
-      }
-      setArticleUrl(result.articleUrl);
-      if (result.pdfUrl) setPdfUrl(result.pdfUrl);
-      notify(result.message ?? "Updated today’s Sikhizm article and PDF links.");
+      const result = await requestEvergreenLinks({ date: state.dateISO, ang: state.ang, original: state.original });
+      if (id !== requestId.current) return;
+      setLinks({ articleUrl: result.articleUrl || "", pdfUrl: result.pdfUrl || "", context, manual: false });
+      setLinkNotice(result.message);
+      notify(result.message);
     } catch (caught) {
-      notify(caught instanceof Error ? caught.message : "Could not look up today’s Sikhizm links.");
-    } finally {
-      setFindingLinks(false);
-    }
+      if (id === requestId.current) { setLinks({ articleUrl: "", pdfUrl: "", context, manual: false }); setLinkNotice("Lookup failed. Links omitted; retry or enter them manually."); notify(caught instanceof Error ? caught.message : "Could not search Sikhizm articles."); }
+    } finally { if (id === requestId.current) setFindingLinks(false); }
   };
 
   const shareImageFirst = async () => {
@@ -160,16 +175,17 @@ export default function SocialCaption({ reelTarget, state, notify, sgpcDateISO, 
       </summary>
       <div className="space-y-3 px-4 pb-4">
         <label className="block text-[10px] font-medium text-zinc-400">
-          Daily Hukamnama article URL
-          <input value={articleUrl} onChange={(event) => setArticleUrl(event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 text-xs text-zinc-200 outline-none focus:border-amber-300/50" />
+          Matching Hukamnama article URL
+          <input value={articleUrl} onChange={(event) => editLink("articleUrl", event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 text-xs text-zinc-200 outline-none focus:border-amber-300/50" />
         </label>
-        <button type="button" disabled={findingLinks || !sgpcDateISO} onClick={() => void findTodayLinks()} className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-2 text-[10px] font-semibold text-zinc-300 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40">
+        <button type="button" disabled={findingLinks || !state.original || !state.ang} onClick={() => void findTodayLinks()} className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-2 text-[10px] font-semibold text-zinc-300 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40">
           {findingLinks ? <LoaderCircle size={12} className="animate-spin" /> : <Link2 size={12} />}
-          {findingLinks ? "Finding today’s links…" : "Find today’s Sikhizm links"}
+          {findingLinks ? "Finding today’s links…" : "Find matching Sikhizm article & PDF"}
         </button>
+        {linkNotice && <p role="status" className="text-[11px] leading-5 text-zinc-400">{linkNotice}</p>}
         <label className="block text-[10px] font-medium text-zinc-400">
           PDF download URL
-          <input value={pdfUrl} onChange={(event) => setPdfUrl(event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 text-xs text-zinc-200 outline-none focus:border-amber-300/50" />
+          <input value={pdfUrl} onChange={(event) => editLink("pdfUrl", event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 text-xs text-zinc-200 outline-none focus:border-amber-300/50" />
         </label>
         <label className="block text-[10px] font-medium text-zinc-400">
           Caption preview · {caption.length.toLocaleString()} characters
@@ -186,7 +202,7 @@ export default function SocialCaption({ reelTarget, state, notify, sgpcDateISO, 
       </div>
       </details>
       <div className="p-4">
-        <MorningPublisher reelTarget={reelTarget} state={state} caption={caption} articleUrl={articleUrl} pdfUrl={pdfUrl} live={live} onLoadLive={onLoadLive} createImage={createFormatImage} disabled={disabled} />
+        <MorningPublisher manualLinks={links.context === context && links.manual} reelTarget={reelTarget} state={state} caption={caption} articleUrl={articleUrl} pdfUrl={pdfUrl} live={live} onLoadLive={onLoadLive} createImage={createFormatImage} disabled={disabled} />
       </div>
     </section>
   );
