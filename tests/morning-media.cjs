@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const ts = require('typescript');
 require.extensions['.ts'] = (module, filename) => module._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText, filename);
-const { indiaClock, inMorningWindow, expandTemplate, defaultTargets, verifyMorningState } = require('../src/lib/morningPlan.ts');
+const { indiaClock, inMorningWindow, expandTemplate, defaultTargets, verifyMorningState, verifyFreshMorningState } = require('../src/lib/morningPlan.ts');
 const { publishMedia } = require('../src/lib/socialMedia.ts');
 const { reelArgs } = require('../src/lib/reelRenderer.ts');
 const { seal, unseal, publishYoutube } = require('../src/lib/youtube.ts');
@@ -29,7 +29,9 @@ function sequence(responses, check = []) {
   assert.equal(inMorningWindow('05:45', new Date('2026-10-24T00:15:00Z')), true);
   assert.equal(inMorningWindow('05:45', new Date('2026-10-24T05:01:00Z')), false);
   assert.equal(inMorningWindow('25:00'), false);
-  assert.equal(defaultTargets['facebook-image'], true); assert.equal(defaultTargets['instagram-image'], false);
+  assert.equal(defaultTargets['facebook-image'], true); assert.equal(defaultTargets['instagram-image'], undefined);
+  assert.equal(defaultTargets['facebook-reel'], true);
+  assert.equal(Object.values(defaultTargets).filter(Boolean).length, 6);
   assert.equal(defaultTargets['instagram-reel'], true); assert.equal(defaultTargets['youtube-reel'], true);
   assert.equal(expandTemplate('{date} {original}', { date: 'today', original: '{translation}', translation: 'must not expand twice' }), 'today {translation}');
   const state = { dateISO: '2026-10-24', original: 'ਬਾਣੀ', translation: 'ਅਰਥ', ang: '1', banikar: 'ਗੁਰੂ', dateText: '24 October' };
@@ -39,6 +41,29 @@ function sequence(responses, check = []) {
   assert.equal(verifyMorningState(state, { ...live, metadataMatched: false }, '2026-10-24').validLive, false);
   assert.equal(verifyMorningState({ ...state, banikar: 'old author' }, live, '2026-10-24').matchesLive, false);
   assert.equal(verifyMorningState(state, { ...live, translation: '' }, '2026-10-24').validLive, false);
+  const now = new Date('2026-10-25T00:30:00Z');
+  const readyState = { ...state, dateISO: '2026-10-25', original: 'ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਸੁਨਹੁ ਸੰਤ ਪਿਆਰੇ ਬਿਨਉ ਹਮਾਰੇ ਜੀਉ ॥੧॥', translation: 'ਹੇ ਪਿਆਰੇ ਸੰਤ ਜਨੋ! ਮੇਰੀ ਬੇਨਤੀ ਸੁਣੋ।੧।', banikar: 'Guru Arjan Dev Ji', ang: '678', dateText: '25-October-2026 | ਕੱਤਕ 09, 558 | ਐਤਵਾਰ (Sunday)' };
+  const readyLive = { ...live, sourceDateISO: readyState.dateISO, checkedAt: now.toISOString(), original: readyState.original, translation: readyState.translation, matchedAuthor: readyState.banikar, ang: readyState.ang, dateText: readyState.dateText };
+  assert.equal(verifyFreshMorningState(readyState, readyLive, now).matchesLive, true);
+  for (const patch of [
+    { checkedAt: '2026-10-25T00:27:00Z' },
+    { checkedAt: '2026-10-25T00:31:00Z' },
+    { checkedAt: 'not a date' },
+    { sourceDateISO: '2026-10-24' },
+    { isToday: false },
+    { metadataMatched: false },
+    { matchedAuthor: null },
+    { translation: '' },
+    { original: readyState.original.replace('॥੧॥', '') },
+    { ang: '' },
+    { ang: '1431' },
+    { dateText: '25-October-2026 | Sunday' },
+    { dateText: readyState.dateText.replace('09', '10') },
+  ]) assert.equal(verifyFreshMorningState(readyState, { ...readyLive, ...patch }, now).validLive, false, `reject unattended source: ${JSON.stringify(patch)}`);
+  assert.equal(verifyFreshMorningState({ ...readyState, original: 'old content' }, readyLive, now).matchesLive, false);
+  assert.equal(verifyFreshMorningState({ ...readyState, banikar: 'Bhagat Namdev Ji' }, readyLive, now).matchesLive, false);
+  assert.equal(verifyFreshMorningState(readyState, readyLive, new Date('2026-10-25T19:00:00Z')).validLive, false, 'India midnight invalidates the previous batch');
+
   assert.throws(() => reelArgs('image','audio','output',0), /1 and 60/);
   const args = reelArgs('image','audio','output',17.95); assert.ok(args.includes('libx264')); assert.ok(args.includes('aac')); assert.ok(args.includes('yuv420p')); assert.ok(!args.includes('-stream_loop')); assert.ok(args.some(arg => arg.includes('pad=1080:1920')));
 

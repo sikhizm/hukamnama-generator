@@ -90,6 +90,7 @@ export default function Studio() {
   const [fitScale, setFitScale] = useState(0.25);
   const [zoom, setZoom] = useState<"fit" | 0.25 | 0.5 | 1>("fit");
   const scale = zoom === "fit" ? fitScale : zoom;
+  const [autoTarget, setAutoTarget] = useState<HTMLDivElement | null>(null);
   const [reelTarget, setReelTarget] = useState<HTMLDivElement | null>(null);
   const [liveRecord, setLiveRecord] = useState<LiveHukamnama | null>(null);
 
@@ -127,6 +128,7 @@ export default function Studio() {
     });
   }, []);
   const useLiveHukamnama = useCallback((record: LiveHukamnama) => {
+    setLiveRecord(record);
     setState((previous) => ({
       ...previous,
       original: record.original,
@@ -532,6 +534,7 @@ export default function Studio() {
         </div>
       </header>
 
+      <div ref={setAutoTarget} className="shrink-0 border-b border-white/10 bg-[#0c1713]" />
       <LiveSourceStatus onUse={useLiveHukamnama} onStatus={setLiveRecord} />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[270px_minmax(0,1fr)_320px] xl:grid-cols-[300px_minmax(0,1fr)_350px]">
@@ -637,6 +640,7 @@ export default function Studio() {
         <aside aria-label="Sharing and publishing" className="studio-scroll order-2 min-w-0 border-l border-white/10 bg-[#0d0e14] lg:order-3 lg:overflow-y-auto">
           <h2 className="sticky top-0 z-20 border-b border-white/10 bg-[#0d0e14] px-4 py-3 text-sm font-semibold text-emerald-200">3 · Share &amp; publish</h2>
           <SocialCaption
+            autoTarget={autoTarget}
             reelTarget={reelTarget}
             state={state}
             live={liveRecord}
