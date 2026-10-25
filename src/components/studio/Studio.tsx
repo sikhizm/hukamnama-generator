@@ -1,5 +1,6 @@
 "use client";
 
+import InstallApp from "../InstallApp";
 import { hukamnamaExcerpt } from "@/lib/hukamnama/excerpt";
 import { liveAuthor } from "@/lib/hukamnama/authors";
 
@@ -85,6 +86,7 @@ export default function Studio() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [backgroundReady, setBackgroundReady] = useState(false);
   const [scale, setScale] = useState(0.25);
+  const [reelTarget, setReelTarget] = useState<HTMLDivElement | null>(null);
   const [liveRecord, setLiveRecord] = useState<LiveHukamnama | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -489,14 +491,14 @@ export default function Studio() {
   };
 
   return (
-    <div className="flex min-h-screen w-full flex-col md:h-screen md:overflow-hidden bg-[#0a0b10] text-zinc-200">
+    <div className="flex min-h-screen w-full flex-col lg:h-screen lg:overflow-hidden bg-[#0a0b10] text-zinc-200">
       {/* ------------------------------------------------------- topbar */}
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] bg-[#0c0d13] px-4">
-        <div className="font-pa grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-amber-300 to-amber-500 text-[13px] font-bold text-zinc-950 shadow-lg shadow-amber-500/25">
+        <div className="font-pa hidden h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-amber-300 to-amber-500 text-[13px] font-bold text-zinc-950 shadow-lg shadow-amber-500/25 sm:grid">
           ਸਿ
         </div>
-        <div className="min-w-0">
-          <div className="text-[13px] font-semibold tracking-wide text-white">
+        <div className="hidden min-w-0 flex-1 sm:block">
+          <div className="truncate text-[13px] font-semibold tracking-wide text-white">
             Hukamnama Studio
           </div>
           <div className="truncate text-[10px] text-zinc-500">
@@ -504,8 +506,9 @@ export default function Studio() {
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <InstallApp />
           <LogoutButton />
-          <Link href="/posts" className="rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-300">Gurbani Posts ↗</Link>
+          <Link href="/posts" className="rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-300"><span className="hidden sm:inline">Gurbani </span>Posts ↗</Link>
           <button
             type="button"
             onClick={() => fontInputRef.current?.click()}
@@ -527,9 +530,10 @@ export default function Studio() {
 
       <LiveSourceStatus onUse={useLiveHukamnama} onStatus={setLiveRecord} />
 
-      <div className="flex min-h-0 flex-1 flex-col-reverse md:flex-row">
+      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[270px_minmax(0,1fr)_320px] xl:grid-cols-[300px_minmax(0,1fr)_350px]">
         {/* ----------------------------------------------------- sidebar */}
-        <aside className="studio-scroll w-full md:w-[360px] shrink-0 md:overflow-y-auto border-r border-white/[0.06] bg-[#0d0e14]">
+        <aside aria-label="Generation controls" className="studio-scroll order-3 min-w-0 border-r border-white/[0.06] bg-[#0d0e14] lg:order-1 lg:overflow-y-auto">
+          <h2 className="sticky top-0 z-20 border-b border-white/10 bg-[#0d0e14] px-4 py-3 text-sm font-semibold text-amber-200">1 · Generate</h2>
           <section className="space-y-3 border-b border-white/10 p-4">
             <div>
               <p className="text-sm font-semibold">Sikhizm Hukamnama template</p>
@@ -570,7 +574,60 @@ export default function Studio() {
           <DateSection {...panelProps()} />
           <MetaSection {...panelProps()} />
           <ContentSection {...panelProps()} />
+          <TypographySection {...panelProps()} />
+
+        </aside>
+
+        {/* ------------------------------------------------------- stage */}
+        <main aria-label="Image and reel previews" className="order-1 flex min-h-0 min-w-0 flex-col lg:order-2 lg:overflow-y-auto">
+          <h2 className="border-b border-white/10 bg-[#0d0e14] px-4 py-3 text-sm font-semibold text-amber-200">2 · Preview</h2>
+          <div ref={stageRef} className="stage-bg relative min-h-[60vh] min-w-0 flex-1 overflow-hidden lg:min-h-[350px]">
+          <div className="absolute left-4 top-4 z-10 flex max-w-[70%] flex-wrap items-center gap-2">
+            {blockChip("Original", 0)}
+            {blockChip("Translation", 1)}
+            {layout?.warnings.map((w) => (
+              <span
+                key={w}
+                className="flex items-center gap-1.5 rounded-full border border-red-400/30 bg-red-950/60 px-2.5 py-1 text-[10px] font-medium text-red-300 backdrop-blur"
+              >
+                <TriangleAlert size={11} /> {w}
+              </span>
+            ))}
+          </div>
+          <div className="absolute right-4 top-4 z-10 flex gap-2">
+            <button
+              type="button"
+              onClick={() => patch({ safeArea: !state.safeArea })}
+              title="Toggle safe-area guide (80px)"
+              className={`grid h-8 w-8 place-items-center rounded-lg border backdrop-blur transition ${
+                state.safeArea
+                  ? "border-amber-300/60 bg-amber-400/20 text-amber-300"
+                  : "border-white/10 bg-black/40 text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              <Frame size={14} />
+            </button>
+          </div>
+
+          <div className="absolute inset-0 flex items-center justify-center p-7">
+            <div
+              style={{ width: Math.round(preset.w * scale), height: Math.round(preset.h * scale) }}
+              className="overflow-hidden rounded-lg shadow-[0_30px_90px_-20px_rgba(0,0,0,0.9)] ring-1 ring-white/10"
+            >
+              <canvas ref={canvasRef} width={preset.w} height={preset.h} className="block h-full w-full" />
+            </div>
+          </div>
+
+          <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-white/[0.07] bg-black/50 px-3 py-1 font-mono text-[9.5px] text-zinc-400 backdrop-blur">
+            {preset.w} × {preset.h} · {Math.round(scale * 100)}% preview · exports at 100%
+          </div>
+          </div>
+          <div ref={setReelTarget} className="border-t border-white/10 bg-[#0d0e14] p-4" />
+        </main>
+        <aside aria-label="Sharing and publishing" className="studio-scroll order-2 min-w-0 border-l border-white/10 bg-[#0d0e14] lg:order-3 lg:overflow-y-auto">
+          <h2 className="sticky top-0 z-20 border-b border-white/10 bg-[#0d0e14] px-4 py-3 text-sm font-semibold text-emerald-200">3 · Share &amp; publish</h2>
           <SocialCaption
+            reelTarget={reelTarget}
             state={state}
             live={liveRecord}
             onLoadLive={useLiveHukamnama}
@@ -584,8 +641,6 @@ export default function Studio() {
             disabled={!canExport}
           />
           <MetaConnection />
-          <TypographySection {...panelProps()} />
-
           {/* ------------------------------------------------ export dock */}
           <div className="sticky bottom-0 z-10 border-t border-white/[0.07] bg-[#0c0d13]/95 px-4 py-3 backdrop-blur">
             {!fontReady && (
@@ -644,49 +699,6 @@ export default function Studio() {
             </p>
           </div>
         </aside>
-
-        {/* ------------------------------------------------------- stage */}
-        <main ref={stageRef} className="stage-bg relative min-h-[65vh] min-w-0 flex-1 overflow-hidden md:min-h-0">
-          <div className="absolute left-4 top-4 z-10 flex max-w-[70%] flex-wrap items-center gap-2">
-            {blockChip("Original", 0)}
-            {blockChip("Translation", 1)}
-            {layout?.warnings.map((w) => (
-              <span
-                key={w}
-                className="flex items-center gap-1.5 rounded-full border border-red-400/30 bg-red-950/60 px-2.5 py-1 text-[10px] font-medium text-red-300 backdrop-blur"
-              >
-                <TriangleAlert size={11} /> {w}
-              </span>
-            ))}
-          </div>
-          <div className="absolute right-4 top-4 z-10 flex gap-2">
-            <button
-              type="button"
-              onClick={() => patch({ safeArea: !state.safeArea })}
-              title="Toggle safe-area guide (80px)"
-              className={`grid h-8 w-8 place-items-center rounded-lg border backdrop-blur transition ${
-                state.safeArea
-                  ? "border-amber-300/60 bg-amber-400/20 text-amber-300"
-                  : "border-white/10 bg-black/40 text-zinc-400 hover:text-zinc-200"
-              }`}
-            >
-              <Frame size={14} />
-            </button>
-          </div>
-
-          <div className="absolute inset-0 flex items-center justify-center p-7">
-            <div
-              style={{ width: Math.round(preset.w * scale), height: Math.round(preset.h * scale) }}
-              className="overflow-hidden rounded-lg shadow-[0_30px_90px_-20px_rgba(0,0,0,0.9)] ring-1 ring-white/10"
-            >
-              <canvas ref={canvasRef} width={preset.w} height={preset.h} className="block h-full w-full" />
-            </div>
-          </div>
-
-          <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-white/[0.07] bg-black/50 px-3 py-1 font-mono text-[9.5px] text-zinc-400 backdrop-blur">
-            {preset.w} × {preset.h} · {Math.round(scale * 100)}% preview · exports at 100%
-          </div>
-        </main>
       </div>
 
       {/* ------------------------------------------------------- hidden */}

@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import type { StudioState } from "@/lib/hukamnama/types";
 import type { LiveHukamnama } from "@/lib/hukamnama/liveSource";
@@ -8,6 +9,7 @@ import { DESTINATIONS, defaultTargets, expandTemplate, indiaClock, inMorningWind
 import { buildSocialCaption } from "@/lib/hukamnama/socialCaption";
 
 interface Props {
+  reelTarget: HTMLElement | null;
   state: StudioState; caption: string; articleUrl: string; pdfUrl: string;
   live: LiveHukamnama | null; onLoadLive: (live: LiveHukamnama) => void;
   createImage: (format: "feed" | "vertical") => Promise<Blob | null>; disabled: boolean;
@@ -181,7 +183,14 @@ export default function MorningPublisher(props: Props) {
   useEffect(() => { latest.current = () => { if (armed.current) void run(true); }; });
   useEffect(() => { const timer = setInterval(() => latest.current(), 15000); return () => clearInterval(timer); }, []);
 
-  return <details className="rounded-xl border border-amber-400/20 bg-amber-950/10" open>
+  const reelPreview = <section aria-label="Reel preview" className="space-y-3 text-xs text-zinc-300">
+    <h3 className="text-sm font-semibold text-amber-200">Reel preview · 1080 × 1920</h3>
+    <p className="text-xs text-zinc-400">Create a preview with your saved Waheguru audio before publishing.</p>
+      <button disabled={busy || props.disabled || !audio} onClick={async () => { setBusy(true); try { await makeReel(); setMessage("Reel ready. Preview and download it below; nothing was posted."); } catch (error) { setMessage((error as Error).message); } finally { setBusy(false); } }} className="w-full rounded-lg border border-amber-300/30 px-3 py-2 text-amber-200">{busy ? "Working…" : "Create reel preview · no posting"}</button>
+      {video && <div><video controls playsInline src={video.url} className="mx-auto max-h-72 w-full rounded-lg bg-black" /><a href={video.url} download={`hukamnama-${props.state.dateISO}-${duration === "full" ? "full-audio" : `${duration}s`}.mp4`} className="mt-2 block text-amber-300 underline">Download MP4</a>{video.fingerprint !== fingerprint && <p className="text-amber-200">Artwork or audio changed. The preview will be regenerated before publishing.</p>}</div>}
+  </section>;
+
+  return <>{props.reelTarget ? createPortal(reelPreview, props.reelTarget) : reelPreview}<details className="rounded-xl border border-amber-400/20 bg-amber-950/10" open>
     <summary className="cursor-pointer px-3 py-3 text-xs font-semibold text-amber-200">Morning posts, reels &amp; stories</summary>
     <div className="space-y-3 px-3 pb-4 text-xs text-zinc-400">
       <p>Select destinations independently. Image posts use the 1080×1350 template; reels and stories use 1080×1920.</p>
@@ -199,8 +208,6 @@ export default function MorningPublisher(props: Props) {
       <p className="text-[10px]">Your signed-in session authorizes publishing. Reloading turns automatic posting off; your login stays active.</p>
       <div className="flex flex-wrap gap-2"><button disabled={busy} onClick={async () => { try { const result = await api("/api/social/youtube/connect"); window.location.assign(result.url); } catch (error) { setMessage((error as Error).message); } }} className="rounded-lg border border-white/10 px-2 py-2">Connect YouTube</button><button disabled={busy} onClick={async () => { try { const result = await api("/api/social/youtube?status=1"); setYoutube(`${result.title} · ${result.channelId}`); } catch (error) { setYoutube((error as Error).message); } }} className="rounded-lg border border-white/10 px-2 py-2">Check channel</button></div>
       {youtube && <p className="break-all">YouTube: {youtube}</p>}
-      <button disabled={busy || props.disabled || !audio} onClick={async () => { setBusy(true); try { await makeReel(); setMessage("Reel ready. Preview and download it below; nothing was posted."); } catch (error) { setMessage((error as Error).message); } finally { setBusy(false); } }} className="w-full rounded-lg border border-amber-300/30 px-3 py-2 text-amber-200">{busy ? "Working…" : "Create reel preview · no posting"}</button>
-      {video && <div><video controls playsInline src={video.url} className="max-h-96 w-full rounded-lg" /><a href={video.url} download={`hukamnama-${props.state.dateISO}-${duration === "full" ? "full-audio" : `${duration}s`}.mp4`} className="mt-2 block text-amber-300 underline">Download MP4</a>{video.fingerprint !== fingerprint && <p className="text-amber-200">Artwork or audio changed. The preview will be regenerated before publishing.</p>}</div>}
       <label className="block">Morning start time · IST<input type="time" min="04:00" max="10:30" value={time} disabled={enabled || busy} onChange={event => setTime(event.target.value)} className={field} /></label>
       <label className="flex items-start gap-2"><input type="checkbox" checked={consent} disabled={enabled || busy} onChange={event => setConsent(event.target.checked)} className="mt-0.5 accent-amber-400" />I approve public posting of today’s and future verified Hukamnamas to the selected accounts while this app session is armed.</label>
       <button role="switch" aria-checked={enabled} disabled={!enabled && (busy || !loaded || !consent || !Object.values(targets).some(Boolean) || (needsReel(targets) && !audio))} onClick={() => {
@@ -214,5 +221,5 @@ export default function MorningPublisher(props: Props) {
       <p className="text-[10px]">App-open mode · laptop awake, online and app visible. {enabled ? wake ? "Screen wake lock active." : "Wake lock unavailable; prevent sleep manually." : ""} Stops at 10:30 IST. Stories contain the artwork; caption text is used on feed posts and reels. WhatsApp requires manual sharing.</p>
       {Object.entries(ledger[day] ?? {}).map(([id, result]) => <div key={id} className="rounded-lg border border-white/10 p-2"><p className="font-semibold text-zinc-200">{DESTINATIONS.find(item => item.id === id)?.label} · {result.status}</p><p className="mt-1 break-words">{result.message}</p>{result.url && <a href={result.url} target="_blank" rel="noopener noreferrer" className="text-amber-300 underline">Open account/post</a>}{result.status !== "sent" && !enabled && <button disabled={busy} onClick={() => { const saved = JSON.parse(localStorage.getItem(LEDGER_KEY) ?? "{}") as Ledger; delete saved[day]?.[id as Destination]; localStorage.setItem(LEDGER_KEY, JSON.stringify(saved)); setLedger(saved); }} className="ml-2 underline">{result.status === "failed" ? "Allow retry for this failed destination" : "I checked: no post exists · allow retry"}</button>}{(result.status === "sending" || result.status === "unknown") && <p className="mt-1 text-amber-200">Not retried automatically. Check the account for an existing post.</p>}</div>)}
     </div>
-  </details>;
+  </details></>;
 }
