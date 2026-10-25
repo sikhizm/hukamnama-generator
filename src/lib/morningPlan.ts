@@ -26,7 +26,16 @@ export function inMorningWindow(time: string, now = new Date()) {
   return hour >= 4 && hour <= 10 && minute < 60 && start <= 630 && indiaClock(now).minutes >= start && indiaClock(now).minutes <= 630;
 }
 export function expandTemplate(template: string, fields: Record<string, string>) {
-  return template.replace(/\{(date|original|translation|articleUrl|pdfUrl)\}/g, (_, key: string) => fields[key] ?? "");
+  const lines: string[] = [];
+  for (const line of template.split("\n")) {
+    const missing = ["articleUrl", "pdfUrl"].filter(key => !fields[key]?.trim() && line.includes(`{${key}}`));
+    if (missing.length && !/\{(?:date|original|translation)\}/.test(line)) {
+      if (line.trim() === "{articleUrl}" && /(?:read|article|translation|hukamnama).*:\s*$/i.test(lines.at(-1) ?? "")) lines.pop();
+      continue;
+    }
+    lines.push(line);
+  }
+  return lines.join("\n").replace(/\{(date|original|translation|articleUrl|pdfUrl)\}/g, (_, key: string) => fields[key] ?? "").replace(/\n{3,}/g, "\n\n").trim();
 }
 export function needsReel(targets: MorningTargets) { return targets["facebook-reel"] || targets["instagram-reel"] || targets["youtube-reel"]; }
 export function verifyMorningState(state: StudioState, live: LiveHukamnama | null, day: string) {

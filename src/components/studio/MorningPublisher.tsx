@@ -6,9 +6,11 @@ import type { StudioState } from "@/lib/hukamnama/types";
 import type { LiveHukamnama } from "@/lib/hukamnama/liveSource";
 import { loadChant, saveChant } from "@/lib/browserAudio";
 import { DESTINATIONS, defaultTargets, expandTemplate, indiaClock, inMorningWindow, needsReel, verifyMorningState, SHORT_TEMPLATE, type Destination, type MorningTargets } from "@/lib/morningPlan";
+import { requestEvergreenLinks } from "@/lib/hukamnama/sikhizmLinks";
 import { buildSocialCaption } from "@/lib/hukamnama/socialCaption";
 
 interface Props {
+  manualLinks?: boolean;
   reelTarget: HTMLElement | null;
   state: StudioState; caption: string; articleUrl: string; pdfUrl: string;
   live: LiveHukamnama | null; onLoadLive: (live: LiveHukamnama) => void;
@@ -139,12 +141,14 @@ export default function MorningPublisher(props: Props) {
         const completed = JSON.parse(localStorage.getItem(LEDGER_KEY) ?? "{}") as Ledger;
         const pending = DESTINATIONS.filter(item => targets[item.id] && !completed[today]?.[item.id]);
         if (!pending.length) { setMessage("Today’s selected destinations have already been attempted. Review results below; automatic retries are disabled."); return; }
-        let articleUrl = "https://sikhizm.com/hukamnama-sahib/", pdfUrl = "";
-        try {
-          const response = await fetch(`/api/hukamnama/sikhizm-links?date=${today}`, { cache: "no-store" });
-          const links = await response.json();
-          if (response.ok && links.found && links.articleUrl) { articleUrl = links.articleUrl; pdfUrl = links.pdfUrl ?? ""; }
-        } catch { /* Use the evergreen Hukamnama page, never yesterday's article or PDF. */ }
+        let articleUrl = "", pdfUrl = "";
+        if (props.manualLinks) {
+          articleUrl = props.articleUrl;
+          pdfUrl = props.pdfUrl;
+        } else try {
+          const links = await requestEvergreenLinks({ date: today, ang: props.state.ang, original: props.state.original });
+          if (links.found) { articleUrl = links.articleUrl; pdfUrl = links.pdfUrl || ""; }
+        } catch { /* Omit unavailable links instead of carrying another day's links forward. */ }
         const batchCaption = useFull ? buildSocialCaption(props.state, articleUrl, pdfUrl) : expandTemplate(template, { date: props.state.dateText, original: props.state.original, translation: props.state.translation, articleUrl, pdfUrl });
         // Build all required artwork before the first external post.
         const feed = pending.some(item => item.id.endsWith("image")) ? await props.createImage("feed") : null;
@@ -203,7 +207,7 @@ export default function MorningPublisher(props: Props) {
       <label className="flex items-start gap-2"><input type="checkbox" checked={useFull} disabled={enabled || busy} onChange={event => { setConsent(false); setUseFull(event.target.checked); }} className="mt-0.5 accent-amber-400" />Use the full text template above for feed posts and reels</label>
       {!useFull && <label className="block">Shared publishing template<textarea value={template} disabled={enabled || busy} onChange={event => { setTemplate(event.target.value); setConsent(false); }} rows={6} className={field} /><span className="text-[10px]">Fields: {"{date}, {articleUrl}, {pdfUrl}, {original}, {translation}"}</span></label>}
       <label className="block">Caption preview · {[...finalCaption].length} characters<textarea readOnly rows={5} value={finalCaption} className={field} /></label>
-      <p className="text-[10px]">Before each batch, article and PDF links are looked up for that date. If unavailable, the evergreen Hukamnama page is used and the PDF link is left blank.</p>
+      <p className="text-[10px]">Links are matched against evergreen Sikhizm articles using Ang and Gurbani. Current manual edits take priority. If no match is verified, link sections are omitted.</p>
       {[...finalCaption].length > 2200 && <p className="text-amber-200">Instagram and image-post captions are limited to 2,200 characters. Choose a shorter template; Gurbani is never automatically cut.</p>}
       <p className="text-[10px]">Your signed-in session authorizes publishing. Reloading turns automatic posting off; your login stays active.</p>
       <div className="flex flex-wrap gap-2"><button disabled={busy} onClick={async () => { try { const result = await api("/api/social/youtube/connect"); window.location.assign(result.url); } catch (error) { setMessage((error as Error).message); } }} className="rounded-lg border border-white/10 px-2 py-2">Connect YouTube</button><button disabled={busy} onClick={async () => { try { const result = await api("/api/social/youtube?status=1"); setYoutube(`${result.title} · ${result.channelId}`); } catch (error) { setYoutube((error as Error).message); } }} className="rounded-lg border border-white/10 px-2 py-2">Check channel</button></div>

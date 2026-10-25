@@ -1,69 +1,20 @@
 import { NextResponse } from "next/server";
-import { findSikhizmPdfUrl, parseSikhizmFeed } from "@/lib/hukamnama/liveSource";
-
+import { findEvergreenLinks } from "@/lib/hukamnama/sikhizmLinks";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const FEED_URL = "https://sikhizm.com/category/hukamnama/feed/";
-
-function isSikhizmUrl(value: string): boolean {
+export async function POST(request: Request) {
   try {
-    const url = new URL(value);
-    return url.protocol === "https:" && ["sikhizm.com", "www.sikhizm.com"].includes(url.hostname);
+    if (Number(request.headers.get("content-length")) > 80_000) return NextResponse.json({ error: "Hukamnama lookup request is too large." }, { status: 400 });
+    const body = await request.json();
+    if (typeof body.date !== "string" || !/^20\d{2}-\d{2}-\d{2}$/.test(body.date) || typeof body.ang !== "string" || !/^\d{1,4}$/.test(body.ang) || Number(body.ang) < 1 || Number(body.ang) > 1430 || typeof body.original !== "string" || body.original.length > 20000 || body.original.trim().length < 32) {
+      return NextResponse.json({ error: "Load the Hukamnama date, Ang and original Gurbani before searching for links." }, { status: 400 });
+    }
+    return NextResponse.json(await findEvergreenLinks(body), { headers: { "Cache-Control": "no-store" } });
   } catch {
-    return false;
+    return NextResponse.json({ error: "Could not read the Hukamnama lookup request." }, { status: 400 });
   }
 }
-
-export async function GET(request: Request) {
-  const expectedDate = new URL(request.url).searchParams.get("date") ?? "";
-  if (!/^20\d{2}-\d{2}-\d{2}$/.test(expectedDate)) {
-    return NextResponse.json({ error: "A verified Hukamnama date is required." }, { status: 400 });
-  }
-
-  try {
-    const feedResponse = await fetch(FEED_URL, {
-      headers: { "user-agent": "Sikhizm-Hukamnama-Studio/1.0", accept: "application/rss+xml, application/xml, text/xml" },
-      signal: AbortSignal.timeout(12_000),
-      next: { revalidate: 180 },
-    });
-    if (!feedResponse.ok) throw new Error(`Sikhizm RSS returned HTTP ${feedResponse.status}.`);
-    const feed = parseSikhizmFeed(await feedResponse.text());
-    const latestPost = feed[0] ?? null;
-    const todayPost = feed.find((post) => post.localDateISO === expectedDate);
-    if (!todayPost || !isSikhizmUrl(todayPost.link)) {
-      return NextResponse.json({
-        found: false,
-        expectedDate,
-        latestDateISO: latestPost?.localDateISO ?? null,
-        latestTitle: latestPost?.title ?? null,
-        message: "No Hukamnama post dated today was found in Sikhizm's public RSS feed. Existing links were left unchanged.",
-      }, { headers: { "Cache-Control": "no-store" } });
-    }
-
-    let pdfUrl = findSikhizmPdfUrl(todayPost.content, todayPost.link);
-    if (!pdfUrl) {
-      const postResponse = await fetch(todayPost.link, {
-        headers: { "user-agent": "Sikhizm-Hukamnama-Studio/1.0", accept: "text/html" },
-        signal: AbortSignal.timeout(12_000),
-        next: { revalidate: 180 },
-      });
-      if (postResponse.ok) pdfUrl = findSikhizmPdfUrl(await postResponse.text(), todayPost.link);
-    }
-
-    return NextResponse.json({
-      found: true,
-      expectedDate,
-      articleUrl: todayPost.link,
-      pdfUrl,
-      title: todayPost.title,
-      message: pdfUrl
-        ? "Today's article and PDF link were found."
-        : "Today's article was found, but its PDF button link was not. The existing PDF URL was left unchanged.",
-    }, { headers: { "Cache-Control": "no-store" } });
-  } catch (error) {
-    return NextResponse.json({
-      error: error instanceof Error ? error.message : "Could not read Sikhizm's public Hukamnama feed.",
-    }, { status: 502, headers: { "Cache-Control": "no-store" } });
-  }
+export async function GET() {
+  return NextResponse.json({ error: "A date alone cannot identify an evergreen article. Reload the app and search with its Ang and Gurbani." }, { status: 400 });
 }
