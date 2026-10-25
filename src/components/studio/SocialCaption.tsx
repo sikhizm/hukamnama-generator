@@ -6,6 +6,8 @@ import type { StudioState } from "@/lib/hukamnama/types";
 import { buildSocialCaption } from "@/lib/hukamnama/socialCaption";
 import MorningPublisher from "./MorningPublisher";
 import type { LiveHukamnama } from "@/lib/hukamnama/liveSource";
+import { indiaClock } from "@/lib/morningPlan";
+import { hasTodaysSgpcContent, millisecondsToIndiaMidnight } from "@/lib/hukamnama/shareFreshness";
 
 import { linkContext, requestEvergreenLinks } from "@/lib/hukamnama/sikhizmLinks";
 const LINKS_KEY = "hukamnama-social-links-v2";
@@ -35,6 +37,28 @@ export default function SocialCaption({ autoTarget, reelTarget, state, notify, c
   const [findingLinks, setFindingLinks] = useState(false);
   const [sharingImage, setSharingImage] = useState(false);
   const [whatsappStep, setWhatsappStep] = useState<"image" | "text">("image");
+  const [indiaDay, setIndiaDay] = useState<string | null>(null);
+  const currentSgpcContent = hasTodaysSgpcContent(state, live, indiaDay);
+
+  useEffect(() => {
+    let timer: number;
+    const refreshDay = () => {
+      window.clearTimeout(timer);
+      const now = new Date();
+      setIndiaDay(indiaClock(now).day);
+      timer = window.setTimeout(refreshDay, millisecondsToIndiaMidnight(now));
+    };
+    timer = window.setTimeout(refreshDay, 0);
+    window.addEventListener("focus", refreshDay);
+    window.addEventListener("pageshow", refreshDay);
+    document.addEventListener("visibilitychange", refreshDay);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("focus", refreshDay);
+      window.removeEventListener("pageshow", refreshDay);
+      document.removeEventListener("visibilitychange", refreshDay);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,14 +183,14 @@ export default function SocialCaption({ autoTarget, reelTarget, state, notify, c
       <div className="space-y-3 border-b border-emerald-400/20 bg-emerald-950/20 p-4">
         <h3 className="flex items-center gap-2 text-lg font-bold text-emerald-200"><MessageCircle size={24} /> Share on WhatsApp</h3>
         <p className="text-xs leading-5 text-zinc-300">Two easy steps: send the image, then come back and send the text.</p>
-        <button type="button" disabled={disabled || sharingImage} onClick={() => void shareImageFirst()} className="flex min-h-16 w-full items-center justify-center gap-3 rounded-xl bg-emerald-400 px-4 py-4 text-base font-bold text-zinc-950 hover:bg-emerald-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200 disabled:cursor-not-allowed disabled:opacity-40">
+        <button type="button" aria-describedby="whatsapp-freshness" disabled={disabled || sharingImage} onClick={() => void shareImageFirst()} className={`flex min-h-16 w-full items-center justify-center gap-3 rounded-xl px-4 py-4 text-base font-bold text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${currentSgpcContent ? "bg-emerald-400 hover:bg-emerald-300 focus-visible:outline-emerald-200" : "bg-red-400 hover:bg-red-300 focus-visible:outline-red-200"}`}>
           {sharingImage ? <LoaderCircle size={24} className="animate-spin" /> : <MessageCircle size={24} />}
           {sharingImage ? "Preparing image…" : "1 · Share image"}
         </button>
-        <button type="button" disabled={disabled} onClick={() => void shareTextNext()} className={`flex min-h-16 w-full items-center justify-center gap-3 rounded-xl border border-emerald-300/50 px-4 py-4 text-base font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200 disabled:opacity-40 ${whatsappStep === "text" ? "bg-emerald-400 text-zinc-950" : "bg-emerald-950 text-emerald-100"}`}>
+        <button type="button" aria-describedby="whatsapp-freshness" disabled={disabled} onClick={() => void shareTextNext()} className={`flex min-h-16 w-full items-center justify-center gap-3 rounded-xl border px-4 py-4 text-base font-bold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${currentSgpcContent ? `border-emerald-300/50 focus-visible:outline-emerald-200 ${whatsappStep === "text" ? "bg-emerald-400 text-zinc-950" : "bg-emerald-950 text-emerald-100"}` : "border-red-300/60 bg-red-950 text-red-100 hover:bg-red-900 focus-visible:outline-red-200"}`}>
           <Send size={24} /> 2 · Share text
         </button>
-        <p role="status" className="text-xs text-emerald-100">{disabled ? "Load today’s content and complete the image to unlock sharing." : whatsappStep === "text" ? "Next: share the text to the same group or channel." : "Ready: start with Share image."}</p>
+        <p id="whatsapp-freshness" role="status" className={`text-xs ${currentSgpcContent ? "text-emerald-100" : "text-red-200"}`}>{!currentSgpcContent ? "Today’s SGPC content is not loaded and verified. Check SGPC, then load today’s text. Resets at midnight IST." : disabled ? "Today’s SGPC content is loaded. Complete the image to unlock sharing." : whatsappStep === "text" ? "Next: share the text to the same group or channel." : "Today’s SGPC content is loaded. Ready: start with Share image."}</p>
         <p className="text-[11px] leading-5 text-zinc-400">Choose WhatsApp in the share sheet, select your group or channel, then tap Send. If image sharing is unavailable, the image downloads for you to attach.</p>
       </div>
       <details open>
