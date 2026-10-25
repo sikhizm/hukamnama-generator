@@ -85,7 +85,9 @@ export default function Studio() {
   const [exporting, setExporting] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [backgroundReady, setBackgroundReady] = useState(false);
-  const [scale, setScale] = useState(0.25);
+  const [fitScale, setFitScale] = useState(0.25);
+  const [zoom, setZoom] = useState<"fit" | 0.25 | 0.5 | 1>("fit");
+  const scale = zoom === "fit" ? fitScale : zoom;
   const [reelTarget, setReelTarget] = useState<HTMLDivElement | null>(null);
   const [liveRecord, setLiveRecord] = useState<LiveHukamnama | null>(null);
 
@@ -275,7 +277,7 @@ export default function Studio() {
     if (!el) return;
     const ro = new ResizeObserver(() => {
       const r = el.getBoundingClientRect();
-      setScale(Math.max(0.05, Math.min((r.width - 56) / preset.w, (r.height - 56) / preset.h)));
+      setFitScale(Math.max(0.05, Math.min((r.width - 56) / preset.w, (r.height - 120) / preset.h)));
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -580,7 +582,12 @@ export default function Studio() {
 
         {/* ------------------------------------------------------- stage */}
         <main aria-label="Image and reel previews" className="order-1 flex min-h-0 min-w-0 flex-col lg:order-2 lg:overflow-y-auto">
-          <h2 className="border-b border-white/10 bg-[#0d0e14] px-4 py-3 text-sm font-semibold text-amber-200">2 · Preview</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[#0d0e14] px-4 py-3">
+            <h2 className="text-sm font-semibold text-amber-200">2 · Preview</h2>
+            <div role="group" aria-label="Image preview zoom" className="flex gap-1">
+              {(["fit", 0.25, 0.5, 1] as const).map(value => <button key={value} type="button" aria-pressed={zoom === value} onClick={() => setZoom(value)} className={`min-h-9 rounded-lg border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 ${zoom === value ? "border-amber-300 bg-amber-400/15 text-amber-200" : "border-white/10 text-zinc-300 hover:bg-white/10"}`}>{value === "fit" ? "Fit" : `${value * 100}%`}</button>)}
+            </div>
+          </div>
           <div ref={stageRef} className="stage-bg relative min-h-[60vh] min-w-0 flex-1 overflow-hidden lg:min-h-[350px]">
           <div className="absolute left-4 top-4 z-10 flex max-w-[70%] flex-wrap items-center gap-2">
             {blockChip("Original", 0)}
@@ -609,16 +616,17 @@ export default function Studio() {
             </button>
           </div>
 
-          <div className="absolute inset-0 flex items-center justify-center p-7">
-            <div
-              style={{ width: Math.round(preset.w * scale), height: Math.round(preset.h * scale) }}
-              className="overflow-hidden rounded-lg shadow-[0_30px_90px_-20px_rgba(0,0,0,0.9)] ring-1 ring-white/10"
-            >
-              <canvas ref={canvasRef} width={preset.w} height={preset.h} className="block h-full w-full" />
+          <div tabIndex={0} role="region" aria-label="Scrollable image preview" className="absolute inset-0 overflow-auto focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-amber-300">
+            <div className="grid place-items-center px-7 pb-12 pt-16" style={{ minWidth: "100%", minHeight: "100%", width: Math.round(preset.w * scale) + 56, height: Math.round(preset.h * scale) + 120 }}>
+              <div
+                style={{ width: Math.round(preset.w * scale), height: Math.round(preset.h * scale) }}
+                className="overflow-hidden rounded-lg shadow-[0_30px_90px_-20px_rgba(0,0,0,0.9)] ring-1 ring-white/10"
+              >
+                <canvas ref={canvasRef} width={preset.w} height={preset.h} className="block h-full w-full" />
+              </div>
             </div>
           </div>
-
-          <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-white/[0.07] bg-black/50 px-3 py-1 font-mono text-[9.5px] text-zinc-400 backdrop-blur">
+          <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-white/[0.07] bg-black/50 px-3 py-1 font-mono text-[9.5px] text-zinc-400 backdrop-blur">
             {preset.w} × {preset.h} · {Math.round(scale * 100)}% preview · exports at 100%
           </div>
           </div>
