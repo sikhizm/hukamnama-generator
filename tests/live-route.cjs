@@ -32,6 +32,7 @@ const metadata = { date: { gregorian: { year: 2026, monthno: 10, date: 25 } }, h
     if (mode === 'stale') { assert.equal(response.status, 502); assert.ok(data.error.includes('No same-day')); continue; }
     assert.equal(response.status, 200);
     assert.equal(data.sourceName, 'Sikhizm same-day Hukamnama post');
+    assert.equal(data.dateText, '25-October-2026 | ਕੱਤਕ 09, 558 | ਐਤਵਾਰ (Sunday)', 'annual SGPC calendar works even when both daily sources return 403');
     assert.equal(data.sourceDateISO, '2026-10-25'); assert.equal(data.ang, '678');
     assert.equal(data.original, record.original); assert.equal(data.translation, record.translation);
     assert.equal(data.metadataMatched, true, 'verified article author survives a failed or mismatched external lookup');

@@ -1,3 +1,5 @@
+import { publishedSgpcDate } from "./sgpcCalendar";
+
 /**
  * Punjabi (desi / Nanakshahi-style) date helpers.
  *
@@ -71,6 +73,9 @@ export function punjabiMonthDay(date: Date): { pa: string; en: string; day: numb
 
 /** Full formatted date line (with the calendar emoji), e.g. for the date row. */
 export function formatHukamDate(date: Date): string {
+  const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const published = publishedSgpcDate(iso);
+  if (published) return published;
   const p = punjabiMonthDay(date);
   const wd = date.getDay();
   const dd = String(date.getDate()).padStart(2, "0");

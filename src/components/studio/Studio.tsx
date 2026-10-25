@@ -1,6 +1,7 @@
 "use client";
 
 import InstallApp from "../InstallApp";
+import { upgradeGregorianDate } from "@/lib/hukamnama/sgpcCalendar";
 import { hukamnamaExcerpt } from "@/lib/hukamnama/excerpt";
 import { liveAuthor } from "@/lib/hukamnama/authors";
 
@@ -61,6 +62,7 @@ function revive(saved: StudioState): StudioState {
   return {
     ...def,
     ...saved,
+    dateText: upgradeGregorianDate(saved.dateText ?? "", saved.dateISO),
     // Keep users on the Sikhizm artwork, including those with older saved
     // settings that selected the previous studio design or an unsupported size.
     design: "reference",
@@ -555,7 +557,7 @@ export default function Studio() {
               }}>Load supplied reference example (24 Oct 2026)</button>
               {!backgroundReady && <p role="status" className="text-xs text-amber-300">Waiting for template artwork. Export remains locked.</p>}
             </div>
-            <p className="text-xs text-amber-200">Live SGPC dates include the published Nanakshahi date. If only a Gregorian date loads, use a copied SGPC calendar line in Date row below.</p>
+            <p className="text-xs text-amber-200">Dates use SGPC’s daily page or its published Samvat 558 calendar. Other years require a verified SGPC date line.</p>
           </section>
           <FontSection
             state={state}

@@ -71,6 +71,7 @@ export interface BlockLayout {
   lines: string[];
   lineH: number;
   contentH: number;
+  ascent?: number;
   fits: boolean;
   overflowPx: number;
   vOffset: number;
