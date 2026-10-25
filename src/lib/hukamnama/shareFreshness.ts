@@ -1,11 +1,9 @@
 import type { LiveHukamnama } from "./liveSource";
-import type { StudioState } from "./types";
-import { indiaClock, verifyMorningState } from "../morningPlan";
+import { indiaClock } from "../morningPlan";
 
-/** A fetched date alone is insufficient: the editor must contain that SGPC text. */
-export function hasTodaysSgpcContent(state: StudioState, live: LiveHukamnama | null, day: string | null): boolean {
-  return !!day && !!live && live.sourceName.startsWith("SGPC ")
-    && verifyMorningState(state, live, day).matchesLive === true;
+/** Source availability indicator only; manual editor changes do not affect it. */
+export function hasTodaysSourceContent(live: LiveHukamnama | null, day: string | null): boolean {
+  return !!day && !!live && live.isToday && live.sourceDateISO === day;
 }
 
 export function millisecondsToIndiaMidnight(now = new Date()): number {
