@@ -160,3 +160,32 @@ export function drawLine(
   }
 }
 
+
+/** Balance the last two lines of each paragraph without changing any words or markers. */
+export function measureBalancedAt(ctx: CanvasRenderingContext2D, text: string, px: number, maxW: number) {
+  ctx.font = fontFor(px, 400);
+  const lines = text.replace(/\r/g, "").split("\n").flatMap(paragraph => {
+    const wrapped = wrapText(ctx, paragraph, px, maxW, 400);
+    if (wrapped.length < 2) return wrapped;
+    const last = wrapped.at(-1)!;
+    if (ctx.measureText(last).width >= maxW * 0.78) return wrapped;
+    const words = `${wrapped.at(-2)} ${last}`.split(/\s+/).filter(Boolean);
+    let best: [string, string] | null = null, score = Infinity;
+    for (let i = 1; i < words.length; i++) {
+      const a = words.slice(0, i).join(" "), b = words.slice(i).join(" ");
+      const aw = ctx.measureText(a).width, bw = ctx.measureText(b).width;
+      if (aw > maxW || bw > maxW || /^[॥।੦-੯0-9\s]+$/u.test(b)) continue;
+      const candidate = Math.pow(1 - aw / maxW, 2) + Math.pow(1 - bw / maxW, 2) * 1.5;
+      if (candidate < score) { best = [a, b]; score = candidate; }
+    }
+    if (best) wrapped.splice(-2, 2, ...best);
+    return wrapped;
+  });
+  const metrics = lines.map(line => ctx.measureText(line));
+  const ascent = Math.max(px * 0.8, ...metrics.map(m => m.actualBoundingBoxAscent ?? px * 0.9));
+  const descent = Math.max(px * 0.15, ...metrics.map(m => m.actualBoundingBoxDescent ?? px * 0.2));
+  const lineH = Math.max(px * 1.2, ascent + descent + 2);
+  const contentH = lines.length ? ascent + descent + (lines.length - 1) * lineH : 0;
+  const lastWidth = ctx.measureText(lines.at(-1) ?? "").width;
+  return { lines, lineH, contentH, ascent, tailRatio: lastWidth / maxW };
+}

@@ -11,7 +11,7 @@ require.extensions['.ts'] = (module, filename) => {
 const { defaultState } = require('../src/lib/hukamnama/defaults.ts');
 const { computeLayout } = require('../src/lib/hukamnama/layout.ts');
 const { getPreset } = require('../src/lib/hukamnama/types.ts');
-const { wrapText } = require('../src/lib/hukamnama/text.ts');
+const { wrapText, measureBalancedAt } = require('../src/lib/hukamnama/text.ts');
 const { buildSocialCaption } = require('../src/lib/hukamnama/socialCaption.ts');
 const { parseSgpcPage, parseSgpcDailyMukhwakPage, parseSikhizmFeed, parseSikhizmLiveArticle, parseSikhizmPunjabiTranslation, findSikhizmPdfUrl, matchGurbaniNowMetadata } = require('../src/lib/hukamnama/liveSource.ts');
 const { referenceComposite, drawReference } = require('../src/lib/hukamnama/reference.ts');
@@ -25,8 +25,9 @@ for (const id of ['feed', 'vertical']) {
   const s = { ...defaultState(), presetId: id, original: 'ਵਾਹਿਗੁਰੂ', translation: 'ਵਾਹਿਗੁਰੂ' };
   const l = computeLayout(s, getPreset(id), ctx);
   assert(l.blocks.every(b => b.fits));
+  assert(l.blocks[0].px > l.blocks[1].px, "Gurbani must always be larger than its explanation");
   const longerOriginal = computeLayout({ ...s, original: 'ਵਾਹਿਗੁਰੂ '.repeat(35) }, getPreset(id), ctx);
-  assert(longerOriginal.blocks[0].dividerY > l.blocks[0].dividerY, 'separator moves down when the original Hukamnama is longer');
+  assert(longerOriginal.blocks[1].textRect.y >= longerOriginal.blocks[0].textRect.y + longerOriginal.blocks[0].contentH, 'translation follows the complete original even when the separator is hidden');
   assert(longerOriginal.blocks[1].textRect.y > l.blocks[1].textRect.y, 'translation follows the dynamically placed separator');
   for (const b of l.blocks) {
     assert(b.textRect.y + b.textRect.h < l.date.rect.y);
@@ -41,14 +42,19 @@ for (const id of ['feed', 'vertical']) {
   const imageDraws = [];
   referenceComposite({ canvas: {width: 1080, height: getPreset(id).h}, fillRect(...r) { clears.push(r); }, drawImage(...r) { imageDraws.push(r); } }, {}, id, l);
   assert(clears.some(r => r[1] === (id === 'feed' ? 379 : 483)), 'clear old Gurbani');
-  assert(clears.some(r => r[1] === (id === 'feed' ? 1268 : 1645)), 'clear old date');
-  if (id === 'vertical') assert.equal(imageDraws.at(-1)[6], l.blocks[0].dividerY - 18, 'reuse the original floral divider at its measured position');
+  assert(clears.some(r => r[1] === (id === 'feed' ? 1256 : 1644)), 'clear old date');
+  if (id === 'vertical' && l.blocks[0].dividerY > 0) assert.equal(imageDraws.at(-1)[6], l.blocks[0].dividerY - 18, 'reuse the original floral divider at its measured position');
 
   const mixed = { ...s, dateText: '24-October-2026 | ਕੱਤਕ (KATAK) 10 | ਸ਼ਨੀਚਰਵਾਰ (SATURDAY)', banikar: 'ਗੁਰੂ ਨਾਨਕ ਦੇਵ ਜੀ' };
   const drawn = [];
   const drawCtx = Object.assign(Object.create(ctx), {
+    measureText(text) {
+      const metrics = ctx.measureText.call(this, text);
+      const px = Number(this.font.match(/([\d.]+)px/)?.[1] || 16);
+      return { ...metrics, actualBoundingBoxAscent: px * .75, actualBoundingBoxDescent: px * .25 };
+    },
     canvas: { width: 1080, height: getPreset(id).h }, save() {}, restore() {}, beginPath() {},
-    rect() {}, clip() {}, setLineDash() {}, strokeRect() {}, fillText(text, x, y) { drawn.push({ text, font: this.font, x, y }); },
+    rect() {}, clip() {}, setLineDash() {}, strokeRect() {}, fillText(text, x, y) { const m = this.measureText(text); drawn.push({ text, font: this.font, x, y, top: y - m.actualBoundingBoxAscent, bottom: y + m.actualBoundingBoxDescent }); },
   });
   drawReference(drawCtx, { ...l, blocks: [] }, mixed);
   const latinDate = drawn.find(d => d.text.includes('24-OCTOBER'));
@@ -56,6 +62,16 @@ for (const id of ['feed', 'vertical']) {
   assert(latinDate && punjabiDate, 'date contains both Latin and Gurmukhi runs');
   assert(Number(punjabiDate.font.match(/([\d.]+)px/)?.[1]) > Number(latinDate.font.match(/([\d.]+)px/)?.[1]), 'Punjabi date glyphs use optical size adjustment');
   assert(drawn.some(d => d.text.includes('ਗੁਰੂ')) && drawn.some(d => d.text.includes('ਨਾਨਕ')), 'author renders Gurmukhi runs');
+  const config = require('../src/lib/hukamnama/reference.ts').referenceConfig(id);
+  for (const strip of [config.stripe, config.date]) {
+    const labels = drawn.filter(run => run.y > strip[1] && run.y < strip[1] + strip[3]);
+    assert(labels.length > 0);
+    const topPad = Math.min(...labels.map(run => run.top)) - strip[1];
+    const bottomPad = strip[1] + strip[3] - Math.max(...labels.map(run => run.bottom));
+    assert.ok(Math.abs(topPad - bottomPad) < 1, 'maroon label glyphs have equal top/bottom padding');
+    assert.ok(topPad >= 6 && bottomPad >= 6, 'label glyphs retain a minimum six-pixel vertical inset');
+  }
+
 }
 const clusters = ['ਕਿ', 'ਕਿ', 'ਕਿ'];
 assert.deepEqual(wrapText(ctx, clusters.join(''), 20, 13), clusters, 'never split a vowel from its consonant');
@@ -117,7 +133,7 @@ assert.equal(sikhizmLive.ang, '718');
 assert.equal(sikhizmLive.sourceName, 'Sikhizm same-day Hukamnama post');
 assert(sikhizmLive.original.includes('ਕੋਈ ਬੋਲੈ ਨਿਰਵਾ'));
 assert.equal(sikhizmLive.translation, 'ਕੋਈ ਮਨੁੱਖ ਆਖਦਾ ਹੈ ਕਿ ਪ੍ਰਭੂ ਨੇੜੇ ਹੈ।');
-assert.equal(sikhizmLive.dateText, '24-October-2026 | Saturday', 'do not fabricate a Nanakshahi date missing from the post');
+assert.equal(sikhizmLive.dateText, '24-October-2026 | ਕੱਤਕ 08, 558 | ਸ਼ਨਿਚਰਵਾਰ (Saturday)', 'use the published annual SGPC calendar when the daily page is unavailable');
 assert.throws(() => parseSikhizmLiveArticle('<p class="Bani">ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਵਾਹਿਗੁਰੂ</p>', sikhizmPost, '2026-10-25'), /not confirmed for today/);
 // Today's legacy shortcode post has no p.Bani and uses a plain translation heading.
 const legacyPost = { publishedAt: 'Sun, 25 Oct 2026 00:00:11 +0000', localDateISO: '2026-10-25' };
@@ -184,3 +200,20 @@ assert.equal(formatSgpcCalendarDate('Sunday, 99th Katak (Samvat 558 Nanakshahi)'
 
 assert.equal(formatSgpcCalendarDate('18-10-2026 05:30 AM ' + todayCalendar, '2026-10-25'), null, 'reject an older SGPC release even if its weekday agrees');
 assert.ok(buildSocialCaption({ ...defaultState(), dateText: expectedCalendar }, '', '').includes(expectedCalendar), 'caption keeps the complete dual-calendar date');
+
+const balancedText = 'aaaa aaaa aaaa aaaa aaaa aa';
+const balanced = measureBalancedAt(ctx, balancedText, 10, 150);
+assert.equal(balanced.lines.join(' '), balancedText, 'balancing preserves words and order exactly');
+assert.ok(ctx.measureText(balanced.lines.at(-1)).width > ctx.measureText(wrapText(ctx, balancedText, 10, 150, 400).at(-1)).width, 'last line is balanced instead of leaving a tiny orphan');
+const { publishedSgpcDate, upgradeGregorianDate, SGPC_558_MONTHS } = require('../src/lib/hukamnama/sgpcCalendar.ts');
+assert.equal(publishedSgpcDate('2026-10-25'), expectedCalendar);
+assert.equal(publishedSgpcDate('2026-10-17'), '17-October-2026 | ਕੱਤਕ 01, 558 | ਸ਼ਨਿਚਰਵਾਰ (Saturday)');
+assert.equal(publishedSgpcDate('2026-11-15'), '15-November-2026 | ਕੱਤਕ 30, 558 | ਐਤਵਾਰ (Sunday)');
+assert.ok(publishedSgpcDate('2026-11-16').includes('ਮੱਘਰ 01, 558'));
+assert.ok(publishedSgpcDate('2027-03-14').includes('ਫੱਗਣ 30, 558'));
+assert.equal(publishedSgpcDate('2027-03-15'), null, 'do not extrapolate beyond the published year');
+assert.equal(publishedSgpcDate('2026-03-13'), null);
+assert.equal(publishedSgpcDate('2026-02-31'), null);
+assert.equal(SGPC_558_MONTHS.length, 12);
+assert.equal(upgradeGregorianDate('25-October-2026 | Sunday', '2026-10-25'), expectedCalendar);
+assert.equal(upgradeGregorianDate('My reviewed custom date', '2026-10-25'), 'My reviewed custom date');

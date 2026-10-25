@@ -1,3 +1,4 @@
+import { publishedSgpcDate } from "./sgpcCalendar";
 import { formatSgpcCalendarDate } from "./sgpcDate";
 import { normalizeAuthor } from "./authors";
 
@@ -116,7 +117,7 @@ export function parseSgpcPage(html: string, todayISO: string, checkedAt = new Da
     sourceName: "SGPC Sachkhand live page",
     isToday: sourceDateISO === todayISO,
     checkedAt,
-    dateText: dateText || sourceDateISO,
+    dateText: dateText || publishedSgpcDate(sourceDateISO) || sourceDateISO,
     original,
     translation,
     ang,
@@ -151,7 +152,7 @@ export function parseSgpcDailyMukhwakPage(html: string, todayISO: string, checke
   const mangal = lines.slice(headingIndex + 1, dateIndex).findIndex((line) => line.includes("ੴ"));
   if (mangal < 0) throw new Error("Could not locate the Mool Mantar in SGPC Daily Mukhwak.");
   const original = lines.slice(headingIndex + 1, dateIndex).join(" ").trim();
-  const dateText = formatSgpcCalendarDate(dateLine, sourceDateISO) ?? sourceDateISO;
+  const dateText = formatSgpcCalendarDate(dateLine, sourceDateISO) ?? publishedSgpcDate(sourceDateISO) ?? sourceDateISO;
 
   if (!title || !original) throw new Error("SGPC Daily Mukhwak page is missing the Hukamnama text.");
   return {
@@ -323,9 +324,9 @@ export function parseSikhizmLiveArticle(
     sourceName: "Sikhizm same-day Hukamnama post",
     isToday: true,
     checkedAt,
-    // Sikhizm's article does not publish the Nanakshahi date in a machine-readable field.
-    // Give the verified Gregorian date only; do not calculate an authoritative-looking lunar date.
-    dateText: `${Number(day)}-${month}-${year} | ${weekday}`,
+    // The annual SGPC calendar remains available locally when its daily page is blocked.
+    // Only dates covered by the verified published year receive a Nanakshahi date.
+    dateText: publishedSgpcDate(articleDateISO) ?? `${Number(day)}-${month}-${year} | ${weekday}`,
     original,
     translation,
     ang,

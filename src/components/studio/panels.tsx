@@ -28,6 +28,7 @@ import {
   CornerUpRight,
 } from "lucide-react";
 import { useState } from "react";
+import { publishedSgpcDate } from "@/lib/hukamnama/sgpcCalendar";
 import { formatSgpcCalendarDate } from "@/lib/hukamnama/sgpcDate";
 import { AUTHOR_OPTIONS, normalizeAuthor } from "@/lib/hukamnama/authors";
 import { Section, SliderRow, ToggleRow, SegRow, FieldLabel, TextInput, TextArea } from "./controls";
@@ -397,11 +398,11 @@ export function DateSection(p: PanelProps) {
               }
               className="flex items-center gap-1 text-[10px] font-medium text-amber-300/90 transition hover:text-amber-200"
             >
-              <RotateCcw size={10} /> Use calendar estimate
+              <RotateCcw size={10} /> {publishedSgpcDate(state.dateISO) ? "Use SGPC calendar" : "Use calendar estimate"}
             </button>
           }
         >
-          Date line {state.dateManual ? "(manual override)" : "(estimate · verify with SGPC)"}
+          Date line {state.dateManual ? "(source / manual)" : publishedSgpcDate(state.dateISO) ? "(published SGPC calendar)" : "(estimate · verify with SGPC)"}
         </FieldLabel>
         <TextArea
           rows={2}
@@ -520,7 +521,7 @@ export function TypographySection(p: PanelProps) {
       />
       <ToggleRow
         label="Auto-fit text"
-        desc={`Fit both texts optimally — original ${ratio}× translation size (when enabled).`}
+        desc={`Fill the body and balance short final lines. Gurbani stays larger; target ratio ${ratio}×.`}
         checked={state.typo.autoFit}
         onChange={(v) => patchTypo({ autoFit: v })}
       />
@@ -528,7 +529,7 @@ export function TypographySection(p: PanelProps) {
       {state.typo.autoFit ? (
         <>
           <SliderRow
-            label="Size ratio (Original ÷ Translation)"
+            label="Target ratio (Original ÷ Translation)"
             value={state.typo.originalSizeRatio}
             min={1.0}
             max={2.0}
