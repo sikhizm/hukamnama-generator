@@ -167,3 +167,21 @@ Threads authorization/token/profile checks use the current documented threads.co
 hosts. The older graph.threads.net host also accepts requests; changing the host
 alone is not evidence of a root-cause fix. An actual successful authorization is
 still required to verify the user's connection.
+
+## Use a generated Threads tester token
+
+For this personal app, a token generated for @sikhizmcom in Meta's Threads User
+Token Generator can be saved directly as `THREADS_ACCESS_TOKEN` in Vercel
+Production (Secret). Redeploy, open Social Publisher and press Refresh. No OAuth
+Connect click or app-secret replacement is needed for this option. The Threads
+App Secret remains `THREADS_CLIENT_SECRET`; the generated user token is separate.
+
+The server verifies `/me?fields=id,username` and requires @sikhizmcom before enabling
+the account and again before each post. An invalid token or another account's
+token blocks publishing. It never falls back silently to a different OAuth
+account. An absent server token preserves the original OAuth connection flow.
+The token is never returned to the browser or stored in its connection cookie.
+Renew it manually in Vercel and redeploy when it expires or is revoked; automatic
+refresh is not implemented. Meta still enforces its publishing permissions and
+tester restrictions. Threads image hosting still uses the existing unpublished
+Facebook Page photo upload; a valid Meta Page token is needed for image posts.
