@@ -119,6 +119,26 @@ assert(sikhizmLive.original.includes('ਕੋਈ ਬੋਲੈ ਨਿਰਵਾ'));
 assert.equal(sikhizmLive.translation, 'ਕੋਈ ਮਨੁੱਖ ਆਖਦਾ ਹੈ ਕਿ ਪ੍ਰਭੂ ਨੇੜੇ ਹੈ।');
 assert.equal(sikhizmLive.dateText, '24-October-2026 | Saturday', 'do not fabricate a Nanakshahi date missing from the post');
 assert.throws(() => parseSikhizmLiveArticle('<p class="Bani">ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਵਾਹਿਗੁਰੂ</p>', sikhizmPost, '2026-10-25'), /not confirmed for today/);
+// Today's legacy shortcode post has no p.Bani and uses a plain translation heading.
+const legacyPost = { publishedAt: 'Sun, 25 Oct 2026 00:00:11 +0000', localDateISO: '2026-10-25' };
+const legacyHtml = fs.readFileSync(require('node:path').join(__dirname, 'fixtures/sikhizm-2026-10-25.html'), 'utf8');
+const legacyLive = parseSikhizmLiveArticle(legacyHtml, legacyPost, '2026-10-25');
+assert.equal(legacyLive.ang, '678');
+assert.ok(legacyLive.original.startsWith('ਧਨਾਸਰੀ ਮਹਲਾ ੫ ਘਰੁ ੬ ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਸੁਨਹੁ ਸੰਤ ਪਿਆਰੇ'));
+assert.ok(legacyLive.original.endsWith('॥੩॥੧॥੨੯॥'), 'preserve the complete closing Gurbani');
+assert.ok(legacyLive.translation.startsWith('ਹੇ ਪਿਆਰੇ ਸੰਤ ਜਨੋ!'));
+assert.ok(legacyLive.translation.endsWith('੩।੧।੨੯।'), 'preserve every Punjabi explanation paragraph');
+assert.ok(!legacyLive.translation.includes('हिन्दी'), 'stop before the next language heading');
+assert.equal(legacyLive.original.length, 479);
+assert.equal(legacyLive.translation.length, 952);
+assert.equal(legacyLive.metadataMatched, false, 'markup parsing does not invent verified author metadata');
+assert.equal(legacyLive.matchedAuthor, null);
+assert.throws(() => parseSikhizmLiveArticle(legacyHtml, legacyPost, '2026-10-26'), /not confirmed for today/);
+const nestedLegacy = legacyHtml.replace('<div class="su-box-content">', '<div class="su-box-content"><div><span>').replace('॥੩॥੧॥੨੯॥</div>', '॥੩॥੧॥੨੯॥</span></div></div>');
+assert.equal(parseSikhizmLiveArticle(nestedLegacy, legacyPost, '2026-10-25').original, legacyLive.original, 'nested markup must not cut the shabad');
+assert.throws(() => parseSikhizmLiveArticle(legacyHtml.replace('su-box-content', 'other-box'), legacyPost, '2026-10-25'), /complete Gurmukhi/, 'do not scrape arbitrary page text');
+assert.throws(() => parseSikhizmLiveArticle(legacyHtml.replace('॥੩॥੧॥੨੯॥', ''), legacyPost, '2026-10-25'), /complete Gurmukhi/, 'reject a visibly cut off Gurbani block');
+assert.equal(parseSikhizmPunjabiTranslation(legacyHtml.replace('<td>678</td>', '<td>679</td>'), legacyLive.original, '678'), null, 'Ang mismatch must still reject translation');
 const matchedMetadata = {
   date: { gregorian: { year: 2026, monthno: 10, date: 24 } },
   hukamnamainfo: { pageno: 718, writer: { unicode: 'ਭਗਤ ਨਾਮਦੇਵ ਜੀ' } },
