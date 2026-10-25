@@ -505,3 +505,11 @@ articles into drafts and publishes to configured social accounts. See
 [Social Publisher setup and supported formats](docs/social-publisher-v2.md) for
 credentials, callback URLs, limits and validation. Hukamnama Studio workflows
 retain their existing behaviour.
+
+## Daily Hukamnama sources
+
+The live endpoint checks providers in this order: **SGPC** (live page, then official Daily Mukhwak page), **Sikhizm.com**, **HukamnamaSahib.com**, then **Dekho Ji**. It skips unavailable or outdated sources. No other provider is queried.
+
+HukamnamaSahib is fetched from the explicitly dated morning article, not its homepage or evening post. Dekho Ji must show today's date and consistent Ang metadata. Dates are checked against the current day in Asia/Kolkata. A previous day's SGPC entry can still be displayed as stale but cannot qualify as today's update. Publication timing is controlled by the providers, not guaranteed by the app.
+
+Missing Punjabi explanation or author metadata can only be supplemented from a current-day source with the same Ang and complete matching Gurmukhi passage (including vowel marks). An unambiguous Mehl heading can identify its Guru; unresolved authors remain available for manual selection. Manual editing and sharing remain unchanged, and the existing unattended publisher freshness checks still apply.

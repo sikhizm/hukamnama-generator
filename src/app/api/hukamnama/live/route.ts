@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { matchGurbaniNowMetadata, parseSgpcDailyMukhwakPage, parseSgpcPage, parseSikhizmFeed, parseSikhizmLiveArticle, parseSikhizmPunjabiTranslation, type LiveHukamnama } from "@/lib/hukamnama/liveSource";
+import { parseHukamnamaSahib, parseDekhoJi, normalizedVerse, headingAuthor } from "@/lib/hukamnama/fallbackSources";
+import { parseSgpcDailyMukhwakPage, parseSgpcPage, parseSikhizmFeed, parseSikhizmLiveArticle, type LiveHukamnama } from "@/lib/hukamnama/liveSource";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 90;
 
 function indiaDateISO(date: Date): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -18,47 +20,6 @@ function isSikhizmUrl(value: string): boolean {
     return url.protocol === "https:" && ["sikhizm.com", "www.sikhizm.com"].includes(url.hostname);
   } catch {
     return false;
-  }
-}
-
-async function loadSikhizmTranslation(record: LiveHukamnama, replaceTranslation = true): Promise<void> {
-  try {
-    const feedResponse = await fetch("https://sikhizm.com/category/hukamnama/feed/", {
-      headers: { "user-agent": "Sikhizm-Hukamnama-Studio/1.0", accept: "application/rss+xml, application/xml, text/xml" },
-      signal: AbortSignal.timeout(8_000),
-      next: { revalidate: 180 },
-    });
-    if (!feedResponse.ok) return;
-    const post = parseSikhizmFeed(await feedResponse.text()).find((candidate) => candidate.localDateISO === record.sourceDateISO);
-    if (!post || !isSikhizmUrl(post.link)) return;
-
-    const articleResponse = await fetch(post.link, {
-      headers: { "user-agent": "Sikhizm-Hukamnama-Studio/1.0", accept: "text/html" },
-      signal: AbortSignal.timeout(8_000),
-      next: { revalidate: 180 },
-    });
-    if (!articleResponse.ok) return;
-    const html = await articleResponse.text();
-    const translation = parseSikhizmPunjabiTranslation(html, record.original, record.ang);
-    // The same dated article may also supply its explicitly labelled author.
-    if (translation && !record.matchedAuthor) {
-      try {
-        const article = parseSikhizmLiveArticle(html, post, record.sourceDateISO, record.checkedAt);
-        const normalized = (text: string) => text.normalize("NFC").replace(/[^\p{L}\p{N}]/gu, "");
-        if (article.ang === record.ang && normalized(article.original) === normalized(record.original)) {
-          record.matchedAuthor = article.matchedAuthor;
-          record.metadataMatched = article.metadataMatched;
-        }
-      } catch {
-        // A missing author block must not discard an otherwise matched translation.
-      }
-    }
-    if (translation && replaceTranslation) {
-      record.translation = translation;
-      record.sourceName = "SGPC Daily Mukhwak + matched Sikhizm Punjabi translation";
-    }
-  } catch {
-    // Leave the translation blank when no same-day, same-shabad Sikhizm match is available.
   }
 }
 
@@ -96,52 +57,60 @@ export async function GET(request: Request) {
       signal: AbortSignal.timeout(10_000),
       ...(refresh ? { cache: "no-store" as const } : { next: { revalidate: 60 } }),
     });
+    const fromPage = async (url: string, parse: (html: string, day: string, checked: string) => LiveHukamnama) => {
+      const response = await fetch(url, { ...fetchOptions(new URL(url).origin + "/"), redirect: "error" });
+      if (!response.ok) throw new Error(`${new URL(url).hostname} returned HTTP ${response.status}.`);
+      const html = await response.text();
+      if (html.length > 2_000_000) throw new Error("Hukamnama source response was too large.");
+      return parse(html, todayISO, checkedAt);
+    };
+    // The two official pages form the SGPC step. No other providers are queried.
+    const sources = [
+      () => fromPage("https://hs.sgpc.net/index.php", parseSgpcPage),
+      () => fromPage("https://sgpc.net/daily-mukhwak-pdf/", parseSgpcDailyMukhwakPage),
+      () => loadSikhizmToday(todayISO, checkedAt, refresh),
+      () => fromPage(`https://hukamnamasahib.com/hukamnama/${todayISO}-morning`, parseHukamnamaSahib),
+      () => fromPage("https://www.dekho-ji.com/hukamnama?t=today", parseDekhoJi),
+    ];
+    const cache = new Map<number, LiveHukamnama | null>();
+    const errors: string[] = [];
+    let stale: LiveHukamnama | null = null;
+    const read = async (index: number): Promise<LiveHukamnama | null> => {
+      if (cache.has(index)) return cache.get(index)!;
+      let candidate: LiveHukamnama | null = null;
+      try {
+        candidate = await sources[index]();
+        if (candidate.sourceDateISO !== todayISO) {
+          candidate.isToday = false;
+          if (candidate.sourceDateISO < todayISO && (!stale || candidate.sourceDateISO > stale.sourceDateISO)) stale = candidate;
+        }
+        if (!candidate.matchedAuthor) candidate.matchedAuthor = headingAuthor(candidate.original);
+        candidate.metadataMatched = !!candidate.matchedAuthor;
+      } catch (error) { errors.push(error instanceof Error ? error.message : "Hukamnama source was unavailable."); }
+      cache.set(index, candidate);
+      return candidate;
+    };
     let record: LiveHukamnama | null = null;
-    let primaryError = "SGPC live page could not be fetched.";
-    try {
-      const response = await fetch("https://hs.sgpc.net/index.php", fetchOptions("https://hs.sgpc.net/"));
-      if (!response.ok) throw new Error(`SGPC live page returned HTTP ${response.status}.`);
-      record = parseSgpcPage(await response.text(), todayISO, checkedAt);
-    } catch (error) {
-      primaryError = error instanceof Error ? error.message : primaryError;
-    }
-    if (!record) {
-      let officialFallbackError = "The official SGPC Daily Mukhwak fallback could not be fetched.";
-      try {
-        const fallbackResponse = await fetch("https://sgpc.net/daily-mukhwak-pdf/", fetchOptions("https://sgpc.net/"));
-        if (!fallbackResponse.ok) throw new Error(`The official SGPC Daily Mukhwak fallback returned HTTP ${fallbackResponse.status}.`);
-        record = parseSgpcDailyMukhwakPage(await fallbackResponse.text(), todayISO, checkedAt);
-        if (record.isToday) await loadSikhizmTranslation(record);
-      } catch (error) {
-        officialFallbackError = error instanceof Error ? error.message : officialFallbackError;
+    for (let index = 0; index < sources.length; index++) {
+      const candidate = await read(index);
+      if (!candidate?.isToday || candidate.sourceDateISO !== todayISO) continue;
+      record = { ...candidate };
+      // Preserve the selected source's verse and calendar. Only supplement missing
+      // explanation/author from an exact same-day, same-Ang, full-passage match.
+      for (let extra = index + 1; extra < sources.length && (!record.translation || !record.matchedAuthor); extra++) {
+        const supplement = await read(extra);
+        if (!supplement?.isToday || supplement.sourceDateISO !== todayISO || supplement.ang !== record.ang
+          || normalizedVerse(supplement.original) !== normalizedVerse(record.original)) continue;
+        let used = false;
+        if (!record.translation && supplement.translation) { record.translation = supplement.translation; used = true; }
+        if (!record.matchedAuthor && supplement.matchedAuthor) { record.matchedAuthor = supplement.matchedAuthor; used = true; }
+        if (used) record.sourceName += ` + matched ${supplement.sourceName}`;
+        record.metadataMatched = !!record.matchedAuthor;
       }
-      if (!record) {
-        try {
-          record = await loadSikhizmToday(todayISO, checkedAt, refresh);
-        } catch (error) {
-          const sikhizmError = error instanceof Error ? error.message : "The Sikhizm same-day fallback failed.";
-          throw new Error(`${primaryError} ${officialFallbackError} Sikhizm fallback: ${sikhizmError}`);
-        }
-      }
+      break;
     }
-    if (record.isToday) {
-      try {
-        const metadataResponse = await fetch("https://api.gurbaninow.com/v2/hukamnama/today", {
-          headers: { "user-agent": "Sikhizm-Hukamnama-Studio/1.0", accept: "application/json" },
-          signal: AbortSignal.timeout(8_000),
-          cache: "no-store",
-        });
-        if (metadataResponse.ok) {
-          record.matchedAuthor = matchGurbaniNowMetadata(await metadataResponse.json(), record) ?? record.matchedAuthor;
-          record.metadataMatched = Boolean(record.matchedAuthor);
-        }
-      } catch {
-        // SGPC remains authoritative; a temporarily unavailable matcher should not hide the live Hukamnama.
-      }
-    }
-    // A stale external metadata API must not prevent a verified same-day author match.
-    // Retain SGPC's own explanation when only its author metadata needs supplementing.
-    if (record.isToday && !record.matchedAuthor) await loadSikhizmTranslation(record, false);
+    record ??= stale;
+    if (!record) throw new Error(errors.join(" ") || "No current-day Hukamnama is available from the configured sources yet.");
     return NextResponse.json(record, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return NextResponse.json({
