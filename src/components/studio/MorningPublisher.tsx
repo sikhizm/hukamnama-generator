@@ -24,7 +24,7 @@ async function bundledChant() {
 
 export default function MorningPublisher(props: Props) {
   const [targets, setTargets] = useState<MorningTargets>({ ...defaultTargets });
-  const [duration, setDuration] = useState<10 | 15>(15);
+  const [duration, setDuration] = useState<"full" | 10 | 15>("full");
   const [time, setTime] = useState("05:45");
   const [template, setTemplate] = useState(SHORT_TEMPLATE);
   const [useFull, setUseFull] = useState(false);
@@ -32,7 +32,6 @@ export default function MorningPublisher(props: Props) {
   const [video, setVideo] = useState<{ blob: Blob; url: string; fingerprint: string } | null>(null);
   const [ledger, setLedger] = useState<Ledger>({});
   const [loaded, setLoaded] = useState(false);
-  const [key, setKey] = useState("");
   const [enabled, setEnabled] = useState(false);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -51,7 +50,8 @@ export default function MorningPublisher(props: Props) {
         const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "null");
         if (saved) {
           setTargets(Object.fromEntries(DESTINATIONS.map(item => [item.id, typeof saved.targets?.[item.id] === "boolean" ? saved.targets[item.id] : item.selected])) as MorningTargets);
-          if (saved.duration === 10 || saved.duration === 15) setDuration(saved.duration);
+          // Migrate the former 10/15-second default to full recording once.
+          if (saved.audioDurationVersion === 2 && (saved.duration === "full" || saved.duration === 10 || saved.duration === 15)) setDuration(saved.duration);
           if (typeof saved.time === "string") setTime(saved.time);
           if (typeof saved.template === "string") setTemplate(saved.template);
           setUseFull(saved.useFull === true);
@@ -70,7 +70,7 @@ export default function MorningPublisher(props: Props) {
   }, []);
   useEffect(() => {
     if (!loaded) return;
-    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ targets, duration, time, template, useFull })); }
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ targets, duration, audioDurationVersion: 2, time, template, useFull })); }
     catch { /* Arming checks storage before sending. */ }
   }, [targets, duration, time, template, useFull, loaded]);
   useEffect(() => () => { if (audio) URL.revokeObjectURL(audio.url); }, [audio]);
@@ -88,7 +88,7 @@ export default function MorningPublisher(props: Props) {
   }, [enabled]);
 
   async function api(url: string, body?: FormData) {
-    const response = await fetch(url, { method: "POST", headers: { Authorization: `Bearer ${key}` }, body });
+    const response = await fetch(url, { method: "POST", body });
     const result = await response.json();
     if (!response.ok) throw Object.assign(new Error(result.error ?? "Request failed."), { uncertain: result.uncertain ?? response.status >= 500 });
     return result;
@@ -104,11 +104,10 @@ export default function MorningPublisher(props: Props) {
   }
   async function makeReel() {
     if (!audio) throw new Error("Upload your Waheguru chant first.");
-    if (!key) throw new Error("Enter the social setup key.");
     if (props.disabled) throw new Error("Complete the image and load the font before creating a reel.");
     const image = await props.createImage("vertical"); if (!image) throw new Error("Could not render the vertical image.");
     const body = new FormData(); body.set("image", image, "hukamnama.jpg"); body.set("audio", audio.blob, audio.name); body.set("duration", String(duration));
-    const response = await fetch("/api/social/reel", { method: "POST", headers: { Authorization: `Bearer ${key}` }, body });
+    const response = await fetch("/api/social/reel", { method: "POST", body });
     if (!response.ok) { const result = await response.json(); throw new Error(result.error ?? "Reel creation failed."); }
     const blob = await response.blob(); const result = { blob, url: URL.createObjectURL(blob), fingerprint };
     setVideo(result); return result;
@@ -127,7 +126,7 @@ export default function MorningPublisher(props: Props) {
     if (!validLive) { setMessage("Waiting for today’s complete, source-matched Gurbani, translation, date and author. Nothing sent."); return; }
     if (!matchesLive) { props.onLoadLive(props.live!); setMessage("Loading today’s verified content. Publishing will wait for rendering."); return; }
     if (props.disabled) { setMessage("Waiting for complete artwork, the required font and text that fits. Nothing sent."); return; }
-    if (!key || !consent) { setMessage("Enter the setup key and approve the selected destinations first."); return; }
+    if (!consent) { setMessage("Approve the selected destinations first."); return; }
     if (needsReel(targets) && !audio) { setMessage("Upload the chant before starting the selected reel destinations."); return; }
     active.current = true; setBusy(true);
     try {
@@ -190,28 +189,27 @@ export default function MorningPublisher(props: Props) {
       <label className="block">Replace reel background audio (optional)<input type="file" accept="audio/*" disabled={enabled || busy || !loaded} onChange={event => void uploadAudio(event.target.files?.[0])} className={field} /></label>
       {audio && <div><p className="break-all text-emerald-300">Ready: {audio.name}</p><audio controls src={audio.url} className="mt-2 w-full" /></div>}
       <button disabled={enabled || busy || !loaded} onClick={async () => { try { const data = await bundledChant(); await saveChant(data).catch(() => null); setAudio({ ...data, url: URL.createObjectURL(data.blob) }); setVideo(null); setMessage("Bundled Waheguru chant selected for future reels."); } catch (error) { setMessage((error as Error).message); } }} className="text-amber-300 underline">Use bundled Waheguru chant</button>
-      <p className="text-[10px]">Your Waheguru recording is included and loads automatically. Reels use its first 10 or 15 seconds. Optional replacements, up to 1.8 MB, are saved on this browser; shorter clips loop.</p>
-      <label className="block">Reel duration<select value={duration} disabled={enabled || busy} onChange={event => { setDuration(Number(event.target.value) as 10 | 15); setVideo(null); }} className={field}><option value={10}>10 seconds</option><option value={15}>15 seconds</option></select></label>
+      <p className="text-[10px]">Your full Waheguru recording is the default reel background. Optional replacements, up to 1.8 MB and 60 seconds, are saved on this browser. Audio is never looped.</p>
+      <label className="block">Reel duration<select value={duration} disabled={enabled || busy} onChange={event => { setDuration(event.target.value === "full" ? "full" : Number(event.target.value) as 10 | 15); setVideo(null); }} className={field}><option value="full">Full audio clip (recommended)</option><option value={10}>First 10 seconds</option><option value={15}>First 15 seconds</option></select></label>
       <label className="flex items-start gap-2"><input type="checkbox" checked={useFull} disabled={enabled || busy} onChange={event => { setConsent(false); setUseFull(event.target.checked); }} className="mt-0.5 accent-amber-400" />Use the full text template above for feed posts and reels</label>
       {!useFull && <label className="block">Shared publishing template<textarea value={template} disabled={enabled || busy} onChange={event => { setTemplate(event.target.value); setConsent(false); }} rows={6} className={field} /><span className="text-[10px]">Fields: {"{date}, {articleUrl}, {pdfUrl}, {original}, {translation}"}</span></label>}
       <label className="block">Caption preview · {[...finalCaption].length} characters<textarea readOnly rows={5} value={finalCaption} className={field} /></label>
       <p className="text-[10px]">Before each batch, article and PDF links are looked up for that date. If unavailable, the evergreen Hukamnama page is used and the PDF link is left blank.</p>
       {[...finalCaption].length > 2200 && <p className="text-amber-200">Instagram and image-post captions are limited to 2,200 characters. Choose a shorter template; Gurbani is never automatically cut.</p>}
-      <label className="block">Social setup key<input type="password" autoComplete="off" maxLength={512} disabled={enabled || busy} value={key} onChange={event => setKey(event.target.value)} className={field} /></label>
-      <p className="text-[10px]">Kept in memory for this open session only. Reloading turns automatic posting off and requires the key again.</p>
-      <div className="flex flex-wrap gap-2"><button disabled={busy || !key} onClick={async () => { try { const result = await api("/api/social/youtube/connect"); window.location.assign(result.url); } catch (error) { setMessage((error as Error).message); } }} className="rounded-lg border border-white/10 px-2 py-2">Connect YouTube</button><button disabled={busy || !key} onClick={async () => { try { const result = await api("/api/social/youtube?status=1"); setYoutube(`${result.title} · ${result.channelId}`); } catch (error) { setYoutube((error as Error).message); } }} className="rounded-lg border border-white/10 px-2 py-2">Check channel</button></div>
+      <p className="text-[10px]">Your signed-in session authorizes publishing. Reloading turns automatic posting off; your login stays active.</p>
+      <div className="flex flex-wrap gap-2"><button disabled={busy} onClick={async () => { try { const result = await api("/api/social/youtube/connect"); window.location.assign(result.url); } catch (error) { setMessage((error as Error).message); } }} className="rounded-lg border border-white/10 px-2 py-2">Connect YouTube</button><button disabled={busy} onClick={async () => { try { const result = await api("/api/social/youtube?status=1"); setYoutube(`${result.title} · ${result.channelId}`); } catch (error) { setYoutube((error as Error).message); } }} className="rounded-lg border border-white/10 px-2 py-2">Check channel</button></div>
       {youtube && <p className="break-all">YouTube: {youtube}</p>}
-      <button disabled={busy || props.disabled || !audio || !key} onClick={async () => { setBusy(true); try { await makeReel(); setMessage("Reel ready. Preview and download it below; nothing was posted."); } catch (error) { setMessage((error as Error).message); } finally { setBusy(false); } }} className="w-full rounded-lg border border-amber-300/30 px-3 py-2 text-amber-200">{busy ? "Working…" : "Create reel preview · no posting"}</button>
-      {video && <div><video controls playsInline src={video.url} className="max-h-96 w-full rounded-lg" /><a href={video.url} download={`hukamnama-${props.state.dateISO}-${duration}s.mp4`} className="mt-2 block text-amber-300 underline">Download MP4</a>{video.fingerprint !== fingerprint && <p className="text-amber-200">Artwork or audio changed. The preview will be regenerated before publishing.</p>}</div>}
+      <button disabled={busy || props.disabled || !audio} onClick={async () => { setBusy(true); try { await makeReel(); setMessage("Reel ready. Preview and download it below; nothing was posted."); } catch (error) { setMessage((error as Error).message); } finally { setBusy(false); } }} className="w-full rounded-lg border border-amber-300/30 px-3 py-2 text-amber-200">{busy ? "Working…" : "Create reel preview · no posting"}</button>
+      {video && <div><video controls playsInline src={video.url} className="max-h-96 w-full rounded-lg" /><a href={video.url} download={`hukamnama-${props.state.dateISO}-${duration === "full" ? "full-audio" : `${duration}s`}.mp4`} className="mt-2 block text-amber-300 underline">Download MP4</a>{video.fingerprint !== fingerprint && <p className="text-amber-200">Artwork or audio changed. The preview will be regenerated before publishing.</p>}</div>}
       <label className="block">Morning start time · IST<input type="time" min="04:00" max="10:30" value={time} disabled={enabled || busy} onChange={event => setTime(event.target.value)} className={field} /></label>
       <label className="flex items-start gap-2"><input type="checkbox" checked={consent} disabled={enabled || busy} onChange={event => setConsent(event.target.checked)} className="mt-0.5 accent-amber-400" />I approve public posting of today’s and future verified Hukamnamas to the selected accounts while this app session is armed.</label>
-      <button role="switch" aria-checked={enabled} disabled={!enabled && (busy || !loaded || !key || !consent || !Object.values(targets).some(Boolean) || (needsReel(targets) && !audio))} onClick={() => {
+      <button role="switch" aria-checked={enabled} disabled={!enabled && (busy || !loaded || !consent || !Object.values(targets).some(Boolean) || (needsReel(targets) && !audio))} onClick={() => {
         if (enabled) { armed.current = false; setEnabled(false); setMessage("Automatic publishing is off."); return; }
         if (!/^\d{2}:\d{2}$/.test(time) || time < "04:00" || time > "10:30") { setMessage("Choose a start time between 04:00 and 10:30 IST."); return; }
         try { localStorage.setItem(LEDGER_KEY, localStorage.getItem(LEDGER_KEY) ?? "{}"); } catch { setMessage("Browser storage is required for posting records."); return; }
         armed.current = true; setEnabled(true); setMessage("Automatic publishing armed. Keep this app visible, awake and online.");
       }} className={`w-full rounded-lg px-3 py-3 font-bold text-zinc-950 disabled:opacity-40 ${enabled ? "bg-emerald-400" : "bg-amber-400"}`}>{enabled ? "AUTO ON · turn off" : "AUTO OFF · turn on"}</button>
-      <button disabled={busy || enabled || !consent || !key || props.disabled} onClick={() => void run(false)} className="w-full rounded-lg border border-white/10 px-3 py-2">Publish today’s pending destinations now</button>
+      <button disabled={busy || enabled || !consent || props.disabled} onClick={() => void run(false)} className="w-full rounded-lg border border-white/10 px-3 py-2">Publish today’s pending destinations now</button>
       <p role="status" aria-live="polite" className="rounded-lg border border-white/10 p-2 leading-5 text-zinc-200">{message}</p>
       <p className="text-[10px]">App-open mode · laptop awake, online and app visible. {enabled ? wake ? "Screen wake lock active." : "Wake lock unavailable; prevent sleep manually." : ""} Stops at 10:30 IST. Stories contain the artwork; caption text is used on feed posts and reels. WhatsApp requires manual sharing.</p>
       {Object.entries(ledger[day] ?? {}).map(([id, result]) => <div key={id} className="rounded-lg border border-white/10 p-2"><p className="font-semibold text-zinc-200">{DESTINATIONS.find(item => item.id === id)?.label} · {result.status}</p><p className="mt-1 break-words">{result.message}</p>{result.url && <a href={result.url} target="_blank" rel="noopener noreferrer" className="text-amber-300 underline">Open account/post</a>}{result.status !== "sent" && !enabled && <button disabled={busy} onClick={() => { const saved = JSON.parse(localStorage.getItem(LEDGER_KEY) ?? "{}") as Ledger; delete saved[day]?.[id as Destination]; localStorage.setItem(LEDGER_KEY, JSON.stringify(saved)); setLedger(saved); }} className="ml-2 underline">{result.status === "failed" ? "Allow retry for this failed destination" : "I checked: no post exists · allow retry"}</button>}{(result.status === "sending" || result.status === "unknown") && <p className="mt-1 text-amber-200">Not retried automatically. Check the account for an existing post.</p>}</div>)}
