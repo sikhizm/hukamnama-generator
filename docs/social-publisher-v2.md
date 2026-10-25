@@ -152,3 +152,18 @@ connection, required approvals and a deliberate user test after configuration.
 - `npm run test:social` — existing Meta/media/YouTube/session tests.
 - `npm run build` — production build and TypeScript.
 - Focused ESLint on the new publisher files and posts page.
+
+## Connection troubleshooting
+
+OAuth callbacks now return an allowlisted diagnostic reason and, when supplied by
+the provider, numeric HTTP/error/suberror codes. These appear beside the connection
+failure on `/posts`. Raw provider messages, authorization codes and credentials
+are never returned or logged. A failed connection retains any previous account
+cookie. Start OAuth from the same hostname as PUBLISHER_REDIRECT_BASE: a preview
+host cannot share its authorization-state cookie with the production callback.
+The Connect endpoint now rejects this mismatch before leaving the app.
+
+Threads authorization/token/profile checks use the current documented threads.com
+hosts. The older graph.threads.net host also accepts requests; changing the host
+alone is not evidence of a root-cause fix. An actual successful authorization is
+still required to verify the user's connection.

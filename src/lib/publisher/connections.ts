@@ -1,6 +1,14 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { seal, unseal } from "../youtube";
-import { type Platform, LABELS } from "./model";
+import { type Platform, LABELS, CONNECTION_ISSUES, type ConnectionIssue } from "./model";
+
+export class OAuthConnectionError extends Error {
+  constructor(public issue: ConnectionIssue, public httpStatus?: number, public providerCode?: number, public providerSubcode?: number) { super(CONNECTION_ISSUES[issue]); }
+}
+function safeNumber(value: unknown): number | undefined { return (typeof value === "number" || typeof value === "string") && /^\d{1,9}$/.test(String(value)) ? Number(value) : undefined; }
+export function connectionFailure(error: unknown) {
+  return error instanceof OAuthConnectionError ? error : new OAuthConnectionError("unexpected");
+}
 
 export type OAuthPlatform = "threads" | "pinterest" | "linkedin" | "x" | "mastodon";
 export type Connection = { platform: Platform; accessToken: string; id: string; name: string; expires: number };
@@ -25,7 +33,7 @@ export function oauthConfig(platform: OAuthPlatform) {
   const redirect = `${origin.origin}/api/social/publisher/callback/${platform}`;
   const mastodon = platform === "mastodon" ? mastodonOrigin() : "https://mastodon.social";
   const configs = {
-    threads: { authorize: "https://threads.net/oauth/authorize", token: "https://graph.threads.net/oauth/access_token", scope: "threads_basic,threads_content_publish" },
+    threads: { authorize: "https://threads.com/oauth/authorize", token: "https://graph.threads.com/oauth/access_token", scope: "threads_basic,threads_content_publish" },
     pinterest: { authorize: "https://www.pinterest.com/oauth/", token: "https://api.pinterest.com/v5/oauth/token", scope: "user_accounts:read,boards:read,pins:read,pins:write" },
     linkedin: { authorize: "https://www.linkedin.com/oauth/v2/authorization", token: "https://www.linkedin.com/oauth/v2/accessToken", scope: `openid profile w_member_social${process.env.LINKEDIN_ORGANIZATION_ID ? " w_organization_social" : ""}` },
     x: { authorize: "https://x.com/i/oauth2/authorize", token: "https://api.x.com/2/oauth2/token", scope: "tweet.read tweet.write users.read media.write" },
@@ -42,27 +50,32 @@ export function startOAuth(platform: OAuthPlatform) {
   return { url: url.toString(), cookie: seal(saved) };
 }
 export function verifyState(cookie: string, platform: OAuthPlatform, state: string): OAuthState {
-  const saved = unseal<OAuthState>(cookie);
+  if (!cookie) throw new OAuthConnectionError("state-missing");
+  let saved: OAuthState;
+  try { saved = unseal<OAuthState>(cookie); } catch { throw new OAuthConnectionError("state-invalid"); }
   const a = Buffer.from(saved.state), b = Buffer.from(state);
-  if (saved.platform !== platform || !b.length || a.length !== b.length || !timingSafeEqual(a, b)) throw new Error("Authorization expired. Connect this account again.");
+  if (saved.platform !== platform || !b.length || a.length !== b.length || !timingSafeEqual(a, b)) throw new OAuthConnectionError("state-invalid");
   return saved;
 }
 export function readConnection(cookie: string | undefined, platform: Platform): Connection | null {
   try { const session = unseal<Connection>(cookie ?? ""); return session.platform === platform && session.accessToken && session.id ? session : null; } catch { return null; }
 }
 export async function accountJson(url: string, token: string, request: typeof fetch = fetch) {
-  const response = await request(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15000) });
-  if (!response.ok) throw new Error("The account could not be verified. Reconnect and check the app's publishing permissions.");
-  return response.json();
+  let response: Response;
+  try { response = await request(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15000) }); }
+  catch { throw new OAuthConnectionError("provider-unavailable"); }
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data) throw new OAuthConnectionError("identity-rejected", response.status, safeNumber(data?.error?.code), safeNumber(data?.error?.error_subcode));
+  return data;
 }
 export async function identity(platform: OAuthPlatform, token: string, request: typeof fetch = fetch) {
   let id: string, name: string;
-  if (platform === "threads") { const data = await accountJson("https://graph.threads.net/v1.0/me?fields=id,username", token, request); id = data.id; name = data.username; }
+  if (platform === "threads") { const data = await accountJson("https://graph.threads.com/v1.0/me?fields=id,username", token, request); id = data.id; name = data.username; }
   else if (platform === "pinterest") { const data = await accountJson("https://api.pinterest.com/v5/user_account", token, request); id = data.username; name = data.username; }
   else if (platform === "linkedin") { const data = await accountJson("https://api.linkedin.com/v2/userinfo", token, request); id = data.sub; name = data.name; }
   else if (platform === "x") { const data = await accountJson("https://api.x.com/2/users/me", token, request); id = data.data?.id; name = data.data?.username; }
   else { const data = await accountJson(`${mastodonOrigin()}/api/v1/accounts/verify_credentials`, token, request); id = data.id; name = data.acct; }
-  if (!id || !name) throw new Error("The provider returned an incomplete account. Connect again.");
+  if (!id || !name) throw new OAuthConnectionError("identity-rejected");
   if (platform === "linkedin" && process.env.LINKEDIN_ORGANIZATION_ID) {
     const organization = process.env.LINKEDIN_ORGANIZATION_ID;
     if (!/^\d+$/.test(organization)) throw new Error("LINKEDIN_ORGANIZATION_ID must contain digits only.");
@@ -71,15 +84,23 @@ export async function identity(platform: OAuthPlatform, token: string, request: 
   return { id: platform === "linkedin" ? `urn:li:person:${id}` : String(id), name: String(name) };
 }
 export async function finishOAuth(platform: OAuthPlatform, code: string, state: OAuthState, request: typeof fetch = fetch): Promise<Connection> {
-  const config = oauthConfig(platform);
+  let config: ReturnType<typeof oauthConfig>;
+  try { config = oauthConfig(platform); } catch { throw new OAuthConnectionError("configuration"); }
   const body = new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: config.redirect, client_id: config.id });
   const headers: Record<string, string> = {};
   if (platform === "pinterest" || platform === "x") headers.Authorization = `Basic ${Buffer.from(`${config.id}:${config.secret}`).toString("base64")}`;
   else body.set("client_secret", config.secret);
   if (platform === "x") body.set("code_verifier", state.verifier);
-  const response = await request(config.token, { method: "POST", body, headers, redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) });
-  const data = await response.json();
-  if (!response.ok || typeof data.access_token !== "string") throw new Error("Authorization was not completed. Check the callback URL, scopes and app approval.");
+  let response: Response;
+  try { response = await request(config.token, { method: "POST", body, headers, redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) }); }
+  catch { throw new OAuthConnectionError("provider-unavailable"); }
+  const data = await response.json().catch(() => null);
+  if (!response.ok || typeof data?.access_token !== "string") {
+    // Classify internally; never forward provider messages, tokens, codes or secrets.
+    const message = String(data?.error?.message ?? data?.error_message ?? "");
+    const issue = /redirect[_ ]?uri|redirect url/i.test(message) ? "redirect-mismatch" : /client secret|app secret|invalid client|invalid app/i.test(message) ? "credentials-rejected" : "token-rejected";
+    throw new OAuthConnectionError(issue, response.status, safeNumber(data?.error?.code ?? data?.code), safeNumber(data?.error?.error_subcode));
+  }
   const details = await identity(platform, data.access_token, request);
   // Deliberately expire with the access token. No silent posting using expired credentials.
   const lifetime = Math.min(Number(data.expires_in) || (platform === "threads" ? 3600 : 86400 * 30), 86400 * 30);

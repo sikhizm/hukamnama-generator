@@ -11,6 +11,21 @@ export const FORMATS: Record<Platform, PostKind[]> = {
   x: ["image", "text"], telegram: ["image", "text"], bluesky: ["image", "text"], mastodon: ["image", "text"],
 };
 export const EMPTY_DRAFT: Draft = { title: "", caption: "", url: "", hashtags: "", alt: "", board: "" };
+export const CONNECTION_ISSUES = {
+  "state-missing": "The browser did not return the connection cookie. Start Connect again on the production app in the same browser, and allow its cookies.",
+  "state-invalid": "The connection session expired or did not match. Close old authorization tabs and start Connect again.",
+  "permission-denied": "Authorization was declined or blocked. Check that @sikhizmcom accepted its Threads Tester invitation and approve the requested permissions.",
+  "no-code": "The provider returned without an authorization code. Start Connect again and complete its approval screen.",
+  "redirect-mismatch": "Meta rejected the callback URL. It must exactly match the registered Threads OAuth redirect URL, including the hostname and path.",
+  "credentials-rejected": "Meta rejected the app credentials. Check the Threads App ID and its matching Threads App Secret in Vercel Production, then redeploy.",
+  "token-rejected": "The provider rejected the authorization-code exchange. Check the matching app credentials, exact callback URL and accepted tester invitation, then start a new connection.",
+  "identity-rejected": "The access token was issued, but the provider could not verify the account. Check account permissions and tester access, then reconnect.",
+  "provider-unavailable": "The provider request could not be completed. Start Connect again shortly.",
+  "cookie-capacity": "The provider returned credentials too large for this connection's cookie storage.",
+  "configuration": "The server connection settings are incomplete or invalid. Check the provider credentials and callback origin, then redeploy.",
+  "unexpected": "The callback could not be completed. Start a new connection; the safe diagnostic code below identifies the failing step.",
+} as const;
+export type ConnectionIssue = keyof typeof CONNECTION_ISSUES;
 export function isPlatform(value: string): value is Platform { return PLATFORMS.some(platform => platform === value); }
 export function postText(draft: Draft): string {
   const tags = [...new Set(draft.hashtags.split(/[\s,]+/).filter(Boolean).map(tag => `#${tag.replace(/^#+/, "")}`).filter(tag => tag !== "#"))];

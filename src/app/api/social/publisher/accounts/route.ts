@@ -10,14 +10,23 @@ export const maxDuration = 60;
 export async function POST(request: NextRequest) {
   const reply = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
   const auth = await authorizeSocial(request); if (auth) return reply({ error: auth }, 401);
-  const meta = (async () => { try { return await verifyMetaConnection(metaConfig()); } catch { return null; } })();
+  const meta = (async () => {
+    try { return { result: await verifyMetaConnection(metaConfig()), error: "" }; }
+    catch (error) {
+      // The connection helper's own errors are safe. Never forward raw Graph payloads.
+      const message = error instanceof Error ? error.message : "";
+      const safe = /^(Meta could not verify this Page token\.|The token does not belong to the configured Facebook Page\.|Check META_GRAPH_VERSION)/.test(message);
+      return { result: null, error: safe ? message : "The existing Meta connection could not be verified. Check the Page token, permissions and server settings, then refresh." };
+    }
+  })();
   const accounts = await Promise.all(PLATFORMS.map(async (platform): Promise<Account> => {
     const account: Account = { platform, connected: false, configured: false, message: setupMessage(platform) };
     try {
       if (platform === "facebook" || platform === "instagram") {
         try { metaConfig(); account.configured = true; } catch { return account; }
-        const result = await meta;
+        const checked = await meta, result = checked.result;
         if (result?.[platform].connected) return { ...account, connected: true, id: platform === "facebook" ? result.facebook.id : result.instagram.username ?? "", name: platform === "facebook" ? result.facebook.name : `@${result.instagram.username}`, message: "Account verified." };
+        return { ...account, message: checked.error || result?.message || "The existing Meta connection could not be verified. Refresh to check again." };
       } else if (platform === "youtube") {
         try { googleConfig(); account.configured = true; } catch { return account; }
         const session = unseal<YoutubeSession>(request.cookies.get(YOUTUBE_COOKIE)?.value ?? "");
