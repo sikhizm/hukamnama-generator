@@ -1,3 +1,4 @@
+import { formatSgpcCalendarDate } from "./sgpcDate";
 import { normalizeAuthor } from "./authors";
 
 export interface LiveHukamnama {
@@ -77,23 +78,6 @@ export function htmlToLines(html: string): string[] {
     .filter(Boolean);
 }
 
-function datePartsFromSource(lines: string[], sourceDateISO: string): string {
-  const punjabiDate = lines.find((line) => PUNJABI_WEEKDAYS.some((weekday) => line.includes(weekday)) && /ਸੰਮਤ|ਨਾਨਕਸ਼ਾਹੀ|ਨਾਨਕਸ਼ਾਹੀ/.test(line));
-  const englishDate = lines.find((line) => /^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday),?\s+\d{1,2}(?:st|nd|rd|th)?\s+/i.test(line) && /Katak|Chet|Vaisakh|Jeth|Harh|Sawan|Bhadon|Assu|Maghar|Poh|Magh|Phagun/i.test(line));
-  if (!punjabiDate || !englishDate) return "";
-
-  const monthPa = Object.keys(PUNJABI_MONTHS).find((month) => punjabiDate.includes(month));
-  const englishMatch = englishDate.match(/^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday),?\s+(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)/i);
-  const dayPa = punjabiDate.match(/[੦-੯0-9]+(?=\s*(?:ਚੇਤ|ਵੈਸਾਖ|ਜੇਠ|ਹਾੜ|ਸਾਵਣ|ਭਾਦੋਂ|ਅੱਸੂ|ਕੱਤਕ|ਮੱਘਰ|ਪੋਹ|ਮਾਘ|ਫੱਗਣ))/u)?.[0];
-  const weekdayPa = PUNJABI_WEEKDAYS.find((weekday) => punjabiDate.includes(weekday));
-  if (!monthPa || !englishMatch || !dayPa || !weekdayPa) return "";
-
-  const [year, month, day] = sourceDateISO.split("-");
-  const dayNumber = dayPa.replace(/[੦-੯]/g, (digit) => GURMUKHI_DIGITS[digit] ?? digit).padStart(2, "0");
-  const gregorianMonth = new Date(`${sourceDateISO}T00:00:00.000Z`).toLocaleString("en-US", { month: "long", timeZone: "UTC" });
-  return `${Number(day)}-${gregorianMonth}-${year} | ${monthPa} (${PUNJABI_MONTHS[monthPa]}) ${dayNumber} | ${weekdayPa} (${englishMatch[1]})`;
-}
-
 export function parseSgpcPage(html: string, todayISO: string, checkedAt = new Date().toISOString()): LiveHukamnama {
   const lines = htmlToLines(html);
   const stampIndex = lines.findIndex((line) => /\b\d{1,2}[-/]\d{1,2}[-/]\d{4}\s+\d{1,2}:\d{2}\s*(?:AM|PM)\b/i.test(line));
@@ -123,7 +107,7 @@ export function parseSgpcPage(html: string, todayISO: string, checkedAt = new Da
   const angLine = angIndex >= 0 ? lines[angIndex] : "";
   const angRaw = angLine.match(/(?:ਅੰਗ|\bAng)\s*[:：]\s*([੦-੯0-9]+)/i)?.[1] ?? "";
   const ang = angRaw.replace(/[੦-੯]/g, (digit) => GURMUKHI_DIGITS[digit] ?? digit);
-  const dateText = datePartsFromSource(lines, sourceDateISO);
+  const dateText = formatSgpcCalendarDate(lines.join(" "), sourceDateISO);
 
   if (!original || !translation || !ang) throw new Error("SGPC page is missing Gurbani, Punjabi translation, or Ang data.");
   return {
@@ -167,14 +151,7 @@ export function parseSgpcDailyMukhwakPage(html: string, todayISO: string, checke
   const mangal = lines.slice(headingIndex + 1, dateIndex).findIndex((line) => line.includes("ੴ"));
   if (mangal < 0) throw new Error("Could not locate the Mool Mantar in SGPC Daily Mukhwak.");
   const original = lines.slice(headingIndex + 1, dateIndex).join(" ").trim();
-  const nanakshahiMonth = Object.keys(PUNJABI_MONTHS).find((month) => dateLine.includes(month));
-  const nanakshahiDay = dateLine.match(/[੦-੯0-9]+(?=\s*(?:ਚੇਤ|ਵੈਸਾਖ|ਜੇਠ|ਹਾੜ|ਸਾਵਣ|ਭਾਦੋਂ|ਅੱਸੂ|ਕੱਤਕ|ਮੱਘਰ|ਪੋਹ|ਮਾਘ|ਫੱਗਣ))/u)?.[0];
-  const weekdayPa = PUNJABI_WEEKDAYS.find((weekday) => dateLine.includes(weekday));
-  const weekdayEn = new Date(`${sourceDateISO}T00:00:00.000Z`).toLocaleString("en-US", { weekday: "long", timeZone: "UTC" });
-  const gregorianMonth = new Date(`${sourceDateISO}T00:00:00.000Z`).toLocaleString("en-US", { month: "long", timeZone: "UTC" });
-  const dateText = nanakshahiMonth && nanakshahiDay && weekdayPa
-    ? `${Number(day)}-${gregorianMonth}-${dateDigits(gregorian[3])} | ${nanakshahiMonth} (${PUNJABI_MONTHS[nanakshahiMonth]}) ${dateDigits(nanakshahiDay).padStart(2, "0")} | ${weekdayPa} (${weekdayEn})`
-    : sourceDateISO;
+  const dateText = formatSgpcCalendarDate(dateLine, sourceDateISO) ?? sourceDateISO;
 
   if (!title || !original) throw new Error("SGPC Daily Mukhwak page is missing the Hukamnama text.");
   return {

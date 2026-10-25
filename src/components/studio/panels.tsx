@@ -27,6 +27,8 @@ import {
   CornerUpLeft,
   CornerUpRight,
 } from "lucide-react";
+import { useState } from "react";
+import { formatSgpcCalendarDate } from "@/lib/hukamnama/sgpcDate";
 import { AUTHOR_OPTIONS, normalizeAuthor } from "@/lib/hukamnama/authors";
 import { Section, SliderRow, ToggleRow, SegRow, FieldLabel, TextInput, TextArea } from "./controls";
 import {
@@ -374,6 +376,8 @@ export function HeaderSection(p: PanelProps) {
 
 export function DateSection(p: PanelProps) {
   const { state, patch } = p;
+  const [sgpcDate, setSgpcDate] = useState("");
+  const [dateMessage, setDateMessage] = useState("");
   return (
     <Section icon={CalendarDays} title="Date row" subtitle="Punjabi + Gregorian date line">
       <FieldLabel>Pick a date</FieldLabel>
@@ -393,11 +397,11 @@ export function DateSection(p: PanelProps) {
               }
               className="flex items-center gap-1 text-[10px] font-medium text-amber-300/90 transition hover:text-amber-200"
             >
-              <RotateCcw size={10} /> Reset to auto
+              <RotateCcw size={10} /> Use calendar estimate
             </button>
           }
         >
-          Date line {state.dateManual ? "(manual override)" : "(auto · desi calendar)"}
+          Date line {state.dateManual ? "(manual override)" : "(estimate · verify with SGPC)"}
         </FieldLabel>
         <TextArea
           rows={2}
@@ -406,6 +410,20 @@ export function DateSection(p: PanelProps) {
           gurmukhi
         />
       </div>
+      <details className="rounded-lg border border-white/10 p-3 text-xs text-zinc-300">
+        <summary className="cursor-pointer font-semibold text-amber-200">Use a date copied from SGPC</summary>
+        <p className="mt-2 text-[11px] leading-5 text-zinc-400">If SGPC fetch is blocked, copy its Punjabi or English Nanakshahi date line here. Check the Gregorian date selected above first.</p>
+        <label className="mt-2 block">SGPC calendar line
+          <textarea rows={3} value={sgpcDate} onChange={event => setSgpcDate(event.target.value)} placeholder="ਐਤਵਾਰ, ੯ ਕੱਤਕ (ਸੰਮਤ ੫੫੮ ਨਾਨਕਸ਼ਾਹੀ)" className="font-pa mt-1 w-full rounded-lg border border-white/10 bg-black/20 p-2" />
+        </label>
+        <button type="button" onClick={() => {
+          const dateText = formatSgpcCalendarDate(sgpcDate, state.dateISO);
+          if (!dateText) { setDateMessage("Could not match this SGPC calendar line to the selected weekday. Check the date, day, month and Samvat year."); return; }
+          patch({ dateText, dateManual: true });
+          setDateMessage("SGPC date formatted. Confirm it belongs to the selected Gregorian date before sharing.");
+        }} className="mt-2 rounded-lg border border-amber-300/30 px-3 py-2 font-semibold text-amber-200">Apply SGPC date</button>
+        {dateMessage && <p role="status" className="mt-2 text-[11px] leading-5">{dateMessage}</p>}
+      </details>
     </Section>
   );
 }
