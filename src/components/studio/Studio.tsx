@@ -555,7 +555,7 @@ export default function Studio() {
               }}>Load supplied reference example (24 Oct 2026)</button>
               {!backgroundReady && <p role="status" className="text-xs text-amber-300">Waiting for template artwork. Export remains locked.</p>}
             </div>
-            <p className="text-xs text-amber-200">Verify the Punjabi date against SGPC and enter the full date manually. The existing automatic calendar is approximate.</p>
+            <p className="text-xs text-amber-200">Live SGPC dates include the published Nanakshahi date. If only a Gregorian date loads, use a copied SGPC calendar line in Date row below.</p>
           </section>
           <FontSection
             state={state}

@@ -86,7 +86,7 @@ assert.equal(live.sourceTime, '05:30 AM');
 assert.equal(live.ang, '718');
 assert(live.original.includes('ਟੋਡੀ ਬਾਣੀ ਭਗਤਾਂ ਕੀ ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ'));
 assert(live.translation.includes('ਕੋਈ ਮਨੁੱਖ ਆਖਦਾ ਹੈ'));
-assert.equal(live.dateText, '24-October-2026 | ਕੱਤਕ (Katak) 08 | ਸ਼ਨਿਚਰਵਾਰ (Saturday)');
+assert.equal(live.dateText, '24-October-2026 | ਕੱਤਕ 08, 558 | ਸ਼ਨਿਚਰਵਾਰ (Saturday)');
 const fallback = parseSgpcDailyMukhwakPage(`<html><body>
   <h2>ਰੋਜ਼ਾਨਾ ਮੁੱਖਵਾਕ / Daily Mukhwak</h2>
   <h3>ਮੁੱਖਵਾਕ - ਸੱਚਖੰਡ ਸ੍ਰੀ ਹਰਿਮੰਦਰ ਸਾਹਿਬ ਸ੍ਰੀ ਅੰਮ੍ਰਿਤਸਰ</h3>
@@ -97,7 +97,7 @@ const fallback = parseSgpcDailyMukhwakPage(`<html><body>
 assert.equal(fallback.isToday, true);
 assert.equal(fallback.sourceName, 'SGPC Daily Mukhwak page');
 assert.equal(fallback.ang, '718');
-assert.equal(fallback.dateText, '24-October-2026 | ਕੱਤਕ (Katak) 08 | ਸ਼ਨਿਚਰਵਾਰ (Saturday)');
+assert.equal(fallback.dateText, '24-October-2026 | ਕੱਤਕ 08, 558 | ਸ਼ਨਿਚਰਵਾਰ (Saturday)');
 assert.equal(fallback.translation, '', 'official SGPC fallback must not invent a Punjabi translation');
 const matchedTranslation = parseSikhizmPunjabiTranslation(`<html><body>
   <p>Ang</p><p>718</p><p>ਟੋਡੀ ਬਾਣੀ ਭਗਤਾਂ ਕੀ ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਕੋਈ ਬੋਲੈ ਨਿਰਵਾ ਕੋਈ ਬੋਲੈ ਦੂਰਿ ॥ ਜਲ ਕੀ ਮਾਛੁਲੀ ਚਰੈ ਖਜੂਰਿ ॥੧॥ ਕਾਂਇ ਰੇ ਬਕਬਾਦੁ ਲਾਇਓ ॥ ਜਿਨਿ ਹਰਿ ਪਾਇਓ ਤਿਨਹਿ ਛਪਾਇਓ ॥੧॥ ਰਹਾਉ ॥</p>
@@ -170,3 +170,17 @@ const creatorFree = legacyHtml.replace('Guru Arjan Dev Ji', '');
 assert.equal(parseSikhizmLiveArticle(creatorFree, legacyPost, '2026-10-25').matchedAuthor, null);
 const customCreator = legacyHtml.replace('Guru Arjan Dev Ji', 'Bhagat Farid Ji');
 assert.equal(parseSikhizmLiveArticle(customCreator, legacyPost, '2026-10-25').matchedAuthor, 'Bhagat Farid Ji');
+
+const { formatSgpcCalendarDate } = require('../src/lib/hukamnama/sgpcDate.ts');
+const todayCalendar = 'ਐਤਵਾਰ, ੯ ਕੱਤਕ (ਸੰਮਤ ੫੫੮ ਨਾਨਕਸ਼ਾਹੀ)';
+const expectedCalendar = '25-October-2026 | ਕੱਤਕ 09, 558 | ਐਤਵਾਰ (Sunday)';
+assert.equal(formatSgpcCalendarDate(todayCalendar, '2026-10-25'), expectedCalendar);
+assert.equal(formatSgpcCalendarDate('Sunday, 9th Katak (Samvat 558 Nanakshahi)', '2026-10-25'), expectedCalendar);
+assert.equal(formatSgpcCalendarDate(todayCalendar + ' Sunday, 10th Katak (Samvat 558 Nanakshahi)', '2026-10-25'), null, 'reject conflicting calendar lines');
+assert.equal(formatSgpcCalendarDate(todayCalendar, '2026-10-26'), null, 'reject a weekday mismatch');
+assert.equal(formatSgpcCalendarDate(todayCalendar, '2026-02-31'), null, 'reject invalid Gregorian dates');
+assert.equal(formatSgpcCalendarDate('25 October 2026', '2026-10-25'), null, 'never invent an absent Nanakshahi date');
+assert.equal(formatSgpcCalendarDate('Sunday, 99th Katak (Samvat 558 Nanakshahi)', '2026-10-25'), null);
+
+assert.equal(formatSgpcCalendarDate('18-10-2026 05:30 AM ' + todayCalendar, '2026-10-25'), null, 'reject an older SGPC release even if its weekday agrees');
+assert.ok(buildSocialCaption({ ...defaultState(), dateText: expectedCalendar }, '', '').includes(expectedCalendar), 'caption keeps the complete dual-calendar date');
