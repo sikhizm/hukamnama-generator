@@ -12,6 +12,7 @@ const LINKS_KEY = "hukamnama-social-links-v2";
 interface LinkDraft { articleUrl: string; pdfUrl: string; context: string; manual: boolean }
 
 interface SocialCaptionProps {
+  autoTarget: HTMLElement | null;
   reelTarget: HTMLElement | null;
   state: StudioState;
   notify: (message: string) => void;
@@ -23,7 +24,7 @@ interface SocialCaptionProps {
   createFormatImage: (format: "feed" | "vertical") => Promise<Blob | null>;
 }
 
-export default function SocialCaption({ reelTarget, state, notify, createImage, disabled, live, onLoadLive, createFormatImage }: SocialCaptionProps) {
+export default function SocialCaption({ autoTarget, reelTarget, state, notify, createImage, disabled, live, onLoadLive, createFormatImage }: SocialCaptionProps) {
   const context = linkContext(state);
   const [links, setLinks] = useState<LinkDraft>({ articleUrl: "", pdfUrl: "", context: "", manual: false });
   const articleUrl = links.context === context ? links.articleUrl : "";
@@ -202,7 +203,7 @@ export default function SocialCaption({ reelTarget, state, notify, createImage, 
       </div>
       </details>
       <div className="p-4">
-        <MorningPublisher manualLinks={links.context === context && links.manual} reelTarget={reelTarget} state={state} caption={caption} articleUrl={articleUrl} pdfUrl={pdfUrl} live={live} onLoadLive={onLoadLive} createImage={createFormatImage} disabled={disabled} />
+        <MorningPublisher autoTarget={autoTarget} manualLinks={links.context === context && links.manual} reelTarget={reelTarget} state={state} caption={caption} articleUrl={articleUrl} pdfUrl={pdfUrl} live={live} onLoadLive={onLoadLive} createImage={createFormatImage} disabled={disabled} />
       </div>
     </section>
   );

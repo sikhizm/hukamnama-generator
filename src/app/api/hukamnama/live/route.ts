@@ -21,7 +21,7 @@ function isSikhizmUrl(value: string): boolean {
   }
 }
 
-async function loadSikhizmTranslation(record: LiveHukamnama): Promise<void> {
+async function loadSikhizmTranslation(record: LiveHukamnama, replaceTranslation = true): Promise<void> {
   try {
     const feedResponse = await fetch("https://sikhizm.com/category/hukamnama/feed/", {
       headers: { "user-agent": "Sikhizm-Hukamnama-Studio/1.0", accept: "application/rss+xml, application/xml, text/xml" },
@@ -53,7 +53,7 @@ async function loadSikhizmTranslation(record: LiveHukamnama): Promise<void> {
         // A missing author block must not discard an otherwise matched translation.
       }
     }
-    if (translation) {
+    if (translation && replaceTranslation) {
       record.translation = translation;
       record.sourceName = "SGPC Daily Mukhwak + matched Sikhizm Punjabi translation";
     }
@@ -139,6 +139,9 @@ export async function GET(request: Request) {
         // SGPC remains authoritative; a temporarily unavailable matcher should not hide the live Hukamnama.
       }
     }
+    // A stale external metadata API must not prevent a verified same-day author match.
+    // Retain SGPC's own explanation when only its author metadata needs supplementing.
+    if (record.isToday && !record.matchedAuthor) await loadSikhizmTranslation(record, false);
     return NextResponse.json(record, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return NextResponse.json({

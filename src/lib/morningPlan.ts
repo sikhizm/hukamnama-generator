@@ -1,11 +1,11 @@
+import { publishedSgpcDate } from "./hukamnama/sgpcCalendar";
 import { normalizeAuthor } from "./hukamnama/authors";
 import type { StudioState } from "./hukamnama/types";
 import type { LiveHukamnama } from "./hukamnama/liveSource";
 
 export const DESTINATIONS = [
   { id: "facebook-image", label: "Facebook image · 1080 × 1350", selected: true },
-  { id: "instagram-image", label: "Instagram image · 1080 × 1350", selected: false },
-  { id: "facebook-reel", label: "Facebook reel · 1080 × 1920", selected: false },
+  { id: "facebook-reel", label: "Facebook reel · 1080 × 1920", selected: true },
   { id: "instagram-reel", label: "Instagram reel · 1080 × 1920", selected: true },
   { id: "youtube-reel", label: "YouTube Short · 1080 × 1920", selected: true },
   { id: "facebook-story", label: "Facebook story · 1080 × 1920", selected: true },
@@ -41,4 +41,20 @@ export function needsReel(targets: MorningTargets) { return targets["facebook-re
 export function verifyMorningState(state: StudioState, live: LiveHukamnama | null, day: string) {
   const validLive = live?.sourceDateISO === day && live.isToday && live.metadataMatched && !!live.original && !!live.translation && !!live.dateText && !!live.matchedAuthor;
   return { validLive, matchesLive: validLive && state.dateISO === day && state.original === live.original && state.translation === live.translation && state.ang === live.ang && normalizeAuthor(state.banikar) === normalizeAuthor(live.matchedAuthor) && state.dateText === live.dateText };
+}
+
+/** Fail closed for unattended runs: today's complete source must have just been fetched. */
+export function verifyFreshMorningState(state: StudioState, live: LiveHukamnama | null, now = new Date()) {
+  const day = indiaClock(now).day;
+  const base = verifyMorningState(state, live, day);
+  const age = now.getTime() - Date.parse(live?.checkedAt ?? "");
+  const fresh = Number.isFinite(age) && age >= -30_000 && age <= 120_000;
+  const ang = live?.ang ?? "";
+  const complete = !!live && /^\d{1,4}$/.test(ang) && Number(ang) >= 1 && Number(ang) <= 1430
+    && !!normalizeAuthor(live.matchedAuthor) && !!live.translation.trim()
+    && /[॥।]\s*[੦-੯0-9]+(?:\s*[॥।]\s*[੦-੯0-9]+)*\s*[॥।]\s*$/u.test(live.original);
+  const calendar = publishedSgpcDate(day);
+  const validCalendar = !!live && (calendar ? live.dateText === calendar : live.dateText.includes(" | ") && /[\u0A00-\u0A7F]/u.test(live.dateText));
+  const validLive = Boolean(base.validLive && fresh && complete && validCalendar);
+  return { validLive, matchesLive: Boolean(validLive && base.matchesLive) };
 }
