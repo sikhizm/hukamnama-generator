@@ -6,12 +6,12 @@ require.extensions['.ts'] = (module, filename) => {
 };
 const { EMPTY_DRAFT, PLATFORMS, validateDraft, postText } = require('../src/lib/publisher/model.ts');
 const { articleUrl, parseArticle, fetchArticleResource, readLimited } = require('../src/lib/publisher/importArticle.ts');
-const { startOAuth, verifyState, finishOAuth, readConnection, cookieName, OAuthConnectionError } = require('../src/lib/publisher/connections.ts');
-const { publishExtra, providerRequest, linkFacets } = require('../src/lib/publisher/adapters.ts');
+const { startOAuth, verifyState, finishOAuth, readConnection, cookieName, OAuthConnectionError, identity, currentConnection, oauthConfig } = require('../src/lib/publisher/connections.ts');
+const { publishExtra, providerRequest, linkFacets, blogHtml } = require('../src/lib/publisher/adapters.ts');
 const { serverThreadsConnection } = require('../src/lib/publisher/threads.ts');
 const { seal, unseal } = require('../src/lib/youtube.ts');
 const { readLedger, writeLedger, attemptKey, clearAttempt } = require('../src/lib/publisher/attempts.ts');
-const draft = { ...EMPTY_DRAFT, title: 'A title', caption: 'An article', url: 'https://sikhizm.com/article/', hashtags: '#Gurbani, Sikhizm #Gurbani', alt: 'A description', board: '123' };
+const draft = { ...EMPTY_DRAFT, title: 'A title', caption: 'An article', url: 'https://sikhizm.com/article/', hashtags: '#Gurbani, Sikhizm #Gurbani', alt: 'A description', board: '123', imageUrl: 'https://sikhizm.com/wp-content/uploads/test.jpg' };
 const image = new Blob([new Uint8Array([255,216,255,217,0,0,0,0,0,0,0,0])], {type:'image/jpeg'});
 function sequence(items, checks = []) {
   let index = 0;
@@ -26,7 +26,7 @@ function sequence(items, checks = []) {
   request.done = () => assert.equal(index, items.length); return request;
 }
 (async () => {
-  assert.equal(PLATFORMS.length, 10);
+  assert.equal(PLATFORMS.length, 12);
   assert.equal(postText(draft), 'An article\n\nhttps://sikhizm.com/article/\n\n#Gurbani #Sikhizm');
   assert.equal(postText({...draft,caption: draft.url}), `${draft.url}\n\n#Gurbani #Sikhizm`);
   for (const platform of PLATFORMS.filter(p => p !== 'youtube')) assert.equal(validateDraft(platform, 'image', draft), null, platform);
@@ -55,7 +55,7 @@ function sequence(items, checks = []) {
 
   process.env.SOCIAL_ADMIN_KEY = 't'.repeat(32);
   process.env.PUBLISHER_REDIRECT_BASE = 'https://app.example';
-  for (const platform of ['threads','pinterest','linkedin','x','mastodon']) {
+  for (const platform of ['threads','pinterest','x','mastodon']) {
     process.env[`${platform.toUpperCase()}_CLIENT_ID`] = 'test-client';
     process.env[`${platform.toUpperCase()}_CLIENT_SECRET`] = 'test-secret';
     const started = startOAuth(platform), url = new URL(started.url);
@@ -66,10 +66,10 @@ function sequence(items, checks = []) {
     assert.throws(()=>verifyState(started.cookie,platform === 'x' ? 'threads' : 'x',state.state),/expired/);
     if (platform === 'x') assert.equal(url.searchParams.get('code_challenge_method'),'S256');
     if (platform === 'threads') assert.equal(url.origin,'https://threads.com');
-    const who = platform === 'threads' ? {id:'10',username:'sikhizm'} : platform === 'pinterest' ? {username:'sikhizm'} : platform === 'linkedin' ? {sub:'member',name:'Sikhizm'} : platform === 'x' ? {data:{id:'10',username:'sikhizm'}} : {id:'10',acct:'sikhizm'};
+    const who = platform === 'threads' ? {id:'10',username:'sikhizm'} : platform === 'pinterest' ? {username:'sikhizm'} : platform === 'x' ? {data:{id:'10',username:'sikhizm'}} : {id:'10',acct:'sikhizm'};
     const exchange = sequence([{access_token:'ACCESS',expires_in:3600},who],[(url,o)=>{assert.equal(o.body.get('code'),'CODE');assert.equal(o.body.get('redirect_uri'),`https://app.example/api/social/publisher/callback/${platform}`);if(platform==='x')assert.equal(o.body.get('code_verifier'),state.verifier);}]);
     const session = await finishOAuth(platform,'CODE',state,exchange);exchange.done();
-    assert.equal(session.name,'sikhizm' === who.username ? 'sikhizm' : platform==='linkedin'?'Sikhizm':'sikhizm');
+    assert.equal(session.name,'sikhizm');
     assert.ok(session.expires <= Date.now()+3600000);
     const cookie = seal(session); assert.equal(readConnection(cookie,platform).accessToken,'ACCESS');
     assert.equal(readConnection(cookie,platform==='x'?'threads':'x'),null);
@@ -92,16 +92,58 @@ function sequence(items, checks = []) {
   const wrongToken=sequence([{id:'12345',username:'different'}]);await assert.rejects(serverThreadsConnection(wrongToken),/another account/);wrongToken.done();
   const expiredToken=sequence([Response.json({error:{message:'SERVER_PRIVATE_TOKEN'}},{status:401})]);await assert.rejects(serverThreadsConnection(expiredToken),error=>/expired or been revoked/.test(error.message)&&!error.message.includes('SERVER_PRIVATE'));expiredToken.done();
   delete process.env.THREADS_ACCESS_TOKEN;
-  const conn = p=>({platform:p,id:p==='linkedin'?'urn:li:person:member':'10',name:'sikhizm',accessToken:'ACCESS',expires:Date.now()+60000});
+  const conn = p=>({platform:p,id:'10',name:'sikhizm',accessToken:'ACCESS',expires:Date.now()+60000});
+  assert.ok(!PLATFORMS.includes('linkedin'));
+  process.env.TUMBLR_BLOG_NAME='sikhizm';process.env.BLOGGER_BLOG_ID='42';process.env.WORDPRESS_COM_SITE_ID='43';
+  const identities = {
+    tumblr: {response:{user:{blogs:[{name:'sikhizm',title:'Sikhizm'}]}}},
+    blogger: {items:[{id:'42',name:'Sikhizm blog',url:'https://sikhizm.blogspot.com/'}]},
+    wordpress: {sites:[{ID:43,name:'Sikhizm blog',URL:'https://sikhizm.wordpress.com',jetpack:false,capabilities:{publish_posts:true}}]}
+  };
+  for (const platform of ['tumblr','blogger','wordpress']) {
+    const prefix=platform==='wordpress'?'WORDPRESS_COM':platform.toUpperCase();
+    process.env[`${prefix}_CLIENT_ID`]='blog-client';process.env[`${prefix}_CLIENT_SECRET`]='BLOG_SECRET';
+    const started=startOAuth(platform), url=new URL(started.url);
+    assert.equal(url.searchParams.get('redirect_uri'),`https://app.example/api/social/publisher/callback/${platform}`);
+    assert.ok(!started.url.includes('BLOG_SECRET'));
+    if(platform==='wordpress') {assert.equal(url.searchParams.get('blog'),'43');assert.equal(url.searchParams.get('scope'),'posts media');}
+    if(platform==='blogger') assert.equal(url.searchParams.get('access_type'),'offline');
+    const state=verifyState(started.cookie,platform,url.searchParams.get('state'));
+    const calls=sequence([{access_token:'BLOG_TOKEN',expires_in:3600,refresh_token:'REFRESH'},identities[platform]],[(u,o)=>{assert.equal(o.body.get('client_secret'),'BLOG_SECRET');assert.equal(o.body.get('redirect_uri'),url.searchParams.get('redirect_uri'));}]);
+    const session=await finishOAuth(platform,'code',state,calls);calls.done();
+    assert.equal(session.id,platform==='tumblr'?'sikhizm':platform==='blogger'?'42':'43');
+    assert.ok(!JSON.stringify({id:session.id,name:session.name}).includes('BLOG_TOKEN'));
+    if(platform!=='wordpress') {
+      assert.equal(session.refreshToken,'REFRESH');
+      const refresh=sequence([{access_token:'RENEWED',refresh_token:'ROTATED',expires_in:3600},identities[platform]],[(u,o)=>assert.equal(o.body.get('grant_type'),'refresh_token')]);
+      const renewed=await currentConnection(seal({...session,accessExpires:Date.now()-1}),platform,refresh);refresh.done();assert.equal(renewed.accessToken,'RENEWED');assert.equal(renewed.refreshToken,'ROTATED');
+      const reject=sequence([Response.json({error:'invalid_grant BLOG_SECRET'},{status:400})]);await assert.rejects(currentConnection(seal({...session,accessExpires:0}),platform,reject),e=>/revoked/.test(e.message)&&!e.message.includes('BLOG_SECRET'));reject.done();
+    }
+    const wrong=sequence([platform==='tumblr'?{response:{user:{blogs:[]}}}:platform==='blogger'?{items:[]}:{sites:[]}]);
+    await assert.rejects(identity(platform,'BLOG_TOKEN',wrong));wrong.done();
+  }
+  const jetpack=sequence([{sites:[{ID:43,name:'Main website',URL:'https://sikhizm.com',jetpack:true,capabilities:{publish_posts:true}}]}]);
+  await assert.rejects(identity('wordpress','ACCESS',jetpack),/excluded/);jetpack.done();
+  const noPublish=sequence([{sites:[{ID:43,URL:'https://sikhizm.wordpress.com',jetpack:false,capabilities:{publish_posts:false}}]}]);await assert.rejects(identity('wordpress','ACCESS',noPublish));noPublish.done();
+  assert.match(validateDraft('blogger','image',{...draft,imageUrl:''}),/public HTTPS/);
+  assert.match(validateDraft('blogger','image',{...draft,imageUrl:'https://127.0.0.1/a.jpg'}),/public HTTPS/);
+  assert.match(validateDraft('wordpress','text',{...draft,title:''}),/title/);
+  const htmlBody=blogHtml({...draft,caption:'<script>alert(1)</script>',alt:'" onerror="bad'},draft.imageUrl);
+  assert.ok(htmlBody.includes('&lt;script&gt;'));assert.ok(!htmlBody.includes('<script>'));assert.ok(htmlBody.includes('&quot; onerror=&quot;bad'));
+  const blogConn=p=>({...conn(p),id:p==='tumblr'?'sikhizm':p==='blogger'?'42':'43'});
+  const tumblr=sequence([{response:{id:'88'}}],[(url,o)=>{assert.match(url,/blog\/sikhizm\/posts$/);assert.ok(o.body.get('post-image') instanceof Blob);}]);
+  assert.equal((await publishExtra('tumblr',draft,image,blogConn('tumblr'),tumblr)).id,'88');tumblr.done();
+  const blogger=sequence([{id:'89',url:'https://sikhizm.blogspot.com/2026/10/post.html'}],[(url,o)=>{assert.match(url,/blogs\/42\/posts\?isDraft=false/);assert.ok(JSON.parse(o.body).content.includes(draft.imageUrl));}]);
+  assert.equal((await publishExtra('blogger',draft,null,blogConn('blogger'),blogger)).id,'89');blogger.done();
+  const wordpress=sequence([{media:[{ID:90,URL:'https://sikhizm.files.wordpress.com/image.jpg'}]},{ID:91,URL:'https://sikhizm.wordpress.com/post/'}],[(url,o)=>{assert.match(url,/sites\/43\/media\/new/);assert.ok(o.body.get('media[]') instanceof Blob);},(url,o)=>{const body=JSON.parse(o.body);assert.equal(body.status,'publish');assert.equal(body.featured_image,'90');assert.ok(body.content.includes('sikhizm.files.wordpress.com'));}]);
+  assert.equal((await publishExtra('wordpress',draft,image,blogConn('wordpress'),wordpress)).id,'91');wordpress.done();
+  for(const p of ['tumblr','blogger','wordpress']) await assert.rejects(publishExtra(p,draft,null,{...blogConn(p),id:'wrong'},async()=>{throw new Error('Must not fetch');}),/Reconnect/);
+  const ambiguousBlog=sequence([new Error('network interrupted')]);await assert.rejects(publishExtra('blogger',draft,null,blogConn('blogger'),ambiguousBlog),e=>e.uncertain===true);ambiguousBlog.done();
   const threads = sequence([{id:'20'},{id:'30'},{permalink:'https://www.threads.net/@sikhizm/post/30'}],[(url,o)=>assert.equal(JSON.parse(o.body).text,postText(draft))]);
   assert.equal((await publishExtra('threads',draft,null,conn('threads'),threads)).id,'30'); threads.done();
   const pins = sequence([{items:[{id:'123',name:'Gurbani'}]},{id:'99'}],[undefined,(url,o)=>{const data=JSON.parse(o.body);assert.equal(data.media_source.source_type,'image_base64');assert.equal(data.link,draft.url);}]);
   assert.equal((await publishExtra('pinterest',draft,image,conn('pinterest'),pins)).url,'https://www.pinterest.com/pin/99/');pins.done();
   const wrongBoard = sequence([{items:[]}]);await assert.rejects(publishExtra('pinterest',draft,image,conn('pinterest'),wrongBoard),/belonging/);wrongBoard.done();
-  process.env.LINKEDIN_API_VERSION='202610';
-  const li = sequence([{value:{uploadUrl:'https://www.linkedin.com/upload',image:'urn:li:image:1'}},new Response('',{status:201}),new Response(null,{status:201,headers:{'x-restli-id':'urn:li:share:2'}})],[undefined,undefined,(url,o)=>assert.equal(JSON.parse(o.body).author,'urn:li:person:member')]);
-  assert.equal((await publishExtra('linkedin',draft,image,conn('linkedin'),li)).id,'urn:li:share:2');li.done();
-  const evil = sequence([{value:{uploadUrl:'https://evil.test/upload',image:'urn:li:image:1'}}]);await assert.rejects(publishExtra('linkedin',draft,image,conn('linkedin'),evil),/unexpected/);evil.done();
   const x = sequence([{data:{id:'1'}},{data:{id:'2'}}],[undefined,(url,o)=>assert.deepEqual(JSON.parse(o.body).media,{media_ids:['1']})]);
   assert.equal((await publishExtra('x',draft,image,conn('x'),x)).id,'2');x.done();
   process.env.TELEGRAM_BOT_TOKEN='TEST_TOKEN';process.env.TELEGRAM_CHAT_ID='@test';
@@ -122,6 +164,9 @@ function sequence(items, checks = []) {
   const key = await attemptKey('facebook','image',draft,image,'page1');
   assert.notEqual(key,await attemptKey('facebook','image',draft,image,'page2'),'different accounts have separate attempt histories');
   assert.notEqual(key,await attemptKey('instagram','image',draft,image,'page1'));
+  const {imageUrl: ignoredImageUrl, ...legacyDraft}=draft;
+  assert.equal(await attemptKey('facebook','image',draft,image,'page1'),await attemptKey('facebook','image',legacyDraft,image,'page1'),'existing attempt hashes survive deployment');
+  assert.notEqual(await attemptKey('blogger','image',draft,null,'42'),await attemptKey('blogger','image',{...draft,imageUrl:'https://sikhizm.com/another.jpg'},null,'42'));
   writeLedger(key,{uncertain:true});assert.equal(readLedger()[key].outcome.uncertain,true,'pre-dispatch marker survives rereading');
   writeLedger(key,{id:'posted'});assert.equal(readLedger()[key].outcome.id,'posted');clearAttempt(key);assert.equal(readLedger()[key],undefined);
 
@@ -137,6 +182,7 @@ function sequence(items, checks = []) {
   try {
     assert.equal((await publishRoute(req('publish',new FormData(),false))).status,401);
     assert.equal((await publishRoute(req('publish',new FormData(),true,'https://evil.test'))).status,401);
+    const removed = new FormData();removed.set('platform','linkedin');removed.set('kind','text');assert.equal((await publishRoute(req('publish',removed))).status,400);
     const unsupported = new FormData();unsupported.set('platform','youtube');unsupported.set('kind','image');
     assert.equal((await publishRoute(req('publish',unsupported))).status,400);
     const missingSession = new FormData();missingSession.set('platform','threads');missingSession.set('kind','text');missingSession.set('caption','Hello');
@@ -182,6 +228,21 @@ function sequence(items, checks = []) {
     const failedUrl=new URL(tokenFailure.headers.get('location'));
     assert.equal(failedUrl.searchParams.get('connectionIssue'),'credentials-rejected');assert.equal(failedUrl.searchParams.get('providerCode'),'100');
     assert.ok(!tokenFailure.headers.get('location').includes('PRIVATE'));assert.equal(tokenFailure.cookies.get('publisher-threads'),undefined,'failed connection must not overwrite previous cookie');
+    // Blogger image publishing uses the reviewed URL and does not require a file.
+    const blogBody=new FormData();blogBody.set('platform','blogger');blogBody.set('kind','image');
+    for(const [k,v] of Object.entries(draft))blogBody.set(k,v);
+    const expiredBlog=seal({...blogConn('blogger'),refreshToken:'OLD_REFRESH',accessExpires:0});
+    const blogRequest=new NextRequest('https://app.example/api/social/publisher/publish',{method:'POST',headers:{Origin:'https://app.example',Cookie:`${APP_COOKIE}=${appCookie}; publisher-blogger=${expiredBlog}`},body:blogBody});
+    const blogRouteFetch=sequence([{access_token:'PRIVATE_RENEWED',refresh_token:'PRIVATE_ROTATED',expires_in:3600},identities.blogger,identities.blogger,{id:'92',url:'https://sikhizm.blogspot.com/new.html'}]);global.fetch=blogRouteFetch;
+    const blogResponse=await publishRoute(blogRequest);blogRouteFetch.done();
+    assert.equal(blogResponse.status,200);assert.equal((await blogResponse.json()).id,'92');
+    const renewedCookie=blogResponse.cookies.get('publisher-blogger');assert.ok(renewedCookie);
+    assert.equal(unseal(renewedCookie.value).refreshToken,'PRIVATE_ROTATED');assert.ok(!renewedCookie.value.includes('PRIVATE'));
+    // Text mode must not accidentally embed the old Blogger image URL.
+    const textBody=new FormData();textBody.set('platform','blogger');textBody.set('kind','text');for(const [k,v] of Object.entries(draft))textBody.set(k,v);
+    const textRequest=new NextRequest('https://app.example/api/social/publisher/publish',{method:'POST',headers:{Origin:'https://app.example',Cookie:`${APP_COOKIE}=${appCookie}; publisher-blogger=${renewedCookie.value}`},body:textBody});
+    const textRouteFetch=sequence([identities.blogger,{id:'93'}],[undefined,(u,o)=>assert.ok(!JSON.parse(o.body).content.includes('<img'))]);global.fetch=textRouteFetch;
+    assert.equal((await publishRoute(textRequest)).status,200);textRouteFetch.done();
   } finally {global.fetch=realFetch;}
-  console.log('Social Publisher passed: 10-platform validation, safe read-only imports, OAuth/PKCE and expiry, all new publishing adapters, uncertain results, persistent attempt history, authenticated routes. All external requests mocked.');
+  console.log('Social Publisher passed: 12-platform validation, safe read-only imports, OAuth/PKCE and expiry, all new publishing adapters, uncertain results, persistent attempt history, authenticated routes. All external requests mocked.');
 })().catch(error=>{console.error(error);process.exitCode=1});

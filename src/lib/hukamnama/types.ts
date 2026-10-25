@@ -222,7 +222,7 @@ export const FONT_OPTIONS: FontDef[] = [
     id: "ucsb",
     label: "Gurmukhi-UCSB-Uni",
     family: "Gurmukhi-UCSB-Uni",
-    tag: "Classic",
+    tag: "Bundled",
     requiresFile: true,
     fileHint: "Gurmukhi-UCSB-Uni.ttf",
   },

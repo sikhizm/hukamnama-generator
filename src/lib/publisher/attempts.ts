@@ -9,7 +9,10 @@ export function writeLedger(key: string, outcome: Outcome) {
 }
 export async function attemptKey(platform: Platform, kind: PostKind, draft: Draft, file: Blob | null, accountId: string) {
   const mediaHash = file ? [...new Uint8Array(await crypto.subtle.digest("SHA-256", await file.arrayBuffer()))].map(b => b.toString(16).padStart(2, "0")).join("") : "";
-  const bytes = new TextEncoder().encode(JSON.stringify({ platform, kind, draft, mediaHash, accountId }));
+  // Preserve existing platform hashes when adding Blogger's URL-only image field.
+  const { imageUrl, ...existingFields } = draft;
+  const content = platform === "blogger" && kind === "image" ? { ...existingFields, imageUrl } : existingFields;
+  const bytes = new TextEncoder().encode(JSON.stringify({ platform, kind, draft: content, mediaHash, accountId }));
   return [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(b => b.toString(16).padStart(2, "0")).join("");
 }
 

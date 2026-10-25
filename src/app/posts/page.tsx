@@ -11,7 +11,14 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
   const connected = typeof params.connected === "string" && isPlatform(params.connected) ? LABELS[params.connected] : "";
   const failed = typeof params.connectionFailed === "string" && isPlatform(params.connectionFailed) ? LABELS[params.connectionFailed] : "";
   const issue = typeof params.connectionIssue === "string" && Object.hasOwn(CONNECTION_ISSUES, params.connectionIssue) ? params.connectionIssue as ConnectionIssue : null;
-  const detail = issue ? CONNECTION_ISSUES[issue] : "Check the callback URL, requested permissions and app approval, then try again.";
+  const providerDetails: Partial<Record<ConnectionIssue, string>> = {
+    "permission-denied": "Authorization was declined or blocked. Approve the requested permissions for this provider.",
+    "redirect-mismatch": "The callback URL must exactly match the redirect URL registered with this provider.",
+    "credentials-rejected": "The provider rejected the app credentials. Check its matching Client ID and Client Secret in Vercel Production, then redeploy.",
+    "token-rejected": "The provider rejected the code exchange. Check its credentials and exact callback URL, then start Connect again.",
+    "identity-rejected": "The account or configured destination blog could not be verified. Check access to that destination and reconnect.",
+  };
+  const detail = issue ? (params.connectionFailed !== "threads" ? providerDetails[issue] ?? CONNECTION_ISSUES[issue] : CONNECTION_ISSUES[issue]) : "Check the callback URL, requested permissions and app approval, then try again.";
   const numbers = ["providerStatus", "providerCode", "providerSubcode"].map(key => typeof params[key] === "string" && /^\d{1,9}$/.test(params[key] as string) ? `${key}=${params[key]}` : "").filter(Boolean);
   const diagnostic = issue ? ` Diagnostic: ${issue}${numbers.length ? ` (${numbers.join(", ")})` : ""}.` : "";
   const notice = connected ? `${connected} connected. Use Restore draft to recover your saved text, then choose your media again.` : failed ? `${failed} could not connect. ${detail}${diagnostic} Your previous connection has been kept.` : "";

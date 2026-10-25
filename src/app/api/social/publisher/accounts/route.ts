@@ -1,15 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authorizeSocial, metaConfig } from "@/lib/socialAuth";
 import { verifyMetaConnection } from "@/lib/metaConnection";
-import { googleConfig, googleToken, unseal, YOUTUBE_COOKIE, youtubeChannel, type YoutubeSession } from "@/lib/youtube";
+import { googleConfig, googleToken, seal, unseal, YOUTUBE_COOKIE, youtubeChannel, type YoutubeSession } from "@/lib/youtube";
 import { PLATFORMS, type Account } from "@/lib/publisher/model";
-import { oauthConfig, oauthPlatforms, cookieName, readConnection, identity, setupMessage, type OAuthPlatform } from "@/lib/publisher/connections";
+import { oauthConfig, oauthPlatforms, cookieName, currentConnection, publisherCookie, type Connection, identity, setupMessage, type OAuthPlatform } from "@/lib/publisher/connections";
 import { blueskySession, telegramIdentity, pinterestBoards } from "@/lib/publisher/adapters";
 import { hasThreadsServerToken, serverThreadsConnection } from "@/lib/publisher/threads";
 
 export const maxDuration = 60;
 export async function POST(request: NextRequest) {
-  const reply = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
+  const renewed: Connection[] = [];
+  const reply = (data: unknown, status = 200) => {
+    const response = NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
+    for (const session of renewed) {
+      const value = seal(session);
+      if (value.length <= 3600) response.cookies.set(cookieName(session.platform), value, { ...publisherCookie, maxAge: Math.max(1, Math.floor((session.expires - Date.now()) / 1000)) });
+    }
+    return response;
+  };
   const auth = await authorizeSocial(request); if (auth) return reply({ error: auth }, 401);
   const meta = (async () => {
     try { return { result: await verifyMetaConnection(metaConfig()), error: "" }; }
@@ -49,9 +57,9 @@ export async function POST(request: NextRequest) {
           return { ...account, connected: true, id: session.id, name: `@${session.name}`, connection: "server-token", message: "Verified with the saved Threads token. Renew it in Vercel when it expires or is revoked." };
         } catch (error) { return { ...account, connection: "server-token", message: error instanceof Error ? error.message : "The saved Threads token could not be verified." }; }
       } else if (oauthPlatforms.includes(platform as OAuthPlatform)) {
-        try { oauthConfig(platform as OAuthPlatform); account.configured = platform !== "linkedin" || /^\d{6}$/.test(process.env.LINKEDIN_API_VERSION ?? ""); } catch { return account; }
-        if (!account.configured) return { ...account, message: "Add LINKEDIN_API_VERSION (YYYYMM) in server settings." };
-        const session = readConnection(request.cookies.get(cookieName(platform))?.value, platform);
+        try { oauthConfig(platform as OAuthPlatform); account.configured = true; } catch { return account; }
+        const session = await currentConnection(request.cookies.get(cookieName(platform))?.value, platform);
+        if (session?.refreshToken) renewed.push(session);
         if (!session) return account;
         const user = await identity(platform as OAuthPlatform, session.accessToken);
         if (user.id !== session.id) throw new Error("Account changed");
