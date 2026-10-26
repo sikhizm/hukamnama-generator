@@ -24,7 +24,9 @@ export function hukamnamaExcerpt(original: string, translation: string): Hukamna
   const source = original.trim();
   const markers = endings(source);
   const safe = markers.filter(marker => marker.length <= 250);
-  const rahau = safe.find(marker => marker.key === "rahau" && marker.length > 200);
+  const firstOne = markers.findIndex(marker => marker.key === "1");
+  const rahau = safe.find(marker => marker.key === "rahau" && (marker.length > 200
+    || (firstOne >= 0 && firstOne < markers.indexOf(marker))));
   const numbered = safe.filter(marker => marker.key !== "rahau");
   const preferred = numbered.filter(marker => marker.length >= 220 && marker.length <= 230);
   const nearest = (items: typeof markers) => [...items].sort((a, b) => Math.abs(a.length - 225) - Math.abs(b.length - 225) || b.length - a.length)[0];

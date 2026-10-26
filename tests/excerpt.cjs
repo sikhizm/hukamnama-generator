@@ -26,3 +26,11 @@ assert.equal(hukamnamaExcerpt('ਛੋਟਾ ਸ਼ਬਦ ॥੧॥', 'ਪੂਰ�
 const late = 'ਅ'.repeat(220) + '॥੧॥ ' + 'ਅ'.repeat(40) + chant;
 assert.ok(hukamnamaExcerpt(late, 'ਪਹਿਲਾ।੧। ਅੰਤ।ਰਹਾਉ।').original.endsWith('॥੧॥'));
 console.log(`Verse excerpts passed: today's requested excerpt (${[...result.original].length} characters), matching translation, rahau, grouped markers, hard limit, and review gates.`);
+
+// A numbered first stanza before rahau makes rahau the priority even below 200.
+const early = 'ਅ'.repeat(80) + '॥੧॥ ' + 'ਅ'.repeat(50) + '॥ ਰਹਾਉ ॥' + 'ਅ'.repeat(150) + '॥੨॥';
+const priority = hukamnamaExcerpt(early, 'ਪਹਿਲਾ ॥੧॥ ਰੁਕਾਉ ॥ ਰਹਾਉ ॥ ਬਾਕੀ ॥੨॥');
+assert.equal(priority.error, null);
+assert.ok(priority.original.endsWith('॥ ਰਹਾਉ ॥'));
+assert.equal(priority.translation, 'ਪਹਿਲਾ ॥੧॥ ਰੁਕਾਉ ॥ ਰਹਾਉ ॥');
+assert.ok(hukamnamaExcerpt(early, 'ਪਹਿਲਾ ॥੧॥ unmarked rest').error);

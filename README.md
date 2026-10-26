@@ -508,8 +508,12 @@ retain their existing behaviour.
 
 ## Daily Hukamnama sources
 
-The live endpoint checks providers in this order: **SGPC** (live page, then official Daily Mukhwak page), **Sikhizm.com**, **HukamnamaSahib.com**, then **Dekho Ji**. It skips unavailable or outdated sources. No other provider is queried.
+The live endpoint checks **Sikhizm.com first**, then **SGPC** (live page and official Daily Mukhwak page), **HukamnamaSahib.com**, **SikhNet**, and finally **Dekho Ji**. Once a dated current-day record is selected, no lower-priority daily provider is queried, including when its author or meaning is missing. Dates are checked in Asia/Kolkata; stale data cannot qualify for unattended posting.
 
-HukamnamaSahib is fetched from the explicitly dated morning article, not its homepage or evening post. Dekho Ji must show today's date and consistent Ang metadata. Dates are checked against the current day in Asia/Kolkata. A previous day's SGPC entry can still be displayed as stale but cannot qualify as today's update. Publication timing is controlled by the providers, not guaranteed by the app.
+HukamnamaSahib must supply today's explicitly dated morning article. SikhNet must supply a matching dated archive URL and its embedded scripture data. Its legacy Gurmukhi font encoding is converted locally to Unicode. Dekho Ji requires consistent date and Ang metadata. Provider update times are not guaranteed by the app.
 
-Missing Punjabi explanation or author metadata can only be supplemented from a current-day source with the same Ang and complete matching Gurmukhi passage (including vowel marks). An unambiguous Mehl heading can identify its Guru; unresolved authors remain available for manual selection. Manual editing and sharing remain unchanged, and the existing unattended publisher freshness checks still apply.
+Only a missing Punjabi explanation may be supplemented through BaniDB (the alliance listing iGurbani as a partner). The lookup uses the source Ang and requires a complete matching Gurmukhi shabad, including vowel marks, before using Sahib Singh meanings. It cannot change the chosen daily source's Gurbani, author or date. Missing or mismatched meanings remain blank for manual completion. Unambiguous Mehl headings can identify a Guru; unresolved authors require manual selection.
+
+In the generation column, edit both text fields and press **Update text & preview**. Pending changes block sharing, exports and posting until applied. With Auto-post OFF, **Publish selected updates now** posts your applied artwork and caption without re-fetching or replacing manual edits. Confirmed failures have individual and batch retry controls. Successful destinations are skipped; uncertain outcomes require checking the platform before an explicit retry. Auto-post retains all current-day freshness and exact-content verification checks.
+
+Image excerpts still have a 250-character ceiling. When stanza `॥੧॥` precedes `ਰਹਾਉ`, the complete `ਰਹਾਉ` ending takes priority if it fits that ceiling; the Punjabi explanation is cut at the corresponding marker.

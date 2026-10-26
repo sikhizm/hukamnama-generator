@@ -479,29 +479,38 @@ function BlockStatus(props: { p: PanelProps; index: 0 | 1 }) {
   );
 }
 
-export function ContentSection(p: PanelProps) {
+export function ContentSection(p: PanelProps & { onPendingChange: (pending: boolean) => void }) {
   const { state, patch } = p;
+  const [original, setOriginal] = useState(state.original);
+  const [translation, setTranslation] = useState(state.translation);
+  const dirty = original !== state.original || translation !== state.translation;
+  function edit(nextOriginal: string, nextTranslation: string) {
+    setOriginal(nextOriginal); setTranslation(nextTranslation);
+    p.onPendingChange(nextOriginal !== state.original || nextTranslation !== state.translation);
+  }
   return (
     <Section icon={ScrollText} title="Hukamnama text" subtitle="Original + Punjabi translation">
       <div>
         <FieldLabel right={<BlockStatus p={p} index={0} />}>
-          {PANEL_HEADING_ORIGINAL} <span className="text-zinc-600">· {state.original.length} chars</span>
+          {PANEL_HEADING_ORIGINAL} <span className="text-zinc-600">· {original.length} chars</span>
         </FieldLabel>
-        <TextArea rows={6} gurmukhi value={state.original} onChange={(v) => patch({ original: v })} />
+        <TextArea rows={6} gurmukhi value={original} onChange={(v) => edit(v, translation)} />
       </div>
       <div>
         <FieldLabel right={<BlockStatus p={p} index={1} />}>
-          {PANEL_HEADING_TRANSLATION} <span className="text-zinc-600">· {state.translation.length} chars</span>
+          {PANEL_HEADING_TRANSLATION} <span className="text-zinc-600">· {translation.length} chars</span>
         </FieldLabel>
-        <TextArea rows={6} gurmukhi value={state.translation} onChange={(v) => patch({ translation: v })} />
+        <TextArea rows={6} gurmukhi value={translation} onChange={(v) => edit(original, v)} />
         <button
           type="button"
-          onClick={() => patch({ original: "", translation: "" })}
+          onClick={() => edit("", "")}
           className="mt-1.5 flex items-center gap-1 text-[10px] text-zinc-500 transition hover:text-zinc-300"
         >
           <Delete size={10} /> Clear both blocks
         </button>
       </div>
+      <button type="button" disabled={!dirty} onClick={() => { patch({ original, translation }); p.onPendingChange(false); }} className="min-h-11 w-full rounded-lg bg-amber-400 px-3 py-3 text-sm font-bold text-zinc-950 disabled:opacity-40">Update text &amp; preview</button>
+      <p role="status" className="text-xs text-zinc-400">{dirty ? "Edits pending. Press Update to apply both text fields before sharing or publishing." : "Text applied to the image, reel and caption."}</p>
     </Section>
   );
 }

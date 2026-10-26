@@ -9,13 +9,14 @@
     "typecheck": "tsc --noEmit",
     "test:renderer": "node tests/renderer.cjs && node tests/live-route.cjs && node tests/excerpt.cjs && node tests/sikhizm-links.cjs",
     "test:reel": "node tests/reel-http.cjs",
-    "test:social": "node tests/meta-connection.cjs && node tests/social-publish.cjs && node tests/morning-media.cjs && node tests/app-session.cjs",
+    "test:social": "node tests/meta-connection.cjs && node tests/social-publish.cjs && node tests/morning-media.cjs && node tests/app-session.cjs && node tests/studio-publishing.cjs",
     "test:publisher": "node tests/publisher.cjs"
   },
   "dependencies": {
     "@ffmpeg-installer/linux-x64": "4.1.0",
     "dotenv": "17.3.1",
     "drizzle-orm": "0.45.2",
+    "gurmukhi-utils": "^3.2.2",
     "iron-session": "8.0.4",
     "lucide-react": "^1.44.0",
     "next": "16.2.6",
@@ -33,6 +34,7 @@
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
     "postcss": "8.5.8",
+    "react-test-renderer": "^19.2.6",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3"
   }
