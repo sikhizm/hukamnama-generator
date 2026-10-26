@@ -5,13 +5,14 @@ import { useEffect, useRef, useState } from "react";
 import type { StudioState } from "@/lib/hukamnama/types";
 import type { LiveHukamnama } from "@/lib/hukamnama/liveSource";
 import { loadChant, saveChant } from "@/lib/browserAudio";
-import { DESTINATIONS, defaultTargets, expandTemplate, indiaClock, inMorningWindow, needsReel, verifyFreshMorningState, SHORT_TEMPLATE, type Destination, type MorningTargets } from "@/lib/morningPlan";
+import { DESTINATIONS, defaultTargets, expandTemplate, indiaClock, inMorningWindow, needsReel, verifyFreshMorningState, SHORT_TEMPLATE, pendingDestinations, type Destination, type MorningTargets } from "@/lib/morningPlan";
 import { requestEvergreenLinks } from "@/lib/hukamnama/sikhizmLinks";
 import { buildSocialCaption } from "@/lib/hukamnama/socialCaption";
 
 interface Props {
   autoTarget: HTMLElement | null;
   manualLinks?: boolean;
+  pendingText: boolean;
   reelTarget: HTMLElement | null;
   state: StudioState; caption: string; articleUrl: string; pdfUrl: string;
   live: LiveHukamnama | null; onLoadLive: (live: LiveHukamnama) => void;
@@ -127,13 +128,14 @@ export default function MorningPublisher(props: Props) {
     setLedger(next);
   }
   async function freshSource(): Promise<LiveHukamnama> {
-    const response = await fetch("/api/hukamnama/live?refresh=1", { cache: "no-store", signal: AbortSignal.timeout(40_000) });
+    const response = await fetch("/api/hukamnama/live?refresh=1", { cache: "no-store", signal: AbortSignal.timeout(95_000) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error ?? "Today's source could not be checked.");
     return data;
   }
-  async function run(automatic: boolean) {
-    if (active.current || !loaded || (automatic && !armed.current)) return;
+  async function run(automatic: boolean, retry: Destination[] = []) {
+    if (active.current || !loaded || (!automatic && armed.current) || (automatic && !armed.current)) return;
+    if (props.pendingText) { setMessage("Press Update text & preview to apply your edits first. Turn Auto-post OFF for manual publishing."); return; }
     if (!navigator.onLine || document.visibilityState !== "visible") { setMessage("Paused · keep the app visible, awake and online."); return; }
     if (automatic && !inMorningWindow(time)) { setMessage(`Armed · waiting for the ${time}–10:30 IST morning window.`); return; }
     const selectedTargets = automatic ? defaultTargets : targets;
@@ -145,17 +147,19 @@ export default function MorningPublisher(props: Props) {
         if (!lock) { setMessage("Another app tab is handling morning publishing."); return; }
         const today = indiaClock().day;
         const completed = JSON.parse(localStorage.getItem(LEDGER_KEY) ?? "{}") as Ledger;
-        const pending = DESTINATIONS.filter(item => selectedTargets[item.id] && !completed[today]?.[item.id]);
+        const pending = pendingDestinations(selectedTargets, completed[today] ?? {}, retry);
         if (!pending.length) { setMessage("Today’s selected destinations have already been attempted. Review results below; automatic retries are disabled."); return; }
-        if (automatic && Date.now() - lastSourceCheck.current < 60_000) return;
-        lastSourceCheck.current = Date.now();
-        let verified: LiveHukamnama;
-        try { verified = await freshSource(); }
-        catch { setMessage("Waiting · could not freshly verify today's source. Cached content will not be posted."); return; }
-        if (automatic && !armed.current) return;
-        const validation = verifyFreshMorningState(current.current.state, verified);
-        if (!validation.validLive) { setMessage("Waiting · today's complete Gurbani, translation, Ang, author and calendar date are not all verified. Nothing sent."); return; }
-        if (!validation.matchesLive) { props.onLoadLive(verified); setMessage("Loading today's freshly verified content. Waiting for rendering before posting."); return; }
+        let verified: LiveHukamnama | null = null;
+        if (automatic) {
+          if (Date.now() - lastSourceCheck.current < 60_000) return;
+          lastSourceCheck.current = Date.now();
+          try { verified = await freshSource(); }
+          catch { setMessage("Waiting · could not freshly verify today's source. Cached content will not be posted."); return; }
+          if (!armed.current) return;
+          const validation = verifyFreshMorningState(current.current.state, verified);
+          if (!validation.validLive) { setMessage("Waiting · today's complete Gurbani, translation, Ang, author and calendar date are not all verified. Nothing sent."); return; }
+          if (!validation.matchesLive) { props.onLoadLive(verified); setMessage("Loading today's freshly verified content. Waiting for rendering before posting."); return; }
+        }
         if (current.current.disabled || current.current.fingerprint !== fingerprint) { setMessage("Waiting for complete artwork, a fitted excerpt and the required font. Nothing sent."); return; }
         let articleUrl = "", pdfUrl = "";
         if (props.manualLinks) {
@@ -175,12 +179,12 @@ export default function MorningPublisher(props: Props) {
           if (!navigator.onLine || document.visibilityState !== "visible" || indiaClock().day !== today || (automatic && !inMorningWindow(time))) {
             setMessage("Paused · the day, morning window or app availability changed. No further posts sent."); return false;
           }
-          if (Date.now() - Date.parse(verified.checkedAt) > 90_000) {
+          if (automatic && verified && Date.now() - Date.parse(verified.checkedAt) > 90_000) {
             try { verified = await freshSource(); }
             catch { setMessage("Stopped · source freshness could not be renewed. No further posts sent."); return false; }
           }
           const check = verifyFreshMorningState(current.current.state, verified);
-          if (!check.validLive || !check.matchesLive || current.current.disabled || current.current.fingerprint !== fingerprint) {
+          if ((automatic && (!check.validLive || !check.matchesLive)) || current.current.disabled || current.current.fingerprint !== fingerprint) {
             setMessage("Stopped · content or artwork changed, or today's source is incomplete. No further posts sent."); return false;
           }
           return !(automatic && !armed.current) && navigator.onLine && document.visibilityState === "visible" && indiaClock().day === today && (!automatic || inMorningWindow(time));
@@ -200,7 +204,7 @@ export default function MorningPublisher(props: Props) {
               const file = item.id.endsWith("reel") ? reel?.blob : vertical;
               if (!file) throw Object.assign(new Error("Prepared media unavailable."), { uncertain: false });
               body.set("file", file, item.id.endsWith("reel") ? "hukamnama.mp4" : "hukamnama.jpg"); body.set("target", item.id);
-              if (item.id === "youtube-reel") { url = "/api/social/youtube"; body.set("title", `Daily Hukamnama · ${today} · Sikhizm #Shorts`); }
+              if (item.id === "youtube-reel") { url = "/api/social/youtube"; body.set("title", `Daily Hukamnama · ${props.state.dateISO} · Sikhizm #Shorts`); }
             }
             const result = await api(url, body);
             record(today, item.id, { status: "sent", message: result.processing ? "Upload accepted; platform processing may take a moment." : "Published", url: result.url });
@@ -243,11 +247,18 @@ export default function MorningPublisher(props: Props) {
       {video && <div><video controls playsInline src={video.url} className="mx-auto max-h-72 w-full rounded-lg bg-black" /><a href={video.url} download={`hukamnama-${props.state.dateISO}-${duration === "full" ? "full-audio" : `${duration}s`}.mp4`} className="mt-2 block text-amber-300 underline">Download MP4</a>{video.fingerprint !== fingerprint && <p className="text-amber-200">Artwork or audio changed. The preview will be regenerated before publishing.</p>}</div>}
   </section>;
 
-  return <>{props.autoTarget ? createPortal(autoSwitch, props.autoTarget) : autoSwitch}{props.reelTarget ? createPortal(reelPreview, props.reelTarget) : reelPreview}<details className="rounded-xl border border-amber-400/20 bg-amber-950/10" open>
-    <summary className="cursor-pointer px-3 py-3 text-xs font-semibold text-amber-200">Morning posts, reels &amp; stories</summary>
+  const failed = DESTINATIONS.filter(item => ledger[day]?.[item.id]?.status === "failed").map(item => item.id);
+  return <>{props.autoTarget ? createPortal(autoSwitch, props.autoTarget) : autoSwitch}{props.reelTarget ? createPortal(reelPreview, props.reelTarget) : reelPreview}<section id="hukamnama-publish" aria-label="Publish selected Hukamnama updates" className="rounded-xl border border-amber-400/30 bg-amber-950/10">
+    <h3 className="px-3 py-3 text-base font-bold text-amber-200">Post images, reels &amp; stories</h3>
     <div className="space-y-3 px-3 pb-4 text-xs text-zinc-400">
       <p>Turning Auto-post ON selects all six destinations below. Instagram image posts are excluded. You can select individual destinations for manual publishing while Auto-post is OFF.</p>
       <fieldset disabled={enabled || busy} className="space-y-2">{DESTINATIONS.map(item => <label key={item.id} className="flex items-start gap-2"><input type="checkbox" checked={targets[item.id]} onChange={event => { setTargets(previous => ({ ...previous, [item.id]: event.target.checked })); }} className="mt-0.5 accent-amber-400" />{item.label}</label>)}</fieldset>
+      <button type="button" disabled={!loaded || busy || enabled || props.disabled || !Object.values(targets).some(Boolean)} onClick={() => run(false)} className="min-h-14 w-full rounded-xl bg-amber-400 px-3 py-3 text-sm font-bold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40">{busy ? "Preparing / publishing…" : "Publish selected updates now"}</button>
+      <p className="text-[11px]">Turn Auto-post OFF for manual posting. It uses your applied text and caption. It does not fetch or replace your edits. Auto-post retains the current-day verification checks.</p>
+      {props.disabled && <p className="text-amber-200">Apply pending text edits with Update, then complete the artwork and resolve any font or text-fit warning to publish.</p>}
+      {failed.length > 0 && <button type="button" disabled={!loaded || busy || enabled || props.disabled} onClick={() => run(false, failed)} className="min-h-11 w-full rounded-lg border border-red-300/40 bg-red-400/10 px-3 py-2 font-semibold text-red-200">Retry failed destinations ({failed.length})</button>}
+      <p role="status" aria-live="polite" className="rounded-lg border border-white/10 p-2 leading-5 text-zinc-200">{message}</p>
+      {Object.entries(ledger[day] ?? {}).map(([id, result]) => <div key={id} className="rounded-lg border border-white/10 p-2"><p className="font-semibold text-zinc-200">{DESTINATIONS.find(item => item.id === id)?.label} · {result.status}</p><p className="mt-1 break-words">{result.message}</p>{result.url && <a href={result.url} target="_blank" rel="noopener noreferrer" className="text-amber-300 underline">Open account/post</a>}{result.status !== "sent" && !enabled && <button type="button" disabled={!loaded || busy || props.disabled} onClick={() => run(false, [id as Destination])} className="mt-2 min-h-10 rounded-lg border border-amber-300/40 px-3 py-2 text-amber-200">{result.status === "failed" ? "Retry this destination" : "I checked: no post exists · retry"}</button>}{(result.status === "sending" || result.status === "unknown") && <p className="mt-1 text-amber-200">Not retried automatically. Check the account for an existing post.</p>}</div>)}
       <label className="block">Replace reel background audio (optional)<input type="file" accept="audio/*" disabled={enabled || busy || !loaded} onChange={event => void uploadAudio(event.target.files?.[0])} className={field} /></label>
       {audio && <div><p className="break-all text-emerald-300">Ready: {audio.name}</p><audio controls src={audio.url} className="mt-2 w-full" /></div>}
       <button disabled={enabled || busy || !loaded} onClick={async () => { try { const data = await bundledChant(); await saveChant(data).catch(() => null); setAudio({ ...data, url: URL.createObjectURL(data.blob) }); setVideo(null); setMessage("Bundled Waheguru chant selected for future reels."); } catch (error) { setMessage((error as Error).message); } }} className="text-amber-300 underline">Use bundled Waheguru chant</button>
@@ -262,10 +273,7 @@ export default function MorningPublisher(props: Props) {
       <div className="flex flex-wrap gap-2"><button disabled={busy} onClick={async () => { try { const result = await api("/api/social/youtube/connect"); window.location.assign(result.url); } catch (error) { setMessage((error as Error).message); } }} className="rounded-lg border border-white/10 px-2 py-2">Connect YouTube</button><button disabled={busy} onClick={async () => { try { const result = await api("/api/social/youtube?status=1"); setYoutube(`${result.title} · ${result.channelId}`); } catch (error) { setYoutube((error as Error).message); } }} className="rounded-lg border border-white/10 px-2 py-2">Check channel</button></div>
       {youtube && <p className="break-all">YouTube: {youtube}</p>}
       <label className="block">Morning start time · IST<input type="time" min="04:00" max="10:30" value={time} disabled={enabled || busy} onChange={event => setTime(event.target.value)} className={field} /></label>
-      <button disabled={busy || enabled || props.disabled} onClick={() => void run(false)} className="w-full rounded-lg border border-white/10 px-3 py-2">Publish today’s pending destinations now</button>
-      <p role="status" aria-live="polite" className="rounded-lg border border-white/10 p-2 leading-5 text-zinc-200">{message}</p>
-      <p className="text-[10px]">App-open mode · laptop awake, online and app visible. {enabled ? wake ? "Screen wake lock active." : "Wake lock unavailable; prevent sleep manually." : ""} Stops at 10:30 IST. Stories contain the artwork; caption text is used on feed posts and reels. WhatsApp requires manual sharing.</p>
-      {Object.entries(ledger[day] ?? {}).map(([id, result]) => <div key={id} className="rounded-lg border border-white/10 p-2"><p className="font-semibold text-zinc-200">{DESTINATIONS.find(item => item.id === id)?.label} · {result.status}</p><p className="mt-1 break-words">{result.message}</p>{result.url && <a href={result.url} target="_blank" rel="noopener noreferrer" className="text-amber-300 underline">Open account/post</a>}{result.status !== "sent" && !enabled && <button disabled={busy} onClick={() => { const saved = JSON.parse(localStorage.getItem(LEDGER_KEY) ?? "{}") as Ledger; delete saved[day]?.[id as Destination]; localStorage.setItem(LEDGER_KEY, JSON.stringify(saved)); setLedger(saved); }} className="ml-2 underline">{result.status === "failed" ? "Allow retry for this failed destination" : "I checked: no post exists · allow retry"}</button>}{(result.status === "sending" || result.status === "unknown") && <p className="mt-1 text-amber-200">Not retried automatically. Check the account for an existing post.</p>}</div>)}
+      <p className="text-[10px]">Auto-post mode · laptop awake, online and app visible. {enabled ? wake ? "Screen wake lock active." : "Wake lock unavailable; prevent sleep manually." : ""} Automatic posting stops at 10:30 IST. Stories contain the artwork; caption text is used on feed posts and reels. WhatsApp requires manual sharing.</p>
     </div>
-  </details></>;
+  </section></>;
 }

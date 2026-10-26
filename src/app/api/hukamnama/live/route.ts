@@ -1,5 +1,6 @@
+import { lookupPunjabiTranslation } from "@/lib/hukamnama/translationLookup";
 import { NextResponse } from "next/server";
-import { parseHukamnamaSahib, parseDekhoJi, normalizedVerse, headingAuthor } from "@/lib/hukamnama/fallbackSources";
+import { parseHukamnamaSahib, parseDekhoJi, parseSikhNet, headingAuthor } from "@/lib/hukamnama/fallbackSources";
 import { parseSgpcDailyMukhwakPage, parseSgpcPage, parseSikhizmFeed, parseSikhizmLiveArticle, type LiveHukamnama } from "@/lib/hukamnama/liveSource";
 
 export const runtime = "nodejs";
@@ -66,10 +67,11 @@ export async function GET(request: Request) {
     };
     // The two official pages form the SGPC step. No other providers are queried.
     const sources = [
+      () => loadSikhizmToday(todayISO, checkedAt, refresh),
       () => fromPage("https://hs.sgpc.net/index.php", parseSgpcPage),
       () => fromPage("https://sgpc.net/daily-mukhwak-pdf/", parseSgpcDailyMukhwakPage),
-      () => loadSikhizmToday(todayISO, checkedAt, refresh),
       () => fromPage(`https://hukamnamasahib.com/hukamnama/${todayISO}-morning`, parseHukamnamaSahib),
+      () => fromPage("https://sikhnet.com/hukam", parseSikhNet),
       () => fromPage("https://www.dekho-ji.com/hukamnama?t=today", parseDekhoJi),
     ];
     const cache = new Map<number, LiveHukamnama | null>();
@@ -95,17 +97,13 @@ export async function GET(request: Request) {
       const candidate = await read(index);
       if (!candidate?.isToday || candidate.sourceDateISO !== todayISO) continue;
       record = { ...candidate };
-      // Preserve the selected source's verse and calendar. Only supplement missing
-      // explanation/author from an exact same-day, same-Ang, full-passage match.
-      for (let extra = index + 1; extra < sources.length && (!record.translation || !record.matchedAuthor); extra++) {
-        const supplement = await read(extra);
-        if (!supplement?.isToday || supplement.sourceDateISO !== todayISO || supplement.ang !== record.ang
-          || normalizedVerse(supplement.original) !== normalizedVerse(record.original)) continue;
-        let used = false;
-        if (!record.translation && supplement.translation) { record.translation = supplement.translation; used = true; }
-        if (!record.matchedAuthor && supplement.matchedAuthor) { record.matchedAuthor = supplement.matchedAuthor; used = true; }
-        if (used) record.sourceName += ` + matched ${supplement.sourceName}`;
-        record.metadataMatched = !!record.matchedAuthor;
+      // Once a dated daily source is selected, do not query lower-priority daily
+      // providers. A missing meaning can only come from an exact scripture match.
+      if (!record.translation) {
+        try {
+          const translation = await lookupPunjabiTranslation(record);
+          if (translation) { record.translation = translation; record.sourceName += " + matched BaniDB Punjabi translation"; }
+        } catch { /* Keep missing meaning visible for manual completion. */ }
       }
       break;
     }
@@ -114,7 +112,7 @@ export async function GET(request: Request) {
     return NextResponse.json(record, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return NextResponse.json({
-      error: error instanceof Error ? error.message : "Could not reach the SGPC live page.",
+      error: error instanceof Error ? error.message : "Could not reach the daily Hukamnama sources.",
       checkedAt: new Date().toISOString(),
     }, { status: 502, headers: { "Cache-Control": "no-store" } });
   }

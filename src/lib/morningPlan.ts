@@ -58,3 +58,10 @@ export function verifyFreshMorningState(state: StudioState, live: LiveHukamnama 
   const validLive = Boolean(base.validLive && fresh && complete && validCalendar);
   return { validLive, matchesLive: Boolean(validLive && base.matchesLive) };
 }
+
+/** Retry requests never include confirmed successes; uncertain outcomes need an explicit per-item request. */
+export function pendingDestinations(targets: MorningTargets, outcomes: Partial<Record<Destination, { status: string }>>, retry: Destination[] = []) {
+  return DESTINATIONS.filter(item => retry.length
+    ? retry.includes(item.id) && !!outcomes[item.id] && outcomes[item.id]?.status !== "sent"
+    : targets[item.id] && !outcomes[item.id]);
+}

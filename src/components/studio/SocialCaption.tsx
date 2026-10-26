@@ -21,12 +21,13 @@ interface SocialCaptionProps {
   sgpcDateISO: string | null;
   createImage: () => Promise<File | null>;
   disabled: boolean;
+  pendingText: boolean;
   live: LiveHukamnama | null;
   onLoadLive: (record: LiveHukamnama) => void;
   createFormatImage: (format: "feed" | "vertical") => Promise<Blob | null>;
 }
 
-export default function SocialCaption({ autoTarget, reelTarget, state, notify, createImage, disabled, live, onLoadLive, createFormatImage }: SocialCaptionProps) {
+export default function SocialCaption({ autoTarget, reelTarget, state, notify, createImage, disabled, pendingText, live, onLoadLive, createFormatImage }: SocialCaptionProps) {
   const context = linkContext(state);
   const [links, setLinks] = useState<LinkDraft>({ articleUrl: "", pdfUrl: "", context: "", manual: false });
   const articleUrl = links.context === context ? links.articleUrl : "";
@@ -180,6 +181,7 @@ export default function SocialCaption({ autoTarget, reelTarget, state, notify, c
 
   return (
     <section className="border-b border-white/[0.07]">
+      <a href="#hukamnama-publish" className="m-4 flex min-h-12 items-center justify-center rounded-xl border border-amber-300/40 bg-amber-400/15 px-3 py-3 text-sm font-bold text-amber-200">Facebook · Reels · YouTube · Stories ↓</a>
       <div className="space-y-3 border-b border-emerald-400/20 bg-emerald-950/20 p-4">
         <h3 className="flex items-center gap-2 text-lg font-bold text-emerald-200"><MessageCircle size={24} /> Share on WhatsApp</h3>
         <p className="text-xs leading-5 text-zinc-300">Two easy steps: send the image, then come back and send the text.</p>
@@ -192,6 +194,9 @@ export default function SocialCaption({ autoTarget, reelTarget, state, notify, c
         </button>
         <p id="whatsapp-freshness" role="status" className={`text-xs ${currentSourceAvailable ? "text-emerald-100" : "text-red-200"}`}>{!currentSourceAvailable ? "Waiting for today’s Hukamnama from the source check. Resets at midnight IST." : disabled ? "Today’s Hukamnama is available. Complete the image to unlock sharing." : whatsappStep === "text" ? "Next: share the text to the same group or channel." : "Today’s Hukamnama is available. Ready: start with Share image."}</p>
         <p className="text-[11px] leading-5 text-zinc-400">Choose WhatsApp in the share sheet, select your group or channel, then tap Send. If image sharing is unavailable, the image downloads for you to attach.</p>
+      </div>
+      <div className="p-4">
+        <MorningPublisher pendingText={pendingText} autoTarget={autoTarget} manualLinks={links.context === context && links.manual} reelTarget={reelTarget} state={state} caption={caption} articleUrl={articleUrl} pdfUrl={pdfUrl} live={live} onLoadLive={onLoadLive} createImage={createFormatImage} disabled={disabled} />
       </div>
       <details open>
       <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-200 marker:hidden">
@@ -226,9 +231,7 @@ export default function SocialCaption({ autoTarget, reelTarget, state, notify, c
         </p>
       </div>
       </details>
-      <div className="p-4">
-        <MorningPublisher autoTarget={autoTarget} manualLinks={links.context === context && links.manual} reelTarget={reelTarget} state={state} caption={caption} articleUrl={articleUrl} pdfUrl={pdfUrl} live={live} onLoadLive={onLoadLive} createImage={createFormatImage} disabled={disabled} />
-      </div>
+
     </section>
   );
 }

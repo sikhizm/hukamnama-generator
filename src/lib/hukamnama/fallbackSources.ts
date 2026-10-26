@@ -1,3 +1,4 @@
+import { toUnicode } from "gurmukhi-utils";
 import { htmlToLines, type LiveHukamnama } from "./liveSource";
 import { normalizeAuthor } from "./authors";
 import { publishedSgpcDate } from "./sgpcCalendar";
@@ -75,4 +76,24 @@ export function parseDekhoJi(html: string, today: string, checkedAt = new Date()
   const authors = [...new Set(metadata.map(line => normalizeAuthor(line.split(" / ")[0])).filter(Boolean))];
   const author = authors.length === 1 ? authors[0] : null;
   return sourceRecord("Dekho Ji daily Hukamnama", date, today, original, translation, ang, checkedAt, author);
+}
+
+/** SikhNet embeds data as JSON in Drupal settings; never execute page scripts. */
+export function parseSikhNet(html: string, today: string, checkedAt = new Date().toISOString()): LiveHukamnama {
+  const archive = html.match(/<meta\b[^>]*property=["']og:url["'][^>]*content=["']https:\/\/(?:www\.)?sikhnet\.com\/hukam\/archive\/(\d{4}-\d{2}-\d{2})["']/i)?.[1];
+  if (archive !== today) throw new Error("SikhNet is not explicitly dated today.");
+  const settings = html.match(/jQuery\.extend\(Drupal\.settings,\s*(\{[^\n]*\})\);/);
+  if (!settings) throw new Error("SikhNet Hukamnama data is unavailable.");
+  const hukam = JSON.parse(settings[1]).hukam;
+  if (hukam?.load_error) throw new Error("SikhNet reported a Hukamnama loading error.");
+  const lines = hukam?.shabad_lines;
+  if (!Array.isArray(lines?.gurmukhi) || !lines.gurmukhi.every((line: unknown) => typeof line === "string")) throw new Error("SikhNet Gurbani is incomplete.");
+  const original = toUnicode(lines.gurmukhi.join(" "));
+  const meanings = lines.punjabi;
+  const translation = Array.isArray(meanings) && meanings.every(line => typeof line === "string") ? toUnicode(meanings.join(" ")) : "";
+  const angs = Object.keys(hukam.shabad_meta?.angs ?? {});
+  const writers = Object.values(hukam.shabad_meta?.writers ?? {});
+  const author = writers.length === 1 && typeof writers[0] === "string" ? normalizeAuthor(writers[0].replace("Ravi Daas", "Ravidas")) : null;
+  if (angs.length !== 1) throw new Error("SikhNet Ang is ambiguous.");
+  return sourceRecord("SikhNet daily Hukamnama", archive, today, original, translation, angs[0], checkedAt, author);
 }

@@ -92,6 +92,7 @@ export default function Studio() {
   const scale = zoom === "fit" ? fitScale : zoom;
   const [autoTarget, setAutoTarget] = useState<HTMLDivElement | null>(null);
   const [reelTarget, setReelTarget] = useState<HTMLDivElement | null>(null);
+  const [textPending, setTextPending] = useState(false);
   const [liveRecord, setLiveRecord] = useState<LiveHukamnama | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -119,6 +120,7 @@ export default function Studio() {
 
   /* -------------------------------------------------- state patching */
   const patch = useCallback((p: Partial<StudioState>) => {
+    if (p.original !== undefined || p.translation !== undefined) setTextPending(false);
     setState((prev) => {
       const next = { ...prev, ...p };
       if (p.dateISO && !next.dateManual) {
@@ -129,6 +131,7 @@ export default function Studio() {
   }, []);
   const useLiveHukamnama = useCallback((record: LiveHukamnama) => {
     setLiveRecord(record);
+    setTextPending(false);
     setState((previous) => ({
       ...previous,
       original: record.original,
@@ -358,11 +361,12 @@ export default function Studio() {
   const fontReady = fontStatus === "ready" || !strictFont;
   const contentReady = !!(state.original.trim() && state.translation.trim() && state.dateText.trim() && state.banikar.trim() && state.ang.trim());
   const excerpt = hukamnamaExcerpt(state.original, state.translation);
-  const canExport = !excerpt.error && contentReady && fontReady && (!referenceMode || backgroundReady) && !!layout && layout.blocks.every(b => b.fits);
+  const canExport = !textPending && !excerpt.error && contentReady && fontReady && (!referenceMode || backgroundReady) && !!layout && layout.blocks.every(b => b.fits);
 
   const renderToBlob = async (p: PresetDef, format: "png" | "jpeg"): Promise<Blob | null> => {
     const mctx = measureRef.current;
     if (!mctx) return Promise.resolve(null);
+    if (textPending) throw new Error("Press Update text & preview to apply your edits first.");
     if (!contentReady) throw new Error("Enter complete content and a verified date before exporting.");
     if (excerpt.error) throw new Error(excerpt.error);
     const exportState = { ...state, original: excerpt.original, translation: excerpt.translation, presetId: p.id, safeArea: false };
@@ -447,6 +451,7 @@ export default function Studio() {
   };
 
   const resetAll = () => {
+    setTextPending(false);
     setState(defaultState());
     notify("Studio reset to defaults");
   };
@@ -580,7 +585,7 @@ export default function Studio() {
           />
           <DateSection {...panelProps()} />
           <MetaSection {...panelProps()} />
-          <ContentSection {...panelProps()} />
+          <ContentSection key={JSON.stringify([state.original, state.translation])} {...panelProps()} onPendingChange={setTextPending} />
           <TypographySection {...panelProps()} />
 
         </aside>
@@ -640,6 +645,7 @@ export default function Studio() {
         <aside aria-label="Sharing and publishing" className="studio-scroll order-2 min-w-0 border-l border-white/10 bg-[#0d0e14] lg:order-3 lg:overflow-y-auto">
           <h2 className="sticky top-0 z-20 border-b border-white/10 bg-[#0d0e14] px-4 py-3 text-sm font-semibold text-emerald-200">3 · Share &amp; publish</h2>
           <SocialCaption
+            pendingText={textPending}
             autoTarget={autoTarget}
             reelTarget={reelTarget}
             state={state}

@@ -83,7 +83,7 @@ export default function LiveSourceStatus({ onUse, onStatus }: Props) {
       <div className="min-w-[220px] flex-1 text-[11px] leading-relaxed">
         {record?.isToday ? (
           <>
-            <span className="font-semibold text-emerald-200">{record.sourceName.startsWith("SGPC") ? "SGPC live feed updated for today" : "Today’s Hukamnama found on a fallback source"}</span>
+            <span className="font-semibold text-emerald-200">{record.sourceName.startsWith("Sikhizm") ? "Today’s Hukamnama found on Sikhizm" : "Today’s Hukamnama found on a fallback source"}</span>
             <span className="text-zinc-400"> · {record.sourceDateISO} · {record.sourceName}{record.sourceTime ? ` at ${record.sourceTime} IST` : " (release time not shown)"}</span>
           </>
         ) : error ? (
@@ -91,11 +91,11 @@ export default function LiveSourceStatus({ onUse, onStatus }: Props) {
         ) : record ? (
           <><span className="font-semibold text-amber-200">Waiting for today’s Hukamnama</span><span className="text-zinc-400"> · latest available entry is {record.sourceDateISO}{record.sourceTime ? ` at ${record.sourceTime} IST` : ""}</span></>
         ) : (
-          <><span className="font-semibold text-zinc-200">Checking daily Hukamnama sources…</span><span className="text-zinc-500"> · checking SGPC, Sikhizm, HukamnamaSahib, then Dekho Ji</span></>
+          <><span className="font-semibold text-zinc-200">Checking daily Hukamnama sources…</span><span className="text-zinc-500"> · checking Sikhizm, SGPC, HukamnamaSahib, SikhNet, then Dekho Ji</span></>
         )}
         {checkedAt && <span className="ml-1.5 text-zinc-600">checked {indiaTime(checkedAt)} IST</span>}
         {notice && <span className="ml-2 text-emerald-300">{notice}</span>}
-        {record?.isToday && <p className="mt-0.5 text-zinc-500">The app checks every 5 minutes from 4:15 to 10:30 a.m. IST while open. Load text manually here, or let the armed morning publisher load complete verified content.{!record.sourceName.startsWith("SGPC") && " The earlier sources were unavailable or not updated; this is a same-day fallback, not a direct SGPC fetch."}{!record.translation && " The source does not include a verified Punjabi explanation."}</p>}
+        {record?.isToday && <p className="mt-0.5 text-zinc-500">The app checks every 5 minutes from 4:15 to 10:30 a.m. IST while open. Load text manually here, or let the armed morning publisher load complete verified content.{!record.sourceName.startsWith("Sikhizm") && " The earlier sources were unavailable or not updated; this is a same-day fallback."}{!record.translation && " The source does not include a verified Punjabi explanation."}</p>}
       </div>
       <button type="button" disabled={loading} onClick={() => void check(true)} className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-semibold text-zinc-300 hover:bg-white/[0.08] disabled:opacity-50">
         <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> Check sources

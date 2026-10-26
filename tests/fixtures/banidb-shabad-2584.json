@@ -1,0 +1,169 @@
+{
+  "shabadInfo": {
+    "shabadId": 2584,
+    "shabadName": 29292,
+    "pageNo": 678,
+    "source": {
+      "sourceId": "G",
+      "gurmukhi": "sRI gurU gRMQ swihb jI",
+      "unicode": "ਸ੍ਰੀ ਗੁਰੂ ਗ੍ਰੰਥ ਸਾਹਿਬ ਜੀ",
+      "english": "Sri Guru Granth Sahib Ji",
+      "pageNo": 678
+    },
+    "raag": {
+      "raagId": 14,
+      "gurmukhi": "rwgu DnwsrI",
+      "unicode": "ਰਾਗੁ ਧਨਾਸਰੀ",
+      "english": "Raag Dhanaasree",
+      "raagWithPage": "Dhanaasree (660-695)"
+    },
+    "writer": {
+      "writerId": 5,
+      "gurmukhi": "mÚ 5",
+      "unicode": null,
+      "english": "Guru Arjan Dev Ji"
+    }
+  },
+  "verses": [
+    {
+      "verse": {
+        "gurmukhi": "DnwsrI mhlw 5 Gru 6",
+        "unicode": "ਧਨਾਸਰੀ ਮਹਲਾ ੫ ਘਰੁ ੬"
+      },
+      "translation": {
+        "pu": {
+          "ss": {
+            "gurmukhi": null,
+            "unicode": null
+          }
+        }
+      }
+    },
+    {
+      "verse": {
+        "gurmukhi": "<> siqgur pRswid ]",
+        "unicode": "ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥"
+      },
+      "translation": {
+        "pu": {
+          "ss": {
+            "gurmukhi": null,
+            "unicode": null
+          }
+        }
+      }
+    },
+    {
+      "verse": {
+        "gurmukhi": "sunhu sMq ipAwry ibnau hmwry jIau ]",
+        "unicode": "ਸੁਨਹੁ ਸੰਤ ਪਿਆਰੇ ਬਿਨਉ ਹਮਾਰੇ ਜੀਉ ॥"
+      },
+      "translation": {
+        "pu": {
+          "ss": {
+            "gurmukhi": "hy ipAwry sMq jno! myrI bynqI suxo",
+            "unicode": "ਹੇ ਪਿਆਰੇ ਸੰਤ ਜਨੋ! ਮੇਰੀ ਬੇਨਤੀ ਸੁਣੋ"
+          }
+        }
+      }
+    },
+    {
+      "verse": {
+        "gurmukhi": "hir ibnu mukiq n kwhU jIau ] rhwau ]",
+        "unicode": "ਹਰਿ ਬਿਨੁ ਮੁਕਤਿ ਨ ਕਾਹੂ ਜੀਉ ॥ ਰਹਾਉ ॥"
+      },
+      "translation": {
+        "pu": {
+          "ss": {
+            "gurmukhi": "prmwqmw (dy ismrn) qoN ibnw (mwieAw dy bMDnW qoN) iksy dI BI ^lwsI nhIN huMdI [rhwau[",
+            "unicode": "ਪਰਮਾਤਮਾ (ਦੇ ਸਿਮਰਨ) ਤੋਂ ਬਿਨਾ (ਮਾਇਆ ਦੇ ਬੰਧਨਾਂ ਤੋਂ) ਕਿਸੇ ਦੀ ਭੀ ਖ਼ਲਾਸੀ ਨਹੀਂ ਹੁੰਦੀ ।ਰਹਾਉ।"
+          }
+        }
+      }
+    },
+    {
+      "verse": {
+        "gurmukhi": "mn inrml krm kir qwrn qrn hir Avir jMjwl qyrY kwhU n kwm jIau ]",
+        "unicode": "ਮਨ ਨਿਰਮਲ ਕਰਮ ਕਰਿ ਤਾਰਨ ਤਰਨ ਹਰਿ ਅਵਰਿ ਜੰਜਾਲ ਤੇਰੈ ਕਾਹੂ ਨ ਕਾਮ ਜੀਉ ॥"
+      },
+      "translation": {
+        "pu": {
+          "ss": {
+            "gurmukhi": "hy mn! (jIvn ƒ) pivq® krn vwly (hir-ismrn dy) kMm kirAw kr, prmwqmw (dw nwm hI sMswr-smuMdr qoN) pwr lMGx leI jhwz hY [ (dunIAw dy) hor swry jMjwl qyry iksy BI kMm nhIN Awauxgy ",
+            "unicode": "ਹੇ ਮਨ! (ਜੀਵਨ ਨੂੰ) ਪਵਿਤ੍ਰ ਕਰਨ ਵਾਲੇ (ਹਰਿ-ਸਿਮਰਨ ਦੇ) ਕੰਮ ਕਰਿਆ ਕਰ, ਪਰਮਾਤਮਾ (ਦਾ ਨਾਮ ਹੀ ਸੰਸਾਰ-ਸਮੁੰਦਰ ਤੋਂ) ਪਾਰ ਲੰਘਣ ਲਈ ਜਹਾਜ਼ ਹੈ । (ਦੁਨੀਆ ਦੇ) ਹੋਰ ਸਾਰੇ ਜੰਜਾਲ ਤੇਰੇ ਕਿਸੇ ਭੀ ਕੰਮ ਨਹੀਂ ਆਉਣਗੇ "
+          }
+        }
+      }
+    },
+    {
+      "verse": {
+        "gurmukhi": "jIvn dyvw pwrbRhm syvw iehu aupdysu mo kau guir dInw jIau ]1]",
+        "unicode": "ਜੀਵਨ ਦੇਵਾ ਪਾਰਬ੍ਰਹਮ ਸੇਵਾ ਇਹੁ ਉਪਦੇਸੁ ਮੋ ਕਉ ਗੁਰਿ ਦੀਨਾ ਜੀਉ ॥੧॥"
+      },
+      "translation": {
+        "pu": {
+          "ss": {
+            "gurmukhi": "pRkwS-rUp prmwqmw dI syvw-BgqI hI (Asl) jIvn hY—ieh is`iKAw mYƒ gurU ny id`qI hY [1[",
+            "unicode": "ਪ੍ਰਕਾਸ਼-ਰੂਪ ਪਰਮਾਤਮਾ ਦੀ ਸੇਵਾ-ਭਗਤੀ ਹੀ (ਅਸਲ) ਜੀਵਨ ਹੈ—ਇਹ ਸਿੱਖਿਆ ਮੈਨੂੰ ਗੁਰੂ ਨੇ ਦਿੱਤੀ ਹੈ ।੧।"
+          }
+        }
+      }
+    },
+    {
+      "verse": {
+        "gurmukhi": "iqsu isau n lweIAY hIqu jw ko ikCu nwhI bIqu AMq kI bwr Ehu sMig n cwlY ]",
+        "unicode": "ਤਿਸੁ ਸਿਉ ਨ ਲਾਈਐ ਹੀਤੁ ਜਾ ਕੋ ਕਿਛੁ ਨਾਹੀ ਬੀਤੁ ਅੰਤ ਕੀ ਬਾਰ ਓਹੁ ਸੰਗਿ ਨ ਚਾਲੈ ॥"
+      },
+      "translation": {
+        "pu": {
+          "ss": {
+            "gurmukhi": "hy BweI! aus (Dn-pdwrQ) nwl ipAwr nhIN pwxw cwhIdw, ijs dI koeI pWieAW hI nhIN [ auh (Dn-pdwrQ) A^Ir vyly nwl nhIN jWdw ",
+            "unicode": "ਹੇ ਭਾਈ! ਉਸ (ਧਨ-ਪਦਾਰਥ) ਨਾਲ ਪਿਆਰ ਨਹੀਂ ਪਾਣਾ ਚਾਹੀਦਾ, ਜਿਸ ਦੀ ਕੋਈ ਪਾਂਇਆਂ ਹੀ ਨਹੀਂ । ਉਹ (ਧਨ-ਪਦਾਰਥ) ਅਖ਼ੀਰ ਵੇਲੇ ਨਾਲ ਨਹੀਂ ਜਾਂਦਾ "
+          }
+        }
+      }
+    },
+    {
+      "verse": {
+        "gurmukhi": "min qin qU AwrwD hir ky pRIqm swD jw kY sMig qyry bMDn CUtY ]2]",
+        "unicode": "ਮਨਿ ਤਨਿ ਤੂ ਆਰਾਧ ਹਰਿ ਕੇ ਪ੍ਰੀਤਮ ਸਾਧ ਜਾ ਕੈ ਸੰਗਿ ਤੇਰੇ ਬੰਧਨ ਛੂਟੈ ॥੨॥"
+      },
+      "translation": {
+        "pu": {
+          "ss": {
+            "gurmukhi": "Awpxy mn ivc ihrdy ivc qUM prmwqmw dw nwm ismirAw kr [ prmwqmw nwl ipAwr krn vwly sMq jnW (dI sMgiq kirAw kr), ikauNik auhnW (sMq jnW dI) sMgiq ivc qyry (mwieAw dy) bMDn mu`k skdy hn ",
+            "unicode": "ਆਪਣੇ ਮਨ ਵਿਚ ਹਿਰਦੇ ਵਿਚ ਤੂੰ ਪਰਮਾਤਮਾ ਦਾ ਨਾਮ ਸਿਮਰਿਆ ਕਰ । ਪਰਮਾਤਮਾ ਨਾਲ ਪਿਆਰ ਕਰਨ ਵਾਲੇ ਸੰਤ ਜਨਾਂ (ਦੀ ਸੰਗਤਿ ਕਰਿਆ ਕਰ), ਕਿਉਂਕਿ ਉਹਨਾਂ (ਸੰਤ ਜਨਾਂ ਦੀ) ਸੰਗਤਿ ਵਿਚ ਤੇਰੇ (ਮਾਇਆ ਦੇ) ਬੰਧਨ ਮੁੱਕ ਸਕਦੇ ਹਨ "
+          }
+        }
+      }
+    },
+    {
+      "verse": {
+        "gurmukhi": "ghu pwrbRhm srn ihrdY kml crn Avr Aws kCu ptlu n kIjY ]",
+        "unicode": "ਗਹੁ ਪਾਰਬ੍ਰਹਮ ਸਰਨ ਹਿਰਦੈ ਕਮਲ ਚਰਨ ਅਵਰ ਆਸ ਕਛੁ ਪਟਲੁ ਨ ਕੀਜੈ ॥"
+      },
+      "translation": {
+        "pu": {
+          "ss": {
+            "gurmukhi": "hy BweI! prmwqmw dw Awsrw PV, (Awpxy) ihrdy ivc (prmwqmw dy) koml crn (vsw) (prmwqmw qoN ibnw) iksy hor dI Aws nhIN krnI cwhIdI, koeI hor Awsrw nhIN FUMFxw cwhIdw ",
+            "unicode": "ਹੇ ਭਾਈ! ਪਰਮਾਤਮਾ ਦਾ ਆਸਰਾ ਫੜ, (ਆਪਣੇ) ਹਿਰਦੇ ਵਿਚ (ਪਰਮਾਤਮਾ ਦੇ) ਕੋਮਲ ਚਰਨ (ਵਸਾ) (ਪਰਮਾਤਮਾ ਤੋਂ ਬਿਨਾ) ਕਿਸੇ ਹੋਰ ਦੀ ਆਸ ਨਹੀਂ ਕਰਨੀ ਚਾਹੀਦੀ, ਕੋਈ ਹੋਰ ਆਸਰਾ ਨਹੀਂ ਢੂੰਢਣਾ ਚਾਹੀਦਾ "
+          }
+        }
+      }
+    },
+    {
+      "verse": {
+        "gurmukhi": "soeI Bgqu igAwnI iDAwnI qpw soeI nwnk jw kau ikrpw kIjY ]3]1]29]",
+        "unicode": "ਸੋਈ ਭਗਤੁ ਗਿਆਨੀ ਧਿਆਨੀ ਤਪਾ ਸੋਈ ਨਾਨਕ ਜਾ ਕਉ ਕਿਰਪਾ ਕੀਜੈ ॥੩॥੧॥੨੯॥"
+      },
+      "translation": {
+        "pu": {
+          "ss": {
+            "gurmukhi": "hy nwnk! auhI mnu`K Bgq hY, auhI igAwnvwn hY, auhI suriq-AiBAwsI hY, auhI qpsÍI hY, ijs auqy prmwqmw ikrpw krdw hY [3[1[29[",
+            "unicode": "ਹੇ ਨਾਨਕ! ਉਹੀ ਮਨੁੱਖ ਭਗਤ ਹੈ, ਉਹੀ ਗਿਆਨਵਾਨ ਹੈ, ਉਹੀ ਸੁਰਤਿ-ਅਭਿਆਸੀ ਹੈ, ਉਹੀ ਤਪਸ੍ਵੀ ਹੈ, ਜਿਸ ਉਤੇ ਪਰਮਾਤਮਾ ਕਿਰਪਾ ਕਰਦਾ ਹੈ ।੩।੧।੨੯।"
+          }
+        }
+      }
+    }
+  ]
+}
