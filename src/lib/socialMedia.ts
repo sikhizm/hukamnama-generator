@@ -9,7 +9,12 @@ export async function publishMedia(config: Config, target: MediaTarget, file: Bl
     try {
       const response = await request(`${base}/${path}`, { method: body ? "POST" : "GET", body, headers: { Authorization: `Bearer ${config.token}` }, cache: "no-store", signal: AbortSignal.timeout(20000) });
       const data = await response.json();
-      if (!response.ok || data.error) throw new PublishError(`Meta rejected ${target}${data.error?.code ? ` (code ${Number(data.error.code)})` : ""}. Check publishing permissions and account eligibility.`, publishing && response.status >= 500);
+      if (!response.ok || data.error) {
+        const stage = path.startsWith("me?") ? "Page identity lookup" : path.split("?")[0].replace(/\d+/g, "{id}");
+        const codes = [data.error?.code ? `code ${Number(data.error.code)}` : "", data.error?.error_subcode ? `subcode ${Number(data.error.error_subcode)}` : ""].filter(Boolean).join(", ");
+        const detail = typeof data.error?.message === "string" ? data.error.message.split(config.token).join("[redacted]").replace(/(access_token|client_secret|appsecret_proof)=[^\s&]+/gi, "$1=[redacted]").slice(0, 300) : "Check the destination’s publishing requirements.";
+        throw new PublishError(`Meta rejected ${target} at ${stage}${codes ? ` (${codes})` : ""}: ${detail}`, publishing && response.status >= 500);
+      }
       return data;
     } catch (error) {
       if (error instanceof PublishError) throw error;
@@ -18,18 +23,17 @@ export async function publishMedia(config: Config, target: MediaTarget, file: Bl
   }
   async function upload(url: string, data: Blob) {
     const parsed = new URL(url);
-    if (parsed.protocol !== "https:" || parsed.hostname !== "rupload.facebook.com") throw new PublishError("Meta returned an unexpected upload address.");
+    if (parsed.protocol !== "https:" || parsed.hostname !== "rupload.facebook.com" || parsed.username || parsed.password || parsed.port) throw new PublishError("Meta returned an unexpected upload address.");
     try {
       const response = await request(url, { method: "POST", headers: { Authorization: `OAuth ${config.token}`, offset: "0", file_size: String(data.size), "Content-Type": "application/octet-stream" }, body: data, signal: AbortSignal.timeout(45000) });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error();
     } catch { throw new PublishError("Meta video upload failed. No publishing request was sent."); }
   }
-  const page = await graph("me?fields=id,instagram_business_account{id,username,account_type}");
+  const page = await graph(target.startsWith("instagram") ? "me?fields=id,instagram_business_account{id,username}" : "me?fields=id");
   if (page.id !== config.pageId) throw new PublishError("The token does not belong to the configured Page.");
-  const ig = page.instagram_business_account as { id: string; username: string; account_type: string } | undefined;
+  const ig = page.instagram_business_account as { id: string; username: string } | undefined;
   if (target.startsWith("instagram") && (!ig || ig.username?.toLowerCase() !== "sikhizmcom")) throw new PublishError("Connect the expected @sikhizmcom professional account first.");
-  if (target === "instagram-story" && ig?.account_type !== "BUSINESS") throw new PublishError("Instagram API story publishing requires a Business account. Reel publishing also supports Creator accounts.");
 
   if (target === "facebook-reel") {
     const session = await graph(`${config.pageId}/video_reels`, new URLSearchParams({ upload_phase: "start" }));
@@ -58,7 +62,12 @@ export async function publishMedia(config: Config, target: MediaTarget, file: Bl
     ? { media_type: "REELS", upload_type: "resumable", caption, share_to_feed: "true" }
     : { media_type: "STORIES", image_url: imageUrl }));
   if (typeof container.id !== "string" || !/^\d+$/.test(container.id)) throw new PublishError("Instagram did not create a media container.");
-  if (target === "instagram-reel") await upload(`https://rupload.facebook.com/ig-api-upload/${config.version}/${container.id}`, file);
+  if (target === "instagram-reel") {
+    if (typeof container.uri !== "string") throw new PublishError("Instagram did not return its reel upload URI. No publish request was sent.");
+    const uri = new URL(container.uri);
+    if (!new RegExp(`^/ig-api-upload/(?:v[0-9]+\\.[0-9]+/)?${container.id}$`).test(uri.pathname)) throw new PublishError("Instagram returned an unexpected reel upload path.");
+    await upload(container.uri, file);
+  }
   let ready = false;
   for (let n = 0; n < 15; n++) {
     const status = await graph(`${container.id}?fields=status_code`);

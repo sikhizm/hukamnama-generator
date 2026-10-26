@@ -1,3 +1,4 @@
+import { splitIntroduction } from "./introduction";
 import type { BlockLayout, LayoutResult, Rect } from "./layout";
 import { drawLine, measureBalancedAt } from "./text";
 import { fontFor, setActiveFontStack, type PresetDef, type StudioState } from "./types";
@@ -38,17 +39,24 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
   setActiveFontStack(state.fontId);
   const c = referenceConfig(preset.id);
   const warnings: string[] = [];
-  const originalTop = c.original[1];
+  const bodyTop = c.original[1];
+  const text = splitIntroduction(state.original, state.introduction);
   const originalW = c.original[2];
   const translationW = c.translation[2];
   const minOriginalPx = 32;
   const minTranslationPx = 24;
   const ratio = Math.max(1.2, state.typo.originalSizeRatio);
-  const availableH = c.bodyBottom - originalTop;
+  const availableH = c.bodyBottom - bodyTop;
+  const introductionMeasures = new Map<number, ReturnType<typeof measureBalancedAt>>();
   const originalMeasures = new Map<number, ReturnType<typeof measureBalancedAt>>();
   const translationMeasures = new Map<number, ReturnType<typeof measureBalancedAt>>();
   const measurePair = (originalPx: number, translationPx: number, separator = true) => {
-    const original = originalMeasures.get(originalPx) ?? measureBalancedAt(ctx, state.original, originalPx, originalW);
+    const introPx = Math.max(12, Math.min(state.typo.introductionSize ?? 34, originalPx - 4));
+    const intro = introductionMeasures.get(introPx) ?? measureBalancedAt(ctx, text.introduction, introPx, originalW);
+    introductionMeasures.set(introPx, intro);
+    const introH = text.introduction ? intro.contentH + 16 : 0;
+    const originalTop = bodyTop + introH;
+    const original = originalMeasures.get(originalPx) ?? measureBalancedAt(ctx, text.body, originalPx, originalW);
     const translation = translationMeasures.get(translationPx) ?? measureBalancedAt(ctx, state.translation, translationPx, translationW);
     originalMeasures.set(originalPx, original);
     translationMeasures.set(translationPx, translation);
@@ -56,9 +64,9 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
     const gapAfter = separator ? 32 : 12;
     const dividerY = separator ? originalTop + original.contentH + gapBefore : 0;
     const translationTop = originalTop + original.contentH + gapBefore + gapAfter;
-    const originalBoxH = Math.max(0, Math.min(original.contentH, availableH));
+    const originalBoxH = Math.max(0, Math.min(original.contentH, availableH - introH));
     const translationBoxH = Math.max(0, c.bodyBottom - translationTop);
-    return { original, translation, dividerY, translationTop, originalBoxH, translationBoxH };
+    return { intro, introPx, originalTop, original, translation, dividerY, translationTop, originalBoxH, translationBoxH };
   };
 
   let originalPx = state.typo.originalSize;
@@ -74,7 +82,7 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
         for (const separator of [true, false]) {
           const candidate = measurePair(px, tp, separator);
           if (candidate.original.contentH > candidate.originalBoxH || candidate.translation.contentH > candidate.translationBoxH) continue;
-          const fill = (candidate.translationTop + candidate.translation.contentH - originalTop) / availableH;
+          const fill = (candidate.translationTop + candidate.translation.contentH - bodyTop) / availableH;
           const tails = Math.min(1, candidate.original.tailRatio / 0.8) + Math.min(1, candidate.translation.tailRatio / 0.8);
           const score = fill * 3 + px / 96 + tails * 1.4 + (separator ? 0.12 : 0);
           if (score > bestScore) { bestScore = score; originalPx = px; translationPx = tp; pair = candidate; }
@@ -96,7 +104,7 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
   });
   const originalFitsWidth = textFits(pair.original.lines, originalPx, originalW);
   const translationFitsWidth = textFits(pair.translation.lines, translationPx, translationW);
-  const originalRect = rect([c.original[0], originalTop, originalW, pair.originalBoxH]);
+  const originalRect = rect([c.original[0], pair.originalTop, originalW, pair.originalBoxH]);
   const translationRect = rect([c.translation[0], pair.translationTop, translationW, pair.translationBoxH]);
   const blocks: BlockLayout[] = [
     { heading: "", rect: originalRect, textRect: originalRect, headingPx: 0, headingBaseline: 0,
@@ -106,12 +114,20 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
       dividerY: 0, px: translationPx, ...pair.translation,
       fits: translationFits && translationFitsWidth, overflowPx: Math.max(0, pair.translation.contentH - pair.translationBoxH), vOffset: 0 },
   ];
+  let introduction: BlockLayout | undefined;
+  if (text.introduction) {
+    const introRect = rect([c.original[0], bodyTop, originalW, Math.min(pair.intro.contentH, availableH)]);
+    introduction = { heading: "", rect: introRect, textRect: introRect, headingPx: 0, headingBaseline: 0,
+      dividerY: 0, px: pair.introPx, ...pair.intro, fits: pair.intro.contentH <= availableH && textFits(pair.intro.lines, pair.introPx, originalW),
+      overflowPx: Math.max(0, pair.intro.contentH - availableH), vOffset: 0 };
+    if (!introduction.fits) warnings.push("Introduction does not fit. Reduce its pixel size or shorten the introduction before exporting.");
+  }
   if (!blocks[0].fits) warnings.push("Gurbani does not fit. Export is blocked; reduce both text sizes or use additional slides.");
   if (!blocks[1].fits) warnings.push("Translation does not fit. Export is blocked; reduce both text sizes or use additional slides.");
   return { w: preset.w, h: preset.h, unit: 1, pad: c.original[0], safeInset: 80, landscape: false,
     header: { align: "center", x: 0, w: 1080, anchorX: 540, l1Px: 0, l1Y: 0, l2Px: 0, l2Y: 0 },
     date: { rect: rect(c.date), px: 28, baseline: c.date[1] + c.date[3] * .75 },
-    chips: [], blocks, footer: null, cornerLogo: null, warnings };
+    chips: [], blocks, introduction, footer: null, cornerLogo: null, warnings };
 }
 
 /** Reference PNGs preserve all fixed artwork. Clear every variable region before drawing new text. */
@@ -183,15 +199,17 @@ export function drawReference(ctx: CanvasRenderingContext2D, layout: LayoutResul
   label(`SGGS * ${state.ang}`, c.rightX, stripe, 230, c.metaPx, "right");
   const d = rect(c.date);
   label(state.dateText.replace(/^🗓️\s*/, "").toUpperCase(), d.x + d.w / 2, d, d.w - 32, state.presetId === "feed" ? 24 : 30, "center");
-  ctx.fillStyle = "#000";
-  for (const b of layout.blocks) {
+  const drawBlock = (b: BlockLayout, color: string, justify: boolean) => {
+    ctx.fillStyle = color;
     ctx.save();
     ctx.beginPath(); ctx.rect(b.textRect.x, b.textRect.y, b.textRect.w, b.textRect.h); ctx.clip();
     ctx.font = fontFor(b.px, 400);
     b.lines.forEach((line, i) => drawLine(ctx, line, b.textRect.x, b.textRect.y + (b.ascent ?? b.px * .9) + i * b.lineH,
-      b.textRect.w, "center", state.typo.justify, (i === b.lines.length - 1 && (ctx.measureText(line).width < b.textRect.w * 0.78 || line.split(/\s+/).length < 4)) || b.lines[i + 1] === ""));
+      b.textRect.w, "center", justify, (i === b.lines.length - 1 && (ctx.measureText(line).width < b.textRect.w * 0.78 || line.split(/\s+/).length < 4)) || b.lines[i + 1] === ""));
     ctx.restore();
-  }
+  };
+  if (layout.introduction) drawBlock(layout.introduction, /^#[0-9a-f]{6}$/i.test(state.typo.introductionColor ?? "") ? state.typo.introductionColor : "#800000", false);
+  for (const b of layout.blocks) drawBlock(b, "#000", state.typo.justify);
   if (state.safeArea) {
     ctx.strokeStyle = "#1773d1"; ctx.lineWidth = 2; ctx.setLineDash([12, 8]);
     ctx.strokeRect(80, 80, layout.w - 160, layout.h - 160);

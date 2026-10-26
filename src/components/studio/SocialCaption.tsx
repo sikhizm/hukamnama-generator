@@ -1,5 +1,7 @@
 "use client";
 
+import { captionContent } from "@/lib/hukamnama/loadedContent";
+
 import { useEffect, useRef, useState } from "react";
 import { Clipboard, Link2, LoaderCircle, MessageCircle, Send } from "lucide-react";
 import type { StudioState } from "@/lib/hukamnama/types";
@@ -28,7 +30,8 @@ interface SocialCaptionProps {
 }
 
 export default function SocialCaption({ autoTarget, reelTarget, state, notify, createImage, disabled, pendingText, live, onLoadLive, createFormatImage }: SocialCaptionProps) {
-  const context = linkContext(state);
+  const fullContent = captionContent(state);
+  const context = linkContext(fullContent);
   const [links, setLinks] = useState<LinkDraft>({ articleUrl: "", pdfUrl: "", context: "", manual: false });
   const articleUrl = links.context === context ? links.articleUrl : "";
   const pdfUrl = links.context === context ? links.pdfUrl : "";
@@ -85,7 +88,7 @@ export default function SocialCaption({ autoTarget, reelTarget, state, notify, c
       setFindingLinks(true);
       setLinkNotice("Searching Sikhizm by Ang and Gurbani…");
       try {
-        const result = await requestEvergreenLinks({ date: state.dateISO, ang: state.ang, original: state.original }, controller.signal);
+        const result = await requestEvergreenLinks({ date: state.dateISO, ang: state.ang, original: fullContent.original }, controller.signal);
         if (id !== requestId.current || controller.signal.aborted) return;
         setLinks({ articleUrl: result.articleUrl || "", pdfUrl: result.pdfUrl || "", context, manual: false });
         setLinkNotice(result.message);
@@ -94,7 +97,7 @@ export default function SocialCaption({ autoTarget, reelTarget, state, notify, c
       } finally { if (id === requestId.current && !controller.signal.aborted) setFindingLinks(false); }
     });
     return () => { controller.abort(); };
-  }, [context, links.context, linksLoaded, state.dateISO, state.ang, state.original, state.dateText]);
+  }, [context, links.context, linksLoaded, state.dateISO, state.ang, fullContent.original, state.dateText]);
 
   function editLink(field: "articleUrl" | "pdfUrl", value: string) {
     requestId.current++;
@@ -118,7 +121,7 @@ export default function SocialCaption({ autoTarget, reelTarget, state, notify, c
     const id = ++requestId.current;
     setFindingLinks(true);
     try {
-      const result = await requestEvergreenLinks({ date: state.dateISO, ang: state.ang, original: state.original });
+      const result = await requestEvergreenLinks({ date: state.dateISO, ang: state.ang, original: fullContent.original });
       if (id !== requestId.current) return;
       setLinks({ articleUrl: result.articleUrl || "", pdfUrl: result.pdfUrl || "", context, manual: false });
       setLinkNotice(result.message);

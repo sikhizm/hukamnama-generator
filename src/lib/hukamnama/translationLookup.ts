@@ -1,13 +1,17 @@
 import { normalizedVerse } from "./fallbackSources";
 import type { LiveHukamnama } from "./liveSource";
 
+// These published spellings of the same word encode the subjoined h differently.
+// Keep every other consonant and vowel mark significant, and never rewrite source text.
+const translationMatchKey = (value: string) => normalizedVerse(value.replace(/ਤੁਮ੍ਹ(?:੍ਹ)?ਾਰੇ/gu, "ਤੁਮੑਾਰੇ"));
+
 type Verse = { verse?: { unicode?: string }; translation?: { pu?: { ss?: { unicode?: string | null } } }; shabadId?: number };
 type Shabad = { shabadInfo?: { pageNo?: number; source?: { sourceId?: string } }; verses?: Verse[] };
 
 /** BaniDB (iGurbani's alliance) supplies meanings only, never the daily date or original. */
 export function matchedPunjabiTranslation(data: Shabad, record: LiveHukamnama): string | null {
   if (data.shabadInfo?.source?.sourceId !== "G" || String(data.shabadInfo.pageNo) !== record.ang || !data.verses?.length) return null;
-  if (normalizedVerse(data.verses.map(line => line.verse?.unicode ?? "").join(" ")) !== normalizedVerse(record.original)) return null;
+  if (translationMatchKey(data.verses.map(line => line.verse?.unicode ?? "").join(" ")) !== translationMatchKey(record.original)) return null;
   const translated: string[] = [];
   for (const line of data.verses) {
     const original = line.verse?.unicode ?? "";
@@ -34,9 +38,9 @@ export async function lookupPunjabiTranslation(record: LiveHukamnama, request: t
   };
   const page = await get(`angs/${record.ang}/G`);
   if (page.source?.sourceId !== "G" || String(page.source.pageNo) !== record.ang || !Array.isArray(page.page)) return null;
-  const source = normalizedVerse(record.original);
+  const source = translationMatchKey(record.original);
   const ids = [...new Set<number>((page.page as Verse[]).filter(line => {
-    const text = normalizedVerse(line.verse?.unicode ?? "");
+    const text = translationMatchKey(line.verse?.unicode ?? "");
     return text.length > 20 && source.includes(text) && Number.isInteger(line.shabadId);
   }).map(line => line.shabadId!))].slice(0, 3);
   for (const id of ids) {

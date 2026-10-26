@@ -217,3 +217,40 @@ assert.equal(publishedSgpcDate('2026-02-31'), null);
 assert.equal(SGPC_558_MONTHS.length, 12);
 assert.equal(upgradeGregorianDate('25-October-2026 | Sunday', '2026-10-25'), expectedCalendar);
 assert.equal(upgradeGregorianDate('My reviewed custom date', '2026-10-25'), 'My reviewed custom date');
+
+// Three-level artwork hierarchy retains canonical source and justified body text.
+const { splitIntroduction, joinIntroduction } = require('../src/lib/hukamnama/introduction.ts');
+const intro = 'ਧਨਾਸਰੀ ਭਗਤ ਰਵਿਦਾਸ ਜੀ ਕੀ ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥';
+const body = 'ਹਮ ਸਰਿ ਦੀਨੁ ਦਇਆਲੁ ਨ ਤੁਮ ਸਰਿ ਅਬ ਪਤੀਆਰੁ ਕਿਆ ਕੀਜੈ ॥ ਬਚਨੀ ਤੋਰ ਮੋਰ ਮਨੁ ਮਾਨੈ ਜਨ ਕਉ ਪੂਰਨੁ ਦੀਜੈ ॥੧॥ ਹਉ ਬਲਿ ਬਲਿ ਜਾਉ ਰਮਈਆ ਕਾਰਨੇ ॥ ਕਾਰਨ ਕਵਨ ਅਬੋਲ ॥ ਰਹਾਉ ॥';
+const source = `${intro} ${body}`;
+assert.deepEqual(splitIntroduction(source), { introduction: intro, body });
+assert.equal(joinIntroduction(intro, body), source);
+assert.deepEqual(splitIntroduction('ਸਲੋਕੁ ਮਃ ੫ ॥ ਮੇਰਾ ਪਾਠ ॥੧॥'), { introduction: '', body: 'ਸਲੋਕੁ ਮਃ ੫ ॥ ਮੇਰਾ ਪਾਠ ॥੧॥' }, 'ambiguous boundaries stay editable instead of guessing');
+assert.equal(splitIntroduction(source, '').body, source, 'explicitly empty introduction preserves the whole body');
+assert.equal(splitIntroduction(source, 'old heading').introduction, intro, 'stale saved introduction cannot remove new source text');
+for (const id of ['feed', 'vertical']) {
+  const state = { ...defaultState(), presetId: id, original: source, translation: 'ਹੇ ਮਾਧੋ! ਮੇਰੇ ਵਰਗਾ ਕੋਈ ਨਿਮਾਣਾ ਨਹੀਂ।੧। ਹੇ ਸੋਹਣੇ ਰਾਮ! ਮੈਂ ਤੈਥੋਂ ਸਦਾ ਸਦਕੇ ਹਾਂ। ਰਹਾਉ।' };
+  const layout = computeLayout(state, getPreset(id), ctx);
+  assert.ok(layout.introduction.fits);
+  assert.equal(layout.introduction.lines.length, 1, 'short introduction fits one line');
+  assert.ok(layout.blocks.every(block => block.fits));
+  assert.ok(layout.introduction.px < layout.blocks[0].px);
+  assert.ok(layout.blocks[1].px < layout.blocks[0].px);
+  assert.equal(layout.blocks[0].lines.join(' '), body, 'introduction is not duplicated in main text');
+  assert.ok(layout.blocks[0].textRect.y >= layout.introduction.textRect.y + layout.introduction.contentH + 16);
+  const runs = [];
+  const drawCtx = Object.assign(Object.create(ctx), { save() {}, restore() {}, beginPath() {}, rect() {}, clip() {}, fillText(text, x, y) { runs.push({ text, x, y, color: this.fillStyle }); } });
+  drawReference(drawCtx, layout, state);
+  assert.ok(runs.some(run => run.text === intro && run.color === '#800000'), 'introduction uses its own maroon colour');
+  const firstWord = layout.blocks[0].lines[0].split(' ')[0];
+  assert.ok(runs.some(run => run.text === firstWord && run.x === layout.blocks[0].textRect.x && run.y > layout.blocks[0].textRect.y), 'main Gurbani retains justified word placement');
+  const custom = computeLayout({ ...state, typo: { ...state.typo, autoFit: false, introductionSize: 28, originalSize: 55, translationSize: 32 } }, getPreset(id), ctx);
+  assert.equal(custom.introduction.px, 28); assert.equal(custom.blocks[0].px, 55); assert.equal(custom.blocks[1].px, 32);
+  const longIntro = 'ਧਨਾਸਰੀ '.repeat(12) + 'ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥';
+  const wrapped = computeLayout({ ...state, original: joinIntroduction(longIntro, body) }, getPreset(id), ctx);
+  assert.ok(wrapped.introduction.lines.length > 1, 'long headings wrap without truncating');
+  assert.equal(wrapped.introduction.lines.join(' '), longIntro.trim());
+  const overflow = computeLayout({ ...state, original: joinIntroduction('ਧਨਾਸਰੀ '.repeat(1000), body), introduction: 'ਧਨਾਸਰੀ '.repeat(1000).trim(), typo: { ...state.typo, autoFit: false } }, getPreset(id), ctx);
+  assert.equal(overflow.introduction.fits, false);
+}
+console.log('Introduction hierarchy passed: automatic split, custom boundary, full-source preservation, both formats, independent pixel sizes, wrapping and overflow gating.');

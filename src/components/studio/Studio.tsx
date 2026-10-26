@@ -2,6 +2,8 @@
 
 import InstallApp from "../InstallApp";
 import { upgradeGregorianDate } from "@/lib/hukamnama/sgpcCalendar";
+import { loadedContent } from "@/lib/hukamnama/loadedContent";
+import { splitIntroduction } from "@/lib/hukamnama/introduction";
 import { hukamnamaExcerpt } from "@/lib/hukamnama/excerpt";
 import { liveAuthor } from "@/lib/hukamnama/authors";
 
@@ -123,6 +125,8 @@ export default function Studio() {
     if (p.original !== undefined || p.translation !== undefined) setTextPending(false);
     setState((prev) => {
       const next = { ...prev, ...p };
+      if (p.original !== undefined && !("introduction" in p)) next.introduction = undefined;
+      if (p.original !== undefined || p.translation !== undefined) { next.fullOriginal = undefined; next.fullTranslation = undefined; }
       if (p.dateISO && !next.dateManual) {
         next.dateText = formatHukamDate(isoToDate(p.dateISO));
       }
@@ -134,8 +138,8 @@ export default function Studio() {
     setTextPending(false);
     setState((previous) => ({
       ...previous,
-      original: record.original,
-      translation: record.translation,
+      introduction: undefined,
+      ...loadedContent(record),
       ang: record.ang,
       banikar: liveAuthor(record.matchedAuthor),
       dateISO: record.sourceDateISO,
@@ -359,9 +363,9 @@ export default function Studio() {
 
   /* ----------------------------------------------------------- export */
   const fontReady = fontStatus === "ready" || !strictFont;
-  const contentReady = !!(state.original.trim() && state.translation.trim() && state.dateText.trim() && state.banikar.trim() && state.ang.trim());
+  const contentReady = !!(splitIntroduction(state.original, state.introduction).body.trim() && state.translation.trim() && state.dateText.trim() && state.banikar.trim() && state.ang.trim());
   const excerpt = hukamnamaExcerpt(state.original, state.translation);
-  const canExport = !textPending && !excerpt.error && contentReady && fontReady && (!referenceMode || backgroundReady) && !!layout && layout.blocks.every(b => b.fits);
+  const canExport = !textPending && !excerpt.error && contentReady && fontReady && (!referenceMode || backgroundReady) && !!layout && layout.introduction?.fits !== false && layout.blocks.every(b => b.fits);
 
   const renderToBlob = async (p: PresetDef, format: "png" | "jpeg"): Promise<Blob | null> => {
     const mctx = measureRef.current;
@@ -371,7 +375,7 @@ export default function Studio() {
     if (excerpt.error) throw new Error(excerpt.error);
     const exportState = { ...state, original: excerpt.original, translation: excerpt.translation, presetId: p.id, safeArea: false };
     const L = computeLayout(exportState, p, mctx);
-    if (L.blocks.some(b => !b.fits)) throw new Error(`${p.label}: text does not fit. Export blocked to prevent incomplete Gurbani.`);
+    if (L.introduction?.fits === false || L.blocks.some(b => !b.fits)) throw new Error(`${p.label}: text does not fit. Export blocked to prevent incomplete Gurbani.`);
     let bg = bgImgRef.current;
     if (isReference(exportState)) {
       bg = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -431,7 +435,8 @@ export default function Studio() {
       const mctx = measureRef.current;
       if (!mctx) throw new Error("Canvas is not ready.");
       for (const p of exportPresets) {
-        if (computeLayout({ ...state, original: excerpt.original, translation: excerpt.translation, presetId: p.id }, p, mctx).blocks.some(b => !b.fits)) {
+        const checkedLayout = computeLayout({ ...state, original: excerpt.original, translation: excerpt.translation, presetId: p.id }, p, mctx);
+        if (checkedLayout.introduction?.fits === false || checkedLayout.blocks.some(b => !b.fits)) {
           throw new Error(`${p.label}: text does not fit. No files exported.`);
         }
       }
@@ -551,7 +556,7 @@ export default function Studio() {
               <p className="text-sm font-semibold">Sikhizm Hukamnama template</p>
               <p className="text-xs text-zinc-400">Original artwork, header, QR and footer. ChatrikUni is required to match the body; Latin labels use LEMON MILK when installed.</p>
               {excerpt.error && <p role="alert" className="mb-2 text-xs text-red-300">{excerpt.error}</p>}
-              {excerpt.shortened && <p className="mb-2 text-xs text-amber-200">Image and reel excerpt: {[...excerpt.original].length}/250 characters, with the matching Punjabi explanation. Editors and captions retain the full Hukamnama.</p>}
+              {(excerpt.shortened || (state.fullOriginal && state.fullOriginal !== state.original)) && <p className="mb-2 text-xs text-amber-200">Image and reel excerpt: {[...excerpt.original].length}/250 characters, with the matching Punjabi explanation. Editors show the excerpt; the untouched full source is retained for captions.</p>}
               {!canExport && fontReady && <p role="alert" className="mb-2 text-xs text-red-300">Export blocked: complete the text, author, Ang and verified date; check artwork and text-fit warnings.</p>}
               <div className="flex gap-2">{exportPresets.map(p => <button key={p.id} type="button"
                 aria-pressed={state.presetId === p.id} onClick={() => patch({ presetId: p.id })}
@@ -585,7 +590,7 @@ export default function Studio() {
           />
           <DateSection {...panelProps()} />
           <MetaSection {...panelProps()} />
-          <ContentSection key={JSON.stringify([state.original, state.translation])} {...panelProps()} onPendingChange={setTextPending} />
+          <ContentSection key={JSON.stringify([state.original, state.translation, state.introduction])} {...panelProps()} onPendingChange={setTextPending} />
           <TypographySection {...panelProps()} />
 
         </aside>

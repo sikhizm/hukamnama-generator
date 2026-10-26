@@ -517,3 +517,17 @@ Only a missing Punjabi explanation may be supplemented through BaniDB (the allia
 In the generation column, edit both text fields and press **Update text & preview**. Pending changes block sharing, exports and posting until applied. With Auto-post OFF, **Publish selected updates now** posts your applied artwork and caption without re-fetching or replacing manual edits. Confirmed failures have individual and batch retry controls. Successful destinations are skipped; uncertain outcomes require checking the platform before an explicit retry. Auto-post retains all current-day freshness and exact-content verification checks.
 
 Image excerpts still have a 250-character ceiling. When stanza `॥੧॥` precedes `ਰਹਾਉ`, the complete `ਰਹਾਉ` ending takes priority if it fits that ceiling; the Punjabi explanation is cut at the corresponding marker.
+
+## Introduction typography and reel preview
+
+The text editor separates the opening heading/Mool Mantar, main Gurbani and Punjabi translation. The opening is detected conservatively; all three fields remain editable and Update applies them together. The canonical original retains the introduction for captions, source matching, truncation and automatic verification.
+
+The introduction defaults to maroon at 34px and stays smaller than the main Gurbani. Long introductions wrap. Pixel controls for all three text areas are always visible; adjusting one switches to manual sizing. Auto-fit and justified Gurbani remain available. Fit checks include the introduction for both image sizes and reel artwork.
+
+Reel preview and publishing have independent activity indicators and cannot run together. Creating a preview calls only the reel-generation endpoint and never dispatches social posts. Auto-post must be off to create a manual preview. Meta reel/story identity checks request only Facebook-supported fields; Facebook-only operations do not request Instagram data. Instagram binary uploads use Meta's returned upload URI. Provider errors identify the failing step and code/subcode, with token redaction.
+
+## Loaded excerpt and translation matching
+
+Load today’s text now refreshes the source check and fills the editable fields with the aligned media excerpt (through the selected stanza/rahau marker). Full fetched Gurbani and Punjabi meaning remain available under View full fetched source and are retained for captions, article matching and unattended verification. Manual text updates replace this source-backed state with the user's applied text. Automatic posting also verifies that visible excerpt fields still match the excerpt derived from the verified full source.
+
+Sikhizm Punjabi meanings support both Punjabi Translation and Translation in Punjabi headings. The BaniDB fallback recognises the observed source spelling variants ਤੁਮ੍ਹ੍ਹਾਰੇ / ਤੁਮ੍ਹਾਰੇ / ਤੁਮੑਾਰੇ for matching only, retaining every other letter and vowel mark and leaving source text unchanged. Regression fixtures cover the actual 26 October 2026 Ang 694 post, its native meaning and missing-meaning BaniDB path.
