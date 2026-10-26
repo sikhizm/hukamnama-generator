@@ -531,3 +531,9 @@ Reel preview and publishing have independent activity indicators and cannot run 
 Load today’s text now refreshes the source check and fills the editable fields with the aligned media excerpt (through the selected stanza/rahau marker). Full fetched Gurbani and Punjabi meaning remain available under View full fetched source and are retained for captions, article matching and unattended verification. Manual text updates replace this source-backed state with the user's applied text. Automatic posting also verifies that visible excerpt fields still match the excerpt derived from the verified full source.
 
 Sikhizm Punjabi meanings support both Punjabi Translation and Translation in Punjabi headings. The BaniDB fallback recognises the observed source spelling variants ਤੁਮ੍ਹ੍ਹਾਰੇ / ਤੁਮ੍ਹਾਰੇ / ਤੁਮੑਾਰੇ for matching only, retaining every other letter and vowel mark and leaving source text unchanged. Regression fixtures cover the actual 26 October 2026 Ang 694 post, its native meaning and missing-meaning BaniDB path.
+
+## WhatsApp clipboard workflow
+
+The two large manual WhatsApp controls are **Copy Image** and **Copy Text Template**. Copy Image writes the current PNG artwork to the clipboard; paste and send it in WhatsApp Web or your supported app before copying the text. Copy Text Template copies the same complete caption shown in the preview. Copying text replaces the clipboard image.
+
+A separate **Download Image** button prepares the PNG for manual attachment when image copying or pasting is unavailable, including on some mobile devices. Clipboard failures show actionable feedback and never silently open a share sheet or download a file. The current-day red/green source indicator remains informational; manual copying is available when the artwork is complete, including with manually supplied content. No WhatsApp messages are sent by these controls.
