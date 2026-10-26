@@ -34,3 +34,18 @@ assert.equal(priority.error, null);
 assert.ok(priority.original.endsWith('॥ ਰਹਾਉ ॥'));
 assert.equal(priority.translation, 'ਪਹਿਲਾ ॥੧॥ ਰੁਕਾਉ ॥ ਰਹਾਉ ॥');
 assert.ok(hukamnamaExcerpt(early, 'ਪਹਿਲਾ ॥੧॥ unmarked rest').error);
+
+const { loadedContent, captionContent } = require('../src/lib/hukamnama/loadedContent.ts');
+const today = parseSikhizmLiveArticle(fs.readFileSync('tests/fixtures/sikhizm-2026-10-26.html', 'utf8'), { publishedAt: '2026-10-26T00:00:00Z', localDateISO: '2026-10-26' }, '2026-10-26');
+const loaded = loadedContent(today);
+assert.ok(loaded.original.endsWith('ਰਹਾਉ ॥'));
+assert.ok(!loaded.original.includes('ਬਹੁਤ ਜਨਮ'));
+assert.ok(loaded.translation.endsWith('ਰਹਾਉ।'));
+assert.ok(!loaded.translation.includes('ਕਈ ਜਨਮਾਂ'));
+assert.equal(loaded.fullOriginal, today.original);
+assert.equal(loaded.fullTranslation, today.translation);
+assert.equal(captionContent(loaded).original, today.original);
+console.log('Today’s Ang 694 load passed: visible fields stop at rahau, full source remains available for captions.');
+
+const { buildSocialCaption } = require('../src/lib/hukamnama/socialCaption.ts');
+assert.ok(buildSocialCaption({ ...loaded, dateText: today.dateText }, '', '').includes('ਬਹੁਤ ਜਨਮ'), 'full caption retains the later stanza omitted from artwork');

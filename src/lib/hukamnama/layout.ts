@@ -99,6 +99,7 @@ export interface LayoutResult {
   date: DateLayout | null;
   chips: ChipLayout[];
   blocks: BlockLayout[];
+  introduction?: BlockLayout;
   footer: FooterLayout | null;
   /** Corner watermark placement when logo.position is "corner-left"/"corner-right". */
   cornerLogo: Rect | null;

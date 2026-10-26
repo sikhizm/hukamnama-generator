@@ -178,6 +178,7 @@ export function TextInput(props: {
 }
 
 export function TextArea(props: {
+  ariaLabel?: string;
   value: string;
   onChange: (v: string) => void;
   rows?: number;
@@ -186,6 +187,7 @@ export function TextArea(props: {
   const { value, onChange, rows = 5, gurmukhi } = props;
   return (
     <textarea
+      aria-label={props.ariaLabel}
       value={value}
       rows={rows}
       onChange={(e) => onChange(e.target.value)}

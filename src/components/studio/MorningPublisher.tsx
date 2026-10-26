@@ -1,5 +1,6 @@
 "use client";
 
+import { captionContent } from "@/lib/hukamnama/loadedContent";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import type { StudioState } from "@/lib/hukamnama/types";
@@ -39,7 +40,10 @@ export default function MorningPublisher(props: Props) {
   const [ledger, setLedger] = useState<Ledger>({});
   const [loaded, setLoaded] = useState(false);
   const [enabled, setEnabled] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const busy = publishing || previewing;
+  const previewActive = useRef(false);
   const [message, setMessage] = useState("Automatic publishing is off.");
   const [youtube, setYoutube] = useState("");
   const [wake, setWake] = useState(false);
@@ -47,7 +51,8 @@ export default function MorningPublisher(props: Props) {
   const active = useRef(false), armed = useRef(false), latest = useRef<() => void>(() => {});
   const current = useRef({ state: props.state, disabled: props.disabled, fingerprint: "" });
   const day = indiaClock().day;
-  const finalCaption = useFull ? props.caption : expandTemplate(template, { date: props.state.dateText, original: props.state.original, translation: props.state.translation, articleUrl: props.articleUrl, pdfUrl: props.pdfUrl });
+  const fullContent = captionContent(props.state);
+  const finalCaption = useFull ? props.caption : expandTemplate(template, { date: props.state.dateText, original: fullContent.original, translation: fullContent.translation, articleUrl: props.articleUrl, pdfUrl: props.pdfUrl });
   const fingerprint = JSON.stringify([props.state, duration, audio?.name, audio?.blob.size]);
   useEffect(() => { current.current = { state: props.state, disabled: props.disabled, fingerprint }; });
 
@@ -134,13 +139,13 @@ export default function MorningPublisher(props: Props) {
     return data;
   }
   async function run(automatic: boolean, retry: Destination[] = []) {
-    if (active.current || !loaded || (!automatic && armed.current) || (automatic && !armed.current)) return;
+    if (active.current || previewActive.current || !loaded || (!automatic && armed.current) || (automatic && !armed.current)) return;
     if (props.pendingText) { setMessage("Press Update text & preview to apply your edits first. Turn Auto-post OFF for manual publishing."); return; }
     if (!navigator.onLine || document.visibilityState !== "visible") { setMessage("Paused · keep the app visible, awake and online."); return; }
     if (automatic && !inMorningWindow(time)) { setMessage(`Armed · waiting for the ${time}–10:30 IST morning window.`); return; }
     const selectedTargets = automatic ? defaultTargets : targets;
     if (needsReel(selectedTargets) && !audio) { setMessage("Waiting for the Waheguru audio. Nothing sent."); return; }
-    active.current = true; setBusy(true);
+    active.current = true; setPublishing(true);
     try {
       if (!navigator.locks) throw new Error("Use a browser supporting Web Locks (such as Chrome) to prevent two tabs posting together.");
       await navigator.locks.request("sikhizm-morning-publisher", { ifAvailable: true }, async lock => {
@@ -166,10 +171,10 @@ export default function MorningPublisher(props: Props) {
           articleUrl = props.articleUrl;
           pdfUrl = props.pdfUrl;
         } else try {
-          const links = await requestEvergreenLinks({ date: today, ang: props.state.ang, original: props.state.original });
+          const links = await requestEvergreenLinks({ date: today, ang: props.state.ang, original: fullContent.original });
           if (links.found) { articleUrl = links.articleUrl; pdfUrl = links.pdfUrl || ""; }
         } catch { /* Omit unavailable links instead of carrying another day's links forward. */ }
-        const batchCaption = useFull ? buildSocialCaption(props.state, articleUrl, pdfUrl) : expandTemplate(template, { date: props.state.dateText, original: props.state.original, translation: props.state.translation, articleUrl, pdfUrl });
+        const batchCaption = useFull ? buildSocialCaption(props.state, articleUrl, pdfUrl) : expandTemplate(template, { date: props.state.dateText, original: fullContent.original, translation: fullContent.translation, articleUrl, pdfUrl });
         // Build all required artwork before the first external post.
         const feed = pending.some(item => item.id.endsWith("image")) ? await props.createImage("feed") : null;
         const vertical = pending.some(item => item.id.endsWith("story")) ? await props.createImage("vertical") : null;
@@ -216,7 +221,7 @@ export default function MorningPublisher(props: Props) {
         setMessage(automatic && !armed.current ? "Automatic publishing is off. No further destinations will be sent." : "Morning batch finished. Review each destination below. WhatsApp remains manual.");
       });
     } catch (error) { setMessage((error as Error).message); }
-    finally { active.current = false; setBusy(false); }
+    finally { active.current = false; setPublishing(false); }
   }
   useEffect(() => { latest.current = () => { if (armed.current) void run(true); }; });
   useEffect(() => { const timer = setInterval(() => latest.current(), 15000); return () => clearInterval(timer); }, []);
@@ -243,7 +248,13 @@ export default function MorningPublisher(props: Props) {
   const reelPreview = <section aria-label="Reel preview" className="space-y-3 text-xs text-zinc-300">
     <h3 className="text-sm font-semibold text-amber-200">Reel preview · 1080 × 1920</h3>
     <p className="text-xs text-zinc-400">Create a preview with your saved Waheguru audio before publishing.</p>
-      <button disabled={busy || props.disabled || !audio} onClick={async () => { setBusy(true); try { await makeReel(); setMessage("Reel ready. Preview and download it below; nothing was posted."); } catch (error) { setMessage((error as Error).message); } finally { setBusy(false); } }} className="w-full rounded-lg border border-amber-300/30 px-3 py-2 text-amber-200">{busy ? "Working…" : "Create reel preview · no posting"}</button>
+      <button type="button" disabled={busy || enabled || props.disabled || !audio} onClick={async () => {
+        if (active.current || previewActive.current || armed.current) return;
+        previewActive.current = true; setPreviewing(true);
+        try { await makeReel(); setMessage("Reel ready. Preview and download it below; nothing was posted."); }
+        catch (error) { setMessage((error as Error).message); }
+        finally { previewActive.current = false; setPreviewing(false); }
+      }} className="w-full rounded-lg border border-amber-300/30 px-3 py-2 text-amber-200">{previewing ? "Creating reel preview…" : "Create reel preview · no posting"}</button>
       {video && <div><video controls playsInline src={video.url} className="mx-auto max-h-72 w-full rounded-lg bg-black" /><a href={video.url} download={`hukamnama-${props.state.dateISO}-${duration === "full" ? "full-audio" : `${duration}s`}.mp4`} className="mt-2 block text-amber-300 underline">Download MP4</a>{video.fingerprint !== fingerprint && <p className="text-amber-200">Artwork or audio changed. The preview will be regenerated before publishing.</p>}</div>}
   </section>;
 
@@ -253,7 +264,7 @@ export default function MorningPublisher(props: Props) {
     <div className="space-y-3 px-3 pb-4 text-xs text-zinc-400">
       <p>Turning Auto-post ON selects all six destinations below. Instagram image posts are excluded. You can select individual destinations for manual publishing while Auto-post is OFF.</p>
       <fieldset disabled={enabled || busy} className="space-y-2">{DESTINATIONS.map(item => <label key={item.id} className="flex items-start gap-2"><input type="checkbox" checked={targets[item.id]} onChange={event => { setTargets(previous => ({ ...previous, [item.id]: event.target.checked })); }} className="mt-0.5 accent-amber-400" />{item.label}</label>)}</fieldset>
-      <button type="button" disabled={!loaded || busy || enabled || props.disabled || !Object.values(targets).some(Boolean)} onClick={() => run(false)} className="min-h-14 w-full rounded-xl bg-amber-400 px-3 py-3 text-sm font-bold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40">{busy ? "Preparing / publishing…" : "Publish selected updates now"}</button>
+      <button type="button" disabled={!loaded || busy || enabled || props.disabled || !Object.values(targets).some(Boolean)} onClick={() => run(false)} className="min-h-14 w-full rounded-xl bg-amber-400 px-3 py-3 text-sm font-bold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40">{publishing ? "Preparing / publishing…" : "Publish selected updates now"}</button>
       <p className="text-[11px]">Turn Auto-post OFF for manual posting. It uses your applied text and caption. It does not fetch or replace your edits. Auto-post retains the current-day verification checks.</p>
       {props.disabled && <p className="text-amber-200">Apply pending text edits with Update, then complete the artwork and resolve any font or text-fit warning to publish.</p>}
       {failed.length > 0 && <button type="button" disabled={!loaded || busy || enabled || props.disabled} onClick={() => run(false, failed)} className="min-h-11 w-full rounded-lg border border-red-300/40 bg-red-400/10 px-3 py-2 font-semibold text-red-200">Retry failed destinations ({failed.length})</button>}

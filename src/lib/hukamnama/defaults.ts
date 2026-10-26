@@ -39,6 +39,8 @@ export function defaultState(): StudioState {
     original: "",
     translation: "",
     typo: {
+      introductionSize: 34,
+      introductionColor: "#800000",
       justify: true,
       autoFit: true,
       manualSize: 40,

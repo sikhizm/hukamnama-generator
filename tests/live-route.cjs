@@ -9,7 +9,8 @@ const { parseSikhizmLiveArticle, parseSgpcPage } = require('../src/lib/hukamnama
 const html = fs.readFileSync(path.join(__dirname, 'fixtures/sikhizm-2026-10-25.html'), 'utf8');
 const record = parseSikhizmLiveArticle(html, { publishedAt: 'Sun, 25 Oct 2026 00:00:11 +0000', localDateISO: '2026-10-25' }, '2026-10-25');
 const RealDate = Date, realFetch = fetch;
-class FixedDate extends RealDate { constructor(value) { super(value === undefined ? '2026-10-25T03:30:00Z' : value); } }
+let fixedNow = '2026-10-25T03:30:00Z';
+class FixedDate extends RealDate { constructor(value) { super(value === undefined ? fixedNow : value); } }
 const articleUrl = 'https://sikhizm.com/sunahu-sant-pyare-binou-hamare-jio/';
 
 const { parseHukamnamaSahib, parseDekhoJi, parseSikhNet, headingAuthor, normalizedVerse } = require('../src/lib/hukamnama/fallbackSources.ts');
@@ -50,7 +51,15 @@ assert.equal(sikhnet.matchedAuthor, 'Bhagat Ravidas Ji');
 assert.ok(sikhnet.original.includes('ਬਚਨੀ ਤੋਰ'));
 assert.ok(sikhnet.translation.includes('ਹੇ ਮਾਧੋ'));
 assert.throws(() => parseSikhNet(sikhnetHtml, day));
+const ravidasHtml = fs.readFileSync(path.join(__dirname, 'fixtures/sikhizm-2026-10-26.html'), 'utf8');
+const ravidasBani = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/banidb-shabad-2636.json'), 'utf8'));
+const ravidasAng = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/banidb-ang-694.json'), 'utf8'));
+const ravidas = parseSikhizmLiveArticle(ravidasHtml, { publishedAt: '2026-10-26T00:00:00Z', localDateISO: '2026-10-26' }, '2026-10-26');
+assert.ok(ravidas.translation.length > 400, 'Translation in Punjabi is a supported heading');
+assert.ok(matchedPunjabiTranslation(ravidasBani, ravidas)?.length > 400, 'known subjoined-h typography variant can match the complete shabad');
+assert.equal(matchedPunjabiTranslation(ravidasBani, { ...ravidas, original: ravidas.original.replace('ਦੀਨੁ', 'ਦੀਨਿ') }), null, 'other vowel differences still prevent matching');
 const urls = {
+  ravidas: 'https://sikhizm.com/hum-sar-deen-dayal-na-tum-sar/', bani694: 'https://api.banidb.com/v2/angs/694/G', bani2636: 'https://api.banidb.com/v2/shabads/2636',
   baniAng: 'https://api.banidb.com/v2/angs/678/G', baniShabad: 'https://api.banidb.com/v2/shabads/2584',
   sikhnet: 'https://sikhnet.com/hukam',
   sgpc: 'https://hs.sgpc.net/index.php', daily: 'https://sgpc.net/daily-mukhwak-pdf/',
@@ -123,6 +132,15 @@ async function run(responses) {
   const noAuthor = await run({ [urls.feed]: feed, [urls.article]: html.replaceAll('Guru Arjan Dev Ji', 'Unknown Writer').replaceAll('ਧਨਾਸਰੀ ਮਹਲਾ ੫ ਘਰੁ ੬', 'ਧਨਾਸਰੀ'), [urls.sahib]: sahibHtml });
   assert.deepEqual(noAuthor.calls, [urls.feed, urls.article], 'Sikhizm selection stops daily queries even without an author');
 
+  fixedNow = '2026-10-26T03:30:00Z';
+  const ravidasFeed = `<rss><channel><item><title>Hukamnama</title><link>${urls.ravidas}</link><pubDate>Mon, 26 Oct 2026 00:00:00 +0000</pubDate></item></channel></rss>`;
+  const current = await run({ [urls.feed]: ravidasFeed, [urls.ravidas]: ravidasHtml });
+  assert.equal(current.data.translation, ravidas.translation);
+  assert.deepEqual(current.calls, [urls.feed, urls.ravidas], 'today’s native Punjabi meaning stops further lookups');
+  const repaired = await run({ [urls.feed]: ravidasFeed, [urls.ravidas]: ravidasHtml.replace('Translation in Punjabi', 'Unlabelled text'), [urls.bani694]: JSON.stringify(ravidasAng), [urls.bani2636]: JSON.stringify(ravidasBani) });
+  assert.ok(repaired.data.translation.length > 400, 'today’s Ang 694 fallback supplies the complete meaning');
+  assert.deepEqual(repaired.calls, [urls.feed, urls.ravidas, urls.bani694, urls.bani2636]);
+  fixedNow = '2026-10-25T03:30:00Z';
   const unavailable = await run({});
   assert.equal(unavailable.status, 502);
   assert.ok(unavailable.data.error);

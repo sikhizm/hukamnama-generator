@@ -46,9 +46,11 @@ export default function LiveSourceStatus({ onUse, onStatus }: Props) {
       setRecord(result);
       onStatus(result);
       setCheckedAt(result.checkedAt);
+      return result;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The SGPC feed could not be checked.");
       setCheckedAt(new Date().toISOString());
+      return null;
     } finally {
       setLoading(false);
     }
@@ -63,17 +65,18 @@ export default function LiveSourceStatus({ onUse, onStatus }: Props) {
     return () => window.clearInterval(timer);
   }, [check]);
 
-  const useToday = () => {
-    if (!record?.isToday) return;
-    onUse(record);
-    const usedSikhizmPost = record.sourceName.startsWith("Sikhizm");
-    const authorNotice = record.matchedAuthor
-      ? `Matched author ${record.matchedAuthor}`
+  const useToday = async () => {
+    const selected = await check(true) ?? record;
+    if (!selected?.isToday || selected.sourceDateISO !== indiaClock().day) return;
+    onUse(selected);
+    const usedSikhizmPost = selected.sourceName.startsWith("Sikhizm");
+    const authorNotice = selected.matchedAuthor
+      ? `Matched author ${selected.matchedAuthor}`
       : "No verified author match was available; choose an author before publishing";
-    const translationNotice = record.translation
+    const translationNotice = selected.translation
       ? ""
       : ` The ${usedSikhizmPost ? "Sikhizm post" : "fallback page"} has no verified Punjabi explanation, so add it manually before export.`;
-    setNotice(`Loaded today’s Gurbani and Ang ${record.ang} from ${record.sourceName}. ${authorNotice}.${translationNotice}`);
+    setNotice(`Loaded today’s Gurbani and Ang ${selected.ang} from ${selected.sourceName}. ${authorNotice}.${translationNotice}`);
     window.setTimeout(() => setNotice(null), 5000);
   };
 
@@ -101,8 +104,8 @@ export default function LiveSourceStatus({ onUse, onStatus }: Props) {
         <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> Check sources
       </button>
       {record?.isToday && (
-        <button type="button" onClick={useToday} className="flex items-center gap-1.5 rounded-lg bg-amber-400 px-2.5 py-1.5 text-[10px] font-bold text-zinc-950 hover:bg-amber-300">
-          <CloudDownload size={12} /> Load today’s text
+        <button type="button" disabled={loading} onClick={() => void useToday()} className="flex items-center gap-1.5 rounded-lg bg-amber-400 px-2.5 py-1.5 text-[10px] font-bold text-zinc-950 hover:bg-amber-300">
+          <CloudDownload size={12} /> {loading ? "Loading today’s text…" : "Load today’s text"}
         </button>
       )}
     </section>

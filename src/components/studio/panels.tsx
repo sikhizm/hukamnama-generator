@@ -1,5 +1,7 @@
 "use client";
 
+import { splitIntroduction, joinIntroduction } from "@/lib/hukamnama/introduction";
+
 import {
   Proportions,
   Image as ImageIcon,
@@ -481,36 +483,45 @@ function BlockStatus(props: { p: PanelProps; index: 0 | 1 }) {
 
 export function ContentSection(p: PanelProps & { onPendingChange: (pending: boolean) => void }) {
   const { state, patch } = p;
-  const [original, setOriginal] = useState(state.original);
+  const source = splitIntroduction(state.original, state.introduction);
+  const [introduction, setIntroduction] = useState(source.introduction);
+  const [original, setOriginal] = useState(source.body);
   const [translation, setTranslation] = useState(state.translation);
-  const dirty = original !== state.original || translation !== state.translation;
-  function edit(nextOriginal: string, nextTranslation: string) {
+  const dirty = introduction !== source.introduction || original !== source.body || translation !== state.translation;
+  function edit(nextOriginal: string, nextTranslation: string, nextIntroduction = introduction) {
+    setIntroduction(nextIntroduction);
     setOriginal(nextOriginal); setTranslation(nextTranslation);
-    p.onPendingChange(nextOriginal !== state.original || nextTranslation !== state.translation);
+    p.onPendingChange(nextIntroduction !== source.introduction || nextOriginal !== source.body || nextTranslation !== state.translation);
   }
   return (
-    <Section icon={ScrollText} title="Hukamnama text" subtitle="Original + Punjabi translation">
+    <Section icon={ScrollText} title="Hukamnama text" subtitle="Introduction + Gurbani + Punjabi translation">
+      <div>
+        <FieldLabel>Introductory text · smaller heading</FieldLabel>
+        <TextArea ariaLabel="Introductory text" rows={2} gurmukhi value={introduction} onChange={v => edit(original, translation, v)} />
+        <p className="mt-1 text-[10px] text-zinc-500">Raag, author heading and Mool Mantar. Long introductions wrap naturally.</p>
+      </div>
       <div>
         <FieldLabel right={<BlockStatus p={p} index={0} />}>
           {PANEL_HEADING_ORIGINAL} <span className="text-zinc-600">· {original.length} chars</span>
         </FieldLabel>
-        <TextArea rows={6} gurmukhi value={original} onChange={(v) => edit(v, translation)} />
+        <TextArea ariaLabel="Main Gurbani" rows={6} gurmukhi value={original} onChange={(v) => edit(v, translation)} />
       </div>
       <div>
         <FieldLabel right={<BlockStatus p={p} index={1} />}>
           {PANEL_HEADING_TRANSLATION} <span className="text-zinc-600">· {translation.length} chars</span>
         </FieldLabel>
-        <TextArea rows={6} gurmukhi value={translation} onChange={(v) => edit(original, v)} />
+        <TextArea ariaLabel="Punjabi translation" rows={6} gurmukhi value={translation} onChange={(v) => edit(original, v)} />
         <button
           type="button"
-          onClick={() => edit("", "")}
+          onClick={() => edit("", "", "")}
           className="mt-1.5 flex items-center gap-1 text-[10px] text-zinc-500 transition hover:text-zinc-300"
         >
-          <Delete size={10} /> Clear both blocks
+          <Delete size={10} /> Clear all three fields
         </button>
       </div>
-      <button type="button" disabled={!dirty} onClick={() => { patch({ original, translation }); p.onPendingChange(false); }} className="min-h-11 w-full rounded-lg bg-amber-400 px-3 py-3 text-sm font-bold text-zinc-950 disabled:opacity-40">Update text &amp; preview</button>
-      <p role="status" className="text-xs text-zinc-400">{dirty ? "Edits pending. Press Update to apply both text fields before sharing or publishing." : "Text applied to the image, reel and caption."}</p>
+      <button type="button" disabled={!dirty} onClick={() => { patch({ introduction: introduction.trim(), original: joinIntroduction(introduction, original), translation }); p.onPendingChange(false); }} className="min-h-11 w-full rounded-lg bg-amber-400 px-3 py-3 text-sm font-bold text-zinc-950 disabled:opacity-40">Update text &amp; preview</button>
+      {(state.fullOriginal || state.fullTranslation) && <details className="text-xs text-zinc-400"><summary className="cursor-pointer text-amber-200">View full fetched source · retained for captions</summary><p className="mt-2 font-pa leading-6">{state.fullOriginal}</p><p className="mt-2 font-pa leading-6">{state.fullTranslation}</p></details>}
+      <p role="status" className="text-xs text-zinc-400">{dirty ? "Edits pending. Press Update to apply all three text fields before sharing or publishing." : "Text applied to the image, reel and caption."}</p>
     </Section>
   );
 }
@@ -535,40 +546,13 @@ export function TypographySection(p: PanelProps) {
         onChange={(v) => patchTypo({ autoFit: v })}
       />
       
-      {state.typo.autoFit ? (
-        <>
-          <SliderRow
-            label="Target ratio (Original ÷ Translation)"
-            value={state.typo.originalSizeRatio}
-            min={1.0}
-            max={2.0}
-            step={0.05}
-            format={(v) => `${v.toFixed(2)}×`}
-            onChange={(v) => patchTypo({ originalSizeRatio: v })}
-          />
-        </>
-      ) : (
-        <>
-          <SliderRow
-            label="Original (Mool) font size"
-            value={state.typo.originalSize}
-            min={22}
-            max={80}
-            step={1}
-            format={(v) => `${v}px`}
-            onChange={(v) => patchTypo({ originalSize: v })}
-          />
-          <SliderRow
-            label="Translation font size"
-            value={state.typo.translationSize}
-            min={18}
-            max={60}
-            step={1}
-            format={(v) => `${v}px`}
-            onChange={(v) => patchTypo({ translationSize: v })}
-          />
-        </>
-      )}
+      {state.typo.autoFit && <SliderRow label="Target ratio (Original ÷ Translation)" value={state.typo.originalSizeRatio} min={1.2} max={2.0} step={0.05} format={v => `${v.toFixed(2)}×`} onChange={v => patchTypo({ originalSizeRatio: v })} />}
+      <p className="text-[10px] text-zinc-500">Adjusting a pixel size switches to manual sizing. Main Gurbani stays larger than the introduction and translation.</p>
+      <SliderRow label="Introduction size" value={state.typo.introductionSize} min={12} max={80} step={1} format={v => `${v}px`} onChange={v => patchTypo({ introductionSize: v, originalSize: Math.max(state.typo.originalSize, v + 4), autoFit: false })} />
+      <label className="flex items-center justify-between text-xs text-zinc-300">Introduction colour<input aria-label="Introduction colour" type="color" value={state.typo.introductionColor} onChange={event => patchTypo({ introductionColor: event.target.value })} className="h-8 w-12 rounded border border-white/10" /></label>
+      <SliderRow label="Main Gurbani size" value={state.typo.originalSize} min={22} max={128} step={1} format={v => `${v}px`} onChange={v => patchTypo({ originalSize: v, translationSize: Math.min(state.typo.translationSize, v - 4), introductionSize: Math.min(state.typo.introductionSize, v - 4), autoFit: false })} />
+      <SliderRow label="Translation size" value={state.typo.translationSize} min={18} max={96} step={1} format={v => `${v}px`} onChange={v => patchTypo({ translationSize: v, originalSize: Math.max(state.typo.originalSize, v + 4), autoFit: false })} />
+      {p.layout && <p className="text-[10px] text-amber-200">Rendered sizes: introduction {p.layout.introduction ? `${Math.round(p.layout.introduction.px)}px` : "not used"}, Gurbani {Math.round(p.layout.blocks[0].px)}px, translation {Math.round(p.layout.blocks[1].px)}px.</p>}
 
       <SliderRow
         label="Line height"

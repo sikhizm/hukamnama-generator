@@ -23,20 +23,25 @@ const realFetch = fetch;
   const state = { original: 'ਪਹਿਲਾ ਪਾਠ', translation: 'ਪਹਿਲੇ ਅਰਥ' };
   let editor;
   await act(async () => { editor = create(React.createElement(ContentSection, { state, layout: null, patch: value => { applied = value; }, onPendingChange: value => { pending = value; } })); });
-  await act(async () => editor.root.findAllByType('textarea')[0].props.onChange({ target: { value: 'ਮੇਰਾ ਨਵਾਂ ਪਾਠ' } }));
-  await act(async () => editor.root.findAllByType('textarea')[1].props.onChange({ target: { value: 'ਮੇਰੇ ਨਵੇਂ ਅਰਥ' } }));
+  await act(async () => editor.root.findAllByType('textarea')[0].props.onChange({ target: { value: 'ਧਨਾਸਰੀ ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥' } }));
+  await act(async () => editor.root.findAllByType('textarea')[1].props.onChange({ target: { value: 'ਮੇਰਾ ਨਵਾਂ ਪਾਠ' } }));
+  await act(async () => editor.root.findAllByType('textarea')[2].props.onChange({ target: { value: 'ਮੇਰੇ ਨਵੇਂ ਅਰਥ' } }));
   assert.equal(applied, undefined); assert.equal(pending, true);
   await act(async () => button(editor.root, 'Update text & preview').props.onClick());
-  assert.deepEqual(applied, { original: 'ਮੇਰਾ ਨਵਾਂ ਪਾਠ', translation: 'ਮੇਰੇ ਨਵੇਂ ਅਰਥ' });
+  assert.deepEqual(applied, { introduction: 'ਧਨਾਸਰੀ ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥', original: 'ਧਨਾਸਰੀ ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ਮੇਰਾ ਨਵਾਂ ਪਾਠ', translation: 'ਮੇਰੇ ਨਵੇਂ ਅਰਥ' });
   assert.equal(pending, false);
   await act(async () => editor.unmount());
 
   const targets = Object.fromEntries(Object.keys(defaultTargets).map(id => [id, ['facebook-image', 'instagram-reel', 'youtube-reel'].includes(id)]));
   store.set('sikhizm-morning-settings-v1', JSON.stringify({ targets, useFull: true }));
-  const sent = []; let igAttempts = 0;
+  const sent = []; let igAttempts = 0, releasePreview;
+  let pausePreview = true;
   global.fetch = async (url, options) => {
     if (url === '/audio/waheguru-waheguru.mp3') return new Response(new Blob(['mock audio'], { type: 'audio/mp3' }));
-    if (url === '/api/social/reel') return new Response(new Blob(['mock reel'], { type: 'video/mp4' }));
+    if (url === '/api/social/reel') {
+      if (pausePreview) return new Promise(resolve => { releasePreview = () => resolve(new Response(new Blob(['mock reel'], { type: 'video/mp4' }))); });
+      return new Response(new Blob(['mock reel'], { type: 'video/mp4' }));
+    }
     assert.ok(['/api/social/publish', '/api/social/media', '/api/social/youtube'].includes(url), `manual flow must not fetch a daily source: ${url}`);
     const target = url === '/api/social/publish' ? 'facebook-image' : url === '/api/social/youtube' ? 'youtube-reel' : options.body.get('target');
     sent.push(target);
@@ -48,6 +53,15 @@ const realFetch = fetch;
   let publisher;
   const props = { autoTarget: null, reelTarget: null, pendingText: false, manualLinks: true, state: { dateISO: '2026-10-26', dateText: '26-October-2026', original: 'ਮੇਰਾ ਪਾਠ', translation: 'ਮੇਰੇ ਅਰਥ' }, caption: 'My manually reviewed caption', articleUrl: '', pdfUrl: '', live: null, onLoadLive: () => assert.fail('manual publish replaced text'), createImage: async () => new Blob(['mock image'], { type: 'image/jpeg' }), disabled: false };
   await act(async () => { publisher = create(React.createElement(MorningPublisher, props)); });
+  let previewPromise;
+  await act(async () => { previewPromise = button(publisher.root, 'Create reel preview · no posting').props.onClick(); await Promise.resolve(); });
+  assert.ok(button(publisher.root, 'Creating reel preview…'));
+  assert.equal(button(publisher.root, 'Publish selected updates now').props.disabled, true, 'preview must not show a publishing activity label');
+  await act(async () => button(publisher.root, 'Publish selected updates now').props.onClick());
+  assert.deepEqual(sent, [], 'preview cannot dispatch social posts or overlap publishing');
+  pausePreview = false;
+  await act(async () => { releasePreview(); await previewPromise; });
+  assert.deepEqual(sent, []);
   await act(async () => publisher.update(React.createElement(MorningPublisher, { ...props, pendingText: true, disabled: true })));
   assert.equal(button(publisher.root, 'Publish selected updates now').props.disabled, true);
   await act(async () => button(publisher.root, 'Publish selected updates now').props.onClick());

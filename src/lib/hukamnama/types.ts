@@ -128,6 +128,8 @@ export interface HeaderSettings {
 }
 
 export interface TypoSettings {
+  introductionSize: number;
+  introductionColor: string;
   justify: boolean;
   autoFit: boolean;
   /** Manual font size (px at 1080-ref) used when autoFit is off. */
@@ -153,6 +155,10 @@ export interface StudioState {
   dateText: string;
   banikar: string;
   ang: string;
+  /** Editable introduction boundary within original; fullOriginal retains the unshortened source. */
+  introduction?: string;
+  fullOriginal?: string;
+  fullTranslation?: string;
   original: string;
   translation: string;
   typo: TypoSettings;

@@ -80,22 +80,34 @@ function sequence(responses, check = []) {
   assert.equal(verifyFreshMorningState({ ...readyState, banikar: 'Bhagat Namdev Ji' }, readyLive, now).matchesLive, false);
   assert.equal(verifyFreshMorningState(readyState, readyLive, new Date('2026-10-25T19:00:00Z')).validLive, false, 'India midnight invalidates the previous batch');
 
+  const { loadedContent } = require('../src/lib/hukamnama/loadedContent.ts');
+  const { parseSikhizmLiveArticle } = require('../src/lib/hukamnama/liveSource.ts');
+  const currentLive = parseSikhizmLiveArticle(fs.readFileSync('tests/fixtures/sikhizm-2026-10-26.html', 'utf8'), { publishedAt: '2026-10-26T00:00:00Z', localDateISO: '2026-10-26' }, '2026-10-26', '2026-10-26T01:30:00Z');
+  const excerptState = { ...readyState, ...loadedContent(currentLive), dateISO: currentLive.sourceDateISO, dateText: currentLive.dateText, ang: currentLive.ang, banikar: currentLive.matchedAuthor };
+  assert.equal(verifyFreshMorningState(excerptState, currentLive, new Date('2026-10-26T01:30:00Z')).matchesLive, true, 'verified full source allows the correctly derived editable excerpt');
+  assert.equal(verifyFreshMorningState({ ...excerptState, original: 'changed text' }, currentLive, new Date('2026-10-26T01:30:00Z')).matchesLive, false, 'retained source cannot authorize altered artwork');
   assert.throws(() => reelArgs('image','audio','output',0), /1 and 60/);
   const args = reelArgs('image','audio','output',17.95); assert.ok(args.includes('libx264')); assert.ok(args.includes('aac')); assert.ok(args.includes('yuv420p')); assert.ok(!args.includes('-stream_loop')); assert.ok(args.some(arg => arg.includes('pad=1080:1920')));
 
-  const fb = sequence([page, { video_id: '789', upload_url: 'https://rupload.facebook.com/video-upload/v26.0/789' }, { success: true }, { success: true }], [undefined, (url,o) => assert.equal(o.body.get('upload_phase'), 'start'), (url,o) => { assert.equal(o.headers.file_size, String(video.size)); assert.equal(o.headers.Authorization, 'OAuth PRIVATE'); }, (url,o) => { assert.equal(o.body.get('upload_phase'), 'finish'); assert.equal(o.body.get('description'), 'caption'); }]);
+  const fb = sequence([{id: page.id}, { video_id: '789', upload_url: 'https://rupload.facebook.com/video-upload/v26.0/789' }, { success: true }, { success: true }], [(url) => assert.ok(url.endsWith('me?fields=id')), (url,o) => assert.equal(o.body.get('upload_phase'), 'start'), (url,o) => { assert.equal(o.headers.file_size, String(video.size)); assert.equal(o.headers.Authorization, 'OAuth PRIVATE'); }, (url,o) => { assert.equal(o.body.get('upload_phase'), 'finish'); assert.equal(o.body.get('description'), 'caption'); }]);
   assert.equal((await publishMedia(cfg,'facebook-reel',video,'caption',fb)).id,'789'); fb.done();
-  const ig = sequence([page, { id:'789' }, {success:true}, {status_code:'FINISHED'}, {id:'987'}], [undefined,(url,o) => {assert.equal(o.body.get('media_type'),'REELS');assert.equal(o.body.get('upload_type'),'resumable');},(url,o)=>assert.equal(url,'https://rupload.facebook.com/ig-api-upload/v26.0/789')]);
+  const ig = sequence([page, { id:'789', uri:'https://rupload.facebook.com/ig-api-upload/v26.0/789' }, {success:true}, {status_code:'FINISHED'}, {id:'987'}], [(url) => assert.ok(url.endsWith('me?fields=id,instagram_business_account{id,username}')),(url,o) => {assert.equal(o.body.get('media_type'),'REELS');assert.equal(o.body.get('upload_type'),'resumable');},(url,o)=>assert.equal(url,'https://rupload.facebook.com/ig-api-upload/v26.0/789')]);
   assert.equal((await publishMedia(cfg,'instagram-reel',video,'caption',ig)).id,'987');ig.done();
   const fsStory = sequence([page,{id:'789'},{success:true,post_id:'123_789'}],[undefined,undefined,(url,o)=>{assert.ok(url.endsWith('/123/photo_stories'));assert.equal(o.body.get('photo_id'),'789')}]);
   assert.equal((await publishMedia(cfg,'facebook-story',image,'caption',fsStory)).id,'123_789');fsStory.done();
   const igStory = sequence([page,{id:'789'},{images:[{source:'https://cdn.example/photo.jpg',width:1080}]},{id:'654'},{status_code:'FINISHED'},{id:'987'}],[undefined,undefined,undefined,(url,o)=>{assert.equal(o.body.get('media_type'),'STORIES');assert.equal(o.body.get('caption'),null)}]);
   await publishMedia(cfg,'instagram-story',image,'caption',igStory);igStory.done();
-  const creator = sequence([{...page,instagram_business_account:{...page.instagram_business_account,account_type:'MEDIA_CREATOR'}}]);
-  await assert.rejects(publishMedia(cfg,'instagram-story',image,'caption',creator),/Business account/);creator.done();
+  const creator = sequence([page, {id:'789'}, {images:[{source:'https://cdn.example/photo.jpg',width:1080}]}, {error:{code:100,error_subcode:2207006,message:'Unsupported story account'}}], [(url) => assert.ok(!url.includes('account_type'))]);
+  await assert.rejects(publishMedia(cfg,'instagram-story',image,'caption',creator),/code 100, subcode 2207006/);creator.done();
+  const missingUri = sequence([page, {id:'789'}]);
+  await assert.rejects(publishMedia(cfg,'instagram-reel',video,'caption',missingUri), /upload URI/);missingUri.done();
+  const unsafeUri = sequence([page, {id:'789',uri:'https://evil.example/ig-api-upload/v26.0/789'}]);
+  await assert.rejects(publishMedia(cfg,'instagram-reel',video,'caption',unsafeUri), /unexpected upload address/);unsafeUri.done();
+  const diagnostic = sequence([new Response(JSON.stringify({error:{code:100,error_subcode:33,message:'Invalid field. access_token=PRIVATE'}}),{status:400})]);
+  await assert.rejects(publishMedia(cfg,'facebook-story',image,'caption',diagnostic), error => error.message.includes('Page identity lookup') && error.message.includes('code 100, subcode 33') && !error.message.includes('PRIVATE'));diagnostic.done();
   const wrong = sequence([{...page,id:'999'}]); await assert.rejects(publishMedia(cfg,'facebook-reel',video,'caption',wrong),/configured Page/);wrong.done();
   const badUpload = sequence([page,{video_id:'789',upload_url:'https://evil.example/upload'}]); await assert.rejects(publishMedia(cfg,'facebook-reel',video,'caption',badUpload),/unexpected upload/);badUpload.done();
-  const uncertain = sequence([page,{id:'789'},{success:true},{status_code:'FINISHED'},new Error('PRIVATE network')]);
+  const uncertain = sequence([page,{id:'789',uri:'https://rupload.facebook.com/ig-api-upload/v26.0/789'},{success:true},{status_code:'FINISHED'},new Error('PRIVATE network')]);
   await assert.rejects(publishMedia(cfg,'instagram-reel',video,'caption',uncertain), e=>e.uncertain && !e.message.includes('PRIVATE'));uncertain.done();
 
   process.env.SOCIAL_ADMIN_KEY = 'x'.repeat(32);
