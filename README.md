@@ -537,3 +537,9 @@ Sikhizm Punjabi meanings support both Punjabi Translation and Translation in Pun
 The two large manual WhatsApp controls are **Copy Image** and **Copy Text Template**. Copy Image writes the current PNG artwork to the clipboard; paste and send it in WhatsApp Web or your supported app before copying the text. Copy Text Template copies the same complete caption shown in the preview. Copying text replaces the clipboard image.
 
 A separate **Download Image** button prepares the PNG for manual attachment when image copying or pasting is unavailable, including on some mobile devices. Clipboard failures show actionable feedback and never silently open a share sheet or download a file. The current-day red/green source indicator remains informational; manual copying is available when the artwork is complete, including with manually supplied content. No WhatsApp messages are sent by these controls.
+
+## Hukamnama captions by destination
+
+Morning publishing uses the applied Gurbani/translation excerpt from the editors. Facebook 1080×1350 image posts receive the complete greeting/date/Gurbani/meaning/article/PDF/hashtags template. Instagram reels receive the same template with the article/PDF link sections omitted. Facebook reels receive only the greeting, Hukamnama heading, date, separator and hashtags. Stories continue to contain artwork only. YouTube descriptions retain the complete template with available links, and Short titles follow `TODAY's HUKAMNAMA SRI DARBAR SAHIB AMRITSAR 26-OCTOBER-2026 MONDAY`, generated from the selected Hukamnama date.
+
+The former shared short/full caption setting no longer overrides these destination rules. Each selected feed/reel destination has a read-only caption preview, and the YouTube title is visible before publishing. Manual link edits, verified evergreen link lookup, missing-link omission, pending-edit guards and safe retries remain in place. WhatsApp clipboard templates remain unchanged.

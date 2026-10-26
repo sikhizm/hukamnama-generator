@@ -1,14 +1,14 @@
 "use client";
 
+import { buildMorningCaption, youtubeHukamnamaTitle } from "@/lib/hukamnama/morningCaptions";
 import { captionContent } from "@/lib/hukamnama/loadedContent";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import type { StudioState } from "@/lib/hukamnama/types";
 import type { LiveHukamnama } from "@/lib/hukamnama/liveSource";
 import { loadChant, saveChant } from "@/lib/browserAudio";
-import { DESTINATIONS, defaultTargets, expandTemplate, indiaClock, inMorningWindow, needsReel, verifyFreshMorningState, SHORT_TEMPLATE, pendingDestinations, type Destination, type MorningTargets } from "@/lib/morningPlan";
+import { DESTINATIONS, defaultTargets, indiaClock, inMorningWindow, needsReel, verifyFreshMorningState, pendingDestinations, type Destination, type MorningTargets } from "@/lib/morningPlan";
 import { requestEvergreenLinks } from "@/lib/hukamnama/sikhizmLinks";
-import { buildSocialCaption } from "@/lib/hukamnama/socialCaption";
 
 interface Props {
   autoTarget: HTMLElement | null;
@@ -33,8 +33,6 @@ export default function MorningPublisher(props: Props) {
   const [targets, setTargets] = useState<MorningTargets>({ ...defaultTargets });
   const [duration, setDuration] = useState<"full" | 10 | 15>("full");
   const [time, setTime] = useState("05:45");
-  const [template, setTemplate] = useState(SHORT_TEMPLATE);
-  const [useFull, setUseFull] = useState(false);
   const [audio, setAudio] = useState<{ name: string; blob: Blob; url: string } | null>(null);
   const [video, setVideo] = useState<{ blob: Blob; url: string; fingerprint: string } | null>(null);
   const [ledger, setLedger] = useState<Ledger>({});
@@ -52,7 +50,8 @@ export default function MorningPublisher(props: Props) {
   const current = useRef({ state: props.state, disabled: props.disabled, fingerprint: "" });
   const day = indiaClock().day;
   const fullContent = captionContent(props.state);
-  const finalCaption = useFull ? props.caption : expandTemplate(template, { date: props.state.dateText, original: fullContent.original, translation: fullContent.translation, articleUrl: props.articleUrl, pdfUrl: props.pdfUrl });
+  let youtubeTitlePreview = "Choose a valid Hukamnama date";
+  try { youtubeTitlePreview = youtubeHukamnamaTitle(props.state.dateISO); } catch { /* Keep incomplete editor dates renderable. */ }
   const fingerprint = JSON.stringify([props.state, duration, audio?.name, audio?.blob.size]);
   useEffect(() => { current.current = { state: props.state, disabled: props.disabled, fingerprint }; });
 
@@ -66,8 +65,6 @@ export default function MorningPublisher(props: Props) {
           // Migrate the former 10/15-second default to full recording once.
           if (saved.audioDurationVersion === 2 && (saved.duration === "full" || saved.duration === 10 || saved.duration === 15)) setDuration(saved.duration);
           if (typeof saved.time === "string") setTime(saved.time);
-          if (typeof saved.template === "string") setTemplate(saved.template);
-          setUseFull(saved.useFull === true);
         }
         setLedger(JSON.parse(localStorage.getItem(LEDGER_KEY) ?? "{}"));
       } catch { if (!cancelled) setMessage("Saved settings could not be loaded. Check browser storage before arming."); }
@@ -83,9 +80,9 @@ export default function MorningPublisher(props: Props) {
   }, []);
   useEffect(() => {
     if (!loaded) return;
-    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ targets, duration, audioDurationVersion: 2, time, template, useFull })); }
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ targets, duration, audioDurationVersion: 2, time })); }
     catch { /* Arming checks storage before sending. */ }
-  }, [targets, duration, time, template, useFull, loaded]);
+  }, [targets, duration, time, loaded]);
   useEffect(() => () => { if (audio) URL.revokeObjectURL(audio.url); }, [audio]);
   useEffect(() => () => { if (video) URL.revokeObjectURL(video.url); }, [video]);
   useEffect(() => {
@@ -174,7 +171,8 @@ export default function MorningPublisher(props: Props) {
           const links = await requestEvergreenLinks({ date: today, ang: props.state.ang, original: fullContent.original });
           if (links.found) { articleUrl = links.articleUrl; pdfUrl = links.pdfUrl || ""; }
         } catch { /* Omit unavailable links instead of carrying another day's links forward. */ }
-        const batchCaption = useFull ? buildSocialCaption(props.state, articleUrl, pdfUrl) : expandTemplate(template, { date: props.state.dateText, original: fullContent.original, translation: fullContent.translation, articleUrl, pdfUrl });
+        const batchCaptions = new Map(pending.map(item => [item.id, buildMorningCaption(item.id, props.state, articleUrl, pdfUrl)]));
+        const youtubeTitle = pending.some(item => item.id === "youtube-reel") ? youtubeHukamnamaTitle(props.state.dateISO) : "";
         // Build all required artwork before the first external post.
         const feed = pending.some(item => item.id.endsWith("image")) ? await props.createImage("feed") : null;
         const vertical = pending.some(item => item.id.endsWith("story")) ? await props.createImage("vertical") : null;
@@ -200,7 +198,7 @@ export default function MorningPublisher(props: Props) {
           record(today, item.id, { status: "sending", message: "Request started. Check the platform if the app closes before confirmation." });
           setMessage(`Publishing ${item.label}…`);
           try {
-            const body = new FormData(); body.set("caption", batchCaption);
+            const body = new FormData(); body.set("caption", batchCaptions.get(item.id) ?? "");
             let url = "/api/social/media";
             if (item.id.endsWith("image")) {
               if (!feed) throw Object.assign(new Error("Feed image unavailable."), { uncertain: false });
@@ -209,7 +207,7 @@ export default function MorningPublisher(props: Props) {
               const file = item.id.endsWith("reel") ? reel?.blob : vertical;
               if (!file) throw Object.assign(new Error("Prepared media unavailable."), { uncertain: false });
               body.set("file", file, item.id.endsWith("reel") ? "hukamnama.mp4" : "hukamnama.jpg"); body.set("target", item.id);
-              if (item.id === "youtube-reel") { url = "/api/social/youtube"; body.set("title", `Daily Hukamnama · ${props.state.dateISO} · Sikhizm #Shorts`); }
+              if (item.id === "youtube-reel") { url = "/api/social/youtube"; body.set("title", youtubeTitle); }
             }
             const result = await api(url, body);
             record(today, item.id, { status: "sent", message: result.processing ? "Upload accepted; platform processing may take a moment." : "Published", url: result.url });
@@ -275,11 +273,16 @@ export default function MorningPublisher(props: Props) {
       <button disabled={enabled || busy || !loaded} onClick={async () => { try { const data = await bundledChant(); await saveChant(data).catch(() => null); setAudio({ ...data, url: URL.createObjectURL(data.blob) }); setVideo(null); setMessage("Bundled Waheguru chant selected for future reels."); } catch (error) { setMessage((error as Error).message); } }} className="text-amber-300 underline">Use bundled Waheguru chant</button>
       <p className="text-[10px]">Your full Waheguru recording is the default reel background. Optional replacements, up to 1.8 MB and 60 seconds, are saved on this browser. Audio is never looped.</p>
       <label className="block">Reel duration<select value={duration} disabled={enabled || busy} onChange={event => { setDuration(event.target.value === "full" ? "full" : Number(event.target.value) as 10 | 15); setVideo(null); }} className={field}><option value="full">Full audio clip (recommended)</option><option value={10}>First 10 seconds</option><option value={15}>First 15 seconds</option></select></label>
-      <label className="flex items-start gap-2"><input type="checkbox" checked={useFull} disabled={enabled || busy} onChange={event => { setUseFull(event.target.checked); }} className="mt-0.5 accent-amber-400" />Use the full text template above for feed posts and reels</label>
-      {!useFull && <label className="block">Shared publishing template<textarea value={template} disabled={enabled || busy} onChange={event => { setTemplate(event.target.value); }} rows={6} className={field} /><span className="text-[10px]">Fields: {"{date}, {articleUrl}, {pdfUrl}, {original}, {translation}"}</span></label>}
-      <label className="block">Caption preview · {[...finalCaption].length} characters<textarea readOnly rows={5} value={finalCaption} className={field} /></label>
-      <p className="text-[10px]">Links are matched against evergreen Sikhizm articles using Ang and Gurbani. Current manual edits take priority. If no match is verified, link sections are omitted.</p>
-      {[...finalCaption].length > 2200 && <p className="text-amber-200">Instagram and image-post captions are limited to 2,200 characters. Choose a shorter template; Gurbani is never automatically cut.</p>}
+      <p className="text-[11px] leading-5">Facebook images use the complete template with links. Instagram reels use the complete template without links. Facebook reels use the greeting, date and hashtags. These use the applied excerpt in your text fields.</p>
+      <details className="rounded-lg border border-white/10 p-2">
+        <summary className="cursor-pointer font-semibold text-amber-200">Preview captions by destination</summary>
+        <div className="mt-3 space-y-3">{DESTINATIONS.filter(item => targets[item.id] && !item.id.endsWith("story")).map(item => {
+          const caption = buildMorningCaption(item.id, props.state, props.articleUrl, props.pdfUrl);
+          return <label key={item.id} className="block">{item.label} · {[...caption].length} characters<textarea aria-label={`${item.label} caption`} readOnly rows={6} value={caption} className={field} />{item.id === "instagram-reel" && [...caption].length > 2200 && <span className="text-amber-200">Instagram requires a caption within 2,200 characters. Adjust the applied text before publishing; Gurbani is never silently cut.</span>}</label>;
+        })}</div>
+      </details>
+      <label className="block">YouTube Short title<input aria-label="YouTube Short title" readOnly value={youtubeTitlePreview} className={field} /></label>
+      <p className="text-[10px]">Verified article and PDF links appear on Facebook images and YouTube descriptions. Missing links are omitted.</p>
       <p className="text-[10px]">Your signed-in session authorizes publishing. Reloading turns automatic posting off; your login stays active.</p>
       <div className="flex flex-wrap gap-2"><button disabled={busy} onClick={async () => { try { const result = await api("/api/social/youtube/connect"); window.location.assign(result.url); } catch (error) { setMessage((error as Error).message); } }} className="rounded-lg border border-white/10 px-2 py-2">Connect YouTube</button><button disabled={busy} onClick={async () => { try { const result = await api("/api/social/youtube?status=1"); setYoutube(`${result.title} · ${result.channelId}`); } catch (error) { setYoutube((error as Error).message); } }} className="rounded-lg border border-white/10 px-2 py-2">Check channel</button></div>
       {youtube && <p className="break-all">YouTube: {youtube}</p>}
