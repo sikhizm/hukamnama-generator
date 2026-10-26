@@ -1,9 +1,10 @@
 "use client";
 
+import { copyPngImage } from "@/lib/browserClipboard";
 import { captionContent } from "@/lib/hukamnama/loadedContent";
 
 import { useEffect, useRef, useState } from "react";
-import { Clipboard, Link2, LoaderCircle, MessageCircle, Send } from "lucide-react";
+import { Clipboard, Link2, LoaderCircle, MessageCircle, Download, Image as ImageIcon } from "lucide-react";
 import type { StudioState } from "@/lib/hukamnama/types";
 import { buildSocialCaption } from "@/lib/hukamnama/socialCaption";
 import MorningPublisher from "./MorningPublisher";
@@ -39,7 +40,9 @@ export default function SocialCaption({ autoTarget, reelTarget, state, notify, c
   const [linkNotice, setLinkNotice] = useState("");
   const [linksLoaded, setLinksLoaded] = useState(false);
   const [findingLinks, setFindingLinks] = useState(false);
-  const [sharingImage, setSharingImage] = useState(false);
+  const [clipboardActivity, setClipboardActivity] = useState<"image" | "text" | "download" | null>(null);
+  const clipboardBusy = useRef(false);
+  const [clipboardNotice, setClipboardNotice] = useState("");
   const [whatsappStep, setWhatsappStep] = useState<"image" | "text">("image");
   const [indiaDay, setIndiaDay] = useState<string | null>(null);
   const currentSourceAvailable = hasTodaysSourceContent(live, indiaDay);
@@ -81,7 +84,7 @@ export default function SocialCaption({ autoTarget, reelTarget, state, notify, c
   }, [links, linksLoaded]);
 
   useEffect(() => {
-    if (!linksLoaded || links.context === context || !state.original || !state.ang || !state.dateText) return;
+    if (!linksLoaded || links.context === context || !fullContent.original || !state.ang || !state.dateText) return;
     const controller = new AbortController(), id = ++requestId.current;
     Promise.resolve().then(async () => {
       if (controller.signal.aborted) return;
@@ -108,15 +111,6 @@ export default function SocialCaption({ autoTarget, reelTarget, state, notify, c
 
   const caption = buildSocialCaption(state, articleUrl, pdfUrl);
 
-  const copyCaption = async () => {
-    try {
-      await navigator.clipboard.writeText(caption);
-      notify("Full caption copied. Paste it into the platform’s caption or description field.");
-    } catch {
-      notify("Clipboard access is unavailable. Select and copy the caption text below.");
-    }
-  };
-
   const findTodayLinks = async () => {
     const id = ++requestId.current;
     setFindingLinks(true);
@@ -131,54 +125,36 @@ export default function SocialCaption({ autoTarget, reelTarget, state, notify, c
     } finally { if (id === requestId.current) setFindingLinks(false); }
   };
 
-  const shareImageFirst = async () => {
-    setSharingImage(true);
+  const clipboardAction = async (action: "image" | "text" | "download") => {
+    if (disabled || clipboardBusy.current) return;
+    clipboardBusy.current = true; setClipboardActivity(action);
+    let message = "";
     try {
-      const file = await createImage();
-      if (!file) throw new Error("Could not render the current image. Please try again.");
-      if (typeof navigator.share === "function" && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: "Daily Hukamnama" });
+      if (action === "image") {
+        await copyPngImage(createImage);
+        setWhatsappStep("text");
+        message = "Image copied. Paste it into your WhatsApp Channel or Group and send it before copying the text.";
+      } else if (action === "text") {
+        await navigator.clipboard.writeText(caption);
+        setWhatsappStep("image");
+        message = "Text template copied. Paste it into the same WhatsApp Channel or Group and send.";
       } else {
+        const file = await createImage();
+        if (!file) throw new Error("Could not render the current image. Please try again.");
         const url = URL.createObjectURL(file);
         const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = file.name;
-        anchor.click();
+        anchor.href = url; anchor.download = file.name; anchor.click();
         window.setTimeout(() => URL.revokeObjectURL(url), 5000);
-        notify("Image downloaded. Send that image in your WhatsApp channel or group first, then return here for the text.");
+        message = "Image downloaded. Attach it in your WhatsApp Channel or Group, then copy the text template.";
       }
-      setWhatsappStep("text");
-    } catch (caught) {
-      if (caught instanceof DOMException && caught.name === "AbortError") {
-        notify("Image sharing was cancelled. You can try again when ready.");
-      } else {
-        notify(caught instanceof Error ? caught.message : "Could not prepare the image for WhatsApp.");
-      }
+    } catch (error) {
+      message = action === "image"
+        ? error instanceof Error && error.message.includes("Download Image") ? error.message : "Image could not be copied. Use Download Image, then attach it in WhatsApp."
+        : action === "text" ? "Text could not be copied. Select and copy it from Caption preview below."
+        : error instanceof Error ? error.message : "Image download failed. Please try again.";
     } finally {
-      setSharingImage(false);
-    }
-  };
-
-  const shareTextNext = async () => {
-    try {
-      if (typeof navigator.share === "function") {
-        await navigator.share({ text: caption });
-      } else {
-        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(caption)}`;
-        const anchor = document.createElement("a");
-        anchor.href = whatsappUrl;
-        anchor.target = "_blank";
-        anchor.rel = "noopener noreferrer";
-        anchor.click();
-      }
-      setWhatsappStep("image");
-      notify("WhatsApp text share opened. Choose the same channel or group and tap Send.");
-    } catch (caught) {
-      if (caught instanceof DOMException && caught.name === "AbortError") {
-        notify("Text sharing was cancelled. The text step is ready to try again.");
-      } else {
-        notify("Could not open the share sheet. Use Copy text template instead.");
-      }
+      setClipboardNotice(message); notify(message);
+      clipboardBusy.current = false; setClipboardActivity(null);
     }
   };
 
@@ -186,17 +162,19 @@ export default function SocialCaption({ autoTarget, reelTarget, state, notify, c
     <section className="border-b border-white/[0.07]">
       <a href="#hukamnama-publish" className="m-4 flex min-h-12 items-center justify-center rounded-xl border border-amber-300/40 bg-amber-400/15 px-3 py-3 text-sm font-bold text-amber-200">Facebook · Reels · YouTube · Stories ↓</a>
       <div className="space-y-3 border-b border-emerald-400/20 bg-emerald-950/20 p-4">
-        <h3 className="flex items-center gap-2 text-lg font-bold text-emerald-200"><MessageCircle size={24} /> Share on WhatsApp</h3>
-        <p className="text-xs leading-5 text-zinc-300">Two easy steps: send the image, then come back and send the text.</p>
-        <button type="button" aria-describedby="whatsapp-freshness" disabled={disabled || sharingImage} onClick={() => void shareImageFirst()} className={`flex min-h-16 w-full items-center justify-center gap-3 rounded-xl px-4 py-4 text-base font-bold text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${currentSourceAvailable ? "bg-emerald-400 hover:bg-emerald-300 focus-visible:outline-emerald-200" : "bg-red-400 hover:bg-red-300 focus-visible:outline-red-200"}`}>
-          {sharingImage ? <LoaderCircle size={24} className="animate-spin" /> : <MessageCircle size={24} />}
-          {sharingImage ? "Preparing image…" : "1 · Share image"}
+        <h3 className="flex items-center gap-2 text-lg font-bold text-emerald-200"><MessageCircle size={24} /> Copy for WhatsApp</h3>
+        <p className="text-xs leading-5 text-zinc-300">Copy the image, paste and send it in your Channel or Group, then copy and send the text.</p>
+        <button type="button" aria-describedby="whatsapp-freshness" disabled={disabled || clipboardActivity !== null} onClick={() => clipboardAction("image")} className={`flex min-h-16 w-full items-center justify-center gap-3 rounded-xl px-4 py-4 text-base font-bold text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${currentSourceAvailable ? "bg-emerald-400 hover:bg-emerald-300 focus-visible:outline-emerald-200" : "bg-red-400 hover:bg-red-300 focus-visible:outline-red-200"}`}>
+          {clipboardActivity === "image" ? <LoaderCircle size={24} className="animate-spin" /> : <ImageIcon size={24} />}
+          {clipboardActivity === "image" ? "Copying image…" : "1 · Copy Image"}
         </button>
-        <button type="button" aria-describedby="whatsapp-freshness" disabled={disabled} onClick={() => void shareTextNext()} className={`flex min-h-16 w-full items-center justify-center gap-3 rounded-xl border px-4 py-4 text-base font-bold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${currentSourceAvailable ? `border-emerald-300/50 focus-visible:outline-emerald-200 ${whatsappStep === "text" ? "bg-emerald-400 text-zinc-950" : "bg-emerald-950 text-emerald-100"}` : "border-red-300/60 bg-red-950 text-red-100 hover:bg-red-900 focus-visible:outline-red-200"}`}>
-          <Send size={24} /> 2 · Share text
+        <button type="button" aria-describedby="whatsapp-freshness" disabled={disabled || clipboardActivity !== null} onClick={() => clipboardAction("text")} className={`flex min-h-16 w-full items-center justify-center gap-3 rounded-xl border px-4 py-4 text-base font-bold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${currentSourceAvailable ? `border-emerald-300/50 focus-visible:outline-emerald-200 ${whatsappStep === "text" ? "bg-emerald-400 text-zinc-950" : "bg-emerald-950 text-emerald-100"}` : "border-red-300/60 bg-red-950 text-red-100 hover:bg-red-900 focus-visible:outline-red-200"}`}>
+          <Clipboard size={24} /> {clipboardActivity === "text" ? "Copying text…" : "2 · Copy Text Template"}
         </button>
-        <p id="whatsapp-freshness" role="status" className={`text-xs ${currentSourceAvailable ? "text-emerald-100" : "text-red-200"}`}>{!currentSourceAvailable ? "Waiting for today’s Hukamnama from the source check. Resets at midnight IST." : disabled ? "Today’s Hukamnama is available. Complete the image to unlock sharing." : whatsappStep === "text" ? "Next: share the text to the same group or channel." : "Today’s Hukamnama is available. Ready: start with Share image."}</p>
-        <p className="text-[11px] leading-5 text-zinc-400">Choose WhatsApp in the share sheet, select your group or channel, then tap Send. If image sharing is unavailable, the image downloads for you to attach.</p>
+        <button type="button" disabled={disabled || clipboardActivity !== null} onClick={() => clipboardAction("download")} className="flex min-h-10 items-center gap-2 rounded-lg border border-white/20 px-3 py-2 text-xs font-semibold text-zinc-200 disabled:opacity-40"><Download size={16} />{clipboardActivity === "download" ? "Preparing download…" : "Download Image"}</button>
+        {clipboardNotice && <p role="status" aria-live="polite" className="text-xs leading-5 text-zinc-200">{clipboardNotice}</p>}
+        <p id="whatsapp-freshness" role="status" className={`text-xs ${currentSourceAvailable ? "text-emerald-100" : "text-red-200"}`}>{!currentSourceAvailable ? "Waiting for today’s Hukamnama from the source check. Resets at midnight IST." : disabled ? "Today’s Hukamnama is available. Apply your edits and complete the image to unlock copying." : whatsappStep === "text" ? "Paste and send the copied image first, then copy the text template." : "Today’s Hukamnama is available. Ready: start with Copy Image."}</p>
+        <p className="text-[11px] leading-5 text-zinc-400">Copying text replaces the clipboard image. Paste the image first. If image pasting is unavailable on your device, download and attach it instead.</p>
       </div>
       <div className="p-4">
         <MorningPublisher pendingText={pendingText} autoTarget={autoTarget} manualLinks={links.context === context && links.manual} reelTarget={reelTarget} state={state} caption={caption} articleUrl={articleUrl} pdfUrl={pdfUrl} live={live} onLoadLive={onLoadLive} createImage={createFormatImage} disabled={disabled} />
@@ -225,7 +203,7 @@ export default function SocialCaption({ autoTarget, reelTarget, state, notify, c
           <textarea readOnly value={caption} rows={10} className="mt-1 w-full resize-y rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 font-pa text-xs leading-relaxed text-zinc-300 outline-none" />
         </label>
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => void copyCaption()} className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-400 px-2 py-2.5 text-[11px] font-bold text-zinc-950 hover:bg-amber-300">
+          <button type="button" disabled={disabled || clipboardActivity !== null} onClick={() => clipboardAction("text")} className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-400 px-2 py-2.5 text-[11px] font-bold text-zinc-950 hover:bg-amber-300">
             <Clipboard size={13} /> Copy text template
           </button>
         </div>
