@@ -45,7 +45,6 @@ export function matchGurbaniNowMetadata(payload: unknown, sgpc: Pick<LiveHukamna
   return normalizeAuthor(author) || null;
 }
 
-const PUNJABI_WEEKDAYS = ["ਐਤਵਾਰ", "ਸੋਮਵਾਰ", "ਮੰਗਲਵਾਰ", "ਬੁੱਧਵਾਰ", "ਵੀਰਵਾਰ", "ਸ਼ੁੱਕਰਵਾਰ", "ਸ਼ੁੱਕਰਵਾਰ", "ਸ਼ਨਿਚਰਵਾਰ", "ਸ਼ਨਿਚਰਵਾਰ"];
 const PUNJABI_MONTHS: Record<string, string> = {
   "ਚੇਤ": "Chet", "ਵੈਸਾਖ": "Vaisakh", "ਜੇਠ": "Jeth", "ਹਾੜ": "Harh",
   "ਸਾਵਣ": "Sawan", "ਭਾਦੋਂ": "Bhadon", "ਅੱਸੂ": "Assu", "ਕੱਤਕ": "Katak",
@@ -91,15 +90,21 @@ export function parseSgpcPage(html: string, todayISO: string, checkedAt = new Da
   const englishHeading = lines.findIndex((line, index) => index > punjabiHeading && /English Translation/i.test(line));
   if (punjabiHeading < 0 || englishHeading < 0) throw new Error("SGPC page did not contain both the Punjabi and English section markers.");
 
-  const ikIndex = lines.findIndex((line, index) => index < punjabiHeading && line.includes("ੴ"));
-  if (ikIndex < 0) throw new Error("Could not locate the Gurmukhi Hukamnama text on the SGPC page.");
+  const mangalIndex = lines.findIndex((line, index) => index > stampIndex && index < punjabiHeading && line.includes("ੴ"));
+  const headingIndex = lines.findIndex((line, index) => index > stampIndex && index < punjabiHeading
+    && /(?:ਮਹਲਾ|ਮਃ)\s*[੦-੯0-9]+/u.test(line));
+  const verseIndex = lines.findIndex((line, index) => index > stampIndex && index < punjabiHeading
+    && /[॥।]\s*[੦-੯0-9]+\s*[॥।]/u.test(line) && /[\u0A00-\u0A7F]/u.test(line));
+  const starts = [mangalIndex, headingIndex, verseIndex].filter(index => index >= 0);
+  const ikIndex = starts.length ? Math.min(...starts) : -1;
+  if (ikIndex < 0) throw new Error("Could not locate marked Gurmukhi Hukamnama text on the SGPC page.");
   let start = ikIndex;
   const possibleTitle = lines[ikIndex - 1];
-  if (possibleTitle && !/Hukamnama Audio|Katha Audio|\d{1,2}[-/]\d{1,2}[-/]\d{4}/i.test(possibleTitle)) start -= 1;
+  if (ikIndex === mangalIndex && possibleTitle && !/Hukamnama Audio|Katha Audio|\d{1,2}[-/]\d{1,2}[-/]\d{4}/i.test(possibleTitle)) start -= 1;
 
   const angIndex = lines.findIndex((line, index) => index > ikIndex && index < punjabiHeading && /(?:ਅੰਗ|\bAng)\s*[:：]/i.test(line));
   const calendarIndex = lines.findIndex((line, index) => index > ikIndex && index < punjabiHeading
-    && PUNJABI_WEEKDAYS.some((weekday) => line.includes(weekday)) && /ਸੰਮਤ|ਨਾਨਕਸ਼ਾਹੀ|ਨਾਨਕਸ਼ਾਹੀ/.test(line));
+    && Object.keys(PUNJABI_MONTHS).some(month => line.includes(month)) && /ਸੰਮਤ|ਨਾਨਕਸ਼ਾਹੀ|ਨਾਨਕਸ਼ਾਹੀ/.test(line));
   const originalEnd = Math.min(...[angIndex, calendarIndex, punjabiHeading].filter((index) => index >= 0));
   const original = lines.slice(start, originalEnd).filter((line) => !/Hukamnama Audio|Katha Audio/i.test(line)).join(" ").trim();
   const translation = lines.slice(punjabiHeading + 1, englishHeading)
@@ -150,7 +155,7 @@ export function parseSgpcDailyMukhwakPage(html: string, todayISO: string, checke
 
   const title = lines[headingIndex + 1] ?? "";
   const mangal = lines.slice(headingIndex + 1, dateIndex).findIndex((line) => line.includes("ੴ"));
-  if (mangal < 0) throw new Error("Could not locate the Mool Mantar in SGPC Daily Mukhwak.");
+  if (mangal < 0 && !lines.slice(headingIndex + 1, dateIndex).some(line => /[॥।]\s*[੦-੯0-9]+\s*[॥।]/u.test(line))) throw new Error("Could not locate marked Gurbani in SGPC Daily Mukhwak.");
   const original = lines.slice(headingIndex + 1, dateIndex).join(" ").trim();
   const dateText = formatSgpcCalendarDate(dateLine, sourceDateISO) ?? publishedSgpcDate(sourceDateISO) ?? sourceDateISO;
 
@@ -255,6 +260,17 @@ function sikhizmGurbaniBlocks(html: string): string[] {
   return blocks;
 }
 
+/** Remove Latin SEO labels while retaining Punjabi parenthetical explanations. */
+export function cleanPunjabiTranslation(value: string): string {
+  let text = value.replace(/\([^()]*[A-Za-z][^()]*\)|\[[^\[\]]*[A-Za-z][^\[\]]*\]/gu,
+    part => /[\u0A00-\u0A7F]/u.test(part) ? part : " ");
+  const firstPunjabi = text.search(/[\u0A00-\u0A7F]/u);
+  if (firstPunjabi < 0) return "";
+  const prefix = text.slice(0, firstPunjabi);
+  if (/[A-Za-z]/u.test(prefix)) text = text.slice(firstPunjabi);
+  return text.replace(/\s+/g, " ").trim();
+}
+
 /** Return Sikhizm's Punjabi explanation only when Ang and Gurbani opening agree. */
 export function parseSikhizmPunjabiTranslation(html: string, expectedOriginal: string, expectedAng: string): string | null {
   const lines = htmlToLines(html);
@@ -276,7 +292,7 @@ export function parseSikhizmPunjabiTranslation(html: string, expectedOriginal: s
   const translationLines: string[] = [];
   for (const line of htmlToLines(section)) {
     if (/^(?:ਸ਼ਬਦ ਦਾ ਭਾਵ:|ਸ਼ਬਦ ਦਾ ਭਾਵ:|Tags:|Previous Post|Related Entries|\d+\. )/u.test(line)) break;
-    if (/[\u0A00-\u0A7F]/u.test(line)) translationLines.push(line);
+    if (/[\u0A00-\u0A7F]/u.test(line)) translationLines.push(cleanPunjabiTranslation(line));
   }
   const translation = translationLines.join(" ").trim();
   return translation || null;

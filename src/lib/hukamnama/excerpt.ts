@@ -10,9 +10,11 @@ const count = (text: string) => [...text].length;
 
 /** Keep complete marker groups (including ॥੨॥੧॥), never split a verse or a grapheme. */
 function endings(text: string) {
-  return [...text.matchAll(/ਰਹਾਉ\s*[॥।]+|[॥।]\s*[੦-੯0-9]+(?:\s*[॥।]\s*[੦-੯0-9]+)*\s*[॥।]+/gu)].map(match => {
+  // A numbered pause (॥੧॥ ਰਹਾਉ ॥) is one semantic unit, not stanza 1
+  // followed by a second, unnumbered pause. Preserve compound final counts.
+  return [...text.matchAll(/(?:[॥।]\s*[੦-੯0-9]+\s*[॥।]\s*)?ਰਹਾਉ\s*[॥।]+|[॥।]\s*[੦-੯0-9]+(?:\s*[॥।]\s*[੦-੯0-9]+)*\s*[॥।]+/gu)].map(match => {
     const end = match.index + match[0].length;
-    const key = match[0].startsWith("ਰਹਾਉ") ? "rahau" : (match[0].match(/[੦-੯0-9]+/gu) ?? []).map(number => number.replace(/[੦-੯]/gu, digit => digits[digit])).join("/");
+    const key = match[0].includes("ਰਹਾਉ") ? "rahau" : (match[0].match(/[੦-੯0-9]+/gu) ?? []).map(number => number.replace(/[੦-੯]/gu, digit => digits[digit])).join("/");
     return { end, length: count(text.slice(0, end)), key };
   });
 }
@@ -36,11 +38,16 @@ export function hukamnamaExcerpt(original: string, translation: string): Hukamna
   // Match the complete marker sequence, so a repeated ੧ or a final ੩।੧।੨੯। cannot pick the wrong stanza.
   const prefix = markers.slice(0, markers.indexOf(chosen) + 1);
   const translated = endings(translation);
-  // Sahib Singh explanations sometimes place the numbered rahau meaning before
-  // stanza 1. Accept that exact three-marker permutation without dropping either.
-  const rahauFirst = prefix.map(marker => marker.key).join(",") === "1,1,rahau"
-    && translated.slice(0, 3).map(marker => marker.key).join(",") === "1,rahau,1";
-  if (!rahauFirst && prefix.some((marker, i) => translated[i]?.key !== marker.key)) {
+  const selectedTranslation = translated.slice(0, prefix.length);
+  const sameOrder = prefix.every((marker, i) => selectedTranslation[i]?.key === marker.key);
+  // Explanations may put rahau first. Only move that one unit: all numbered
+  // stanzas must retain their exact order and the selected units must be equal.
+  const keys = (items: typeof markers) => items.filter(marker => marker.key !== "rahau").map(marker => marker.key).join(",");
+  const rahauFirst = prefix.filter(marker => marker.key === "rahau").length === 1
+    && selectedTranslation.filter(marker => marker.key === "rahau").length === 1
+    && selectedTranslation[0]?.key === "rahau"
+    && selectedTranslation.length === prefix.length && keys(prefix) === keys(selectedTranslation);
+  if (!sameOrder && !rahauFirst) {
     return { ...full, error: "The Punjabi translation has no matching stanza markers for this excerpt. Add the corresponding marked translation before exporting." };
   }
   const translationEnd = translated[prefix.length - 1].end;
