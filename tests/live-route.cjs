@@ -68,14 +68,14 @@ const urls = {
 };
 const feed = `<rss><channel><item><title>Today's Hukamnama</title><link>${articleUrl}</link><pubDate>Sun, 25 Oct 2026 00:00:11 +0000</pubDate></item></channel></rss>`;
 const primaryHtml = `<h2>ਮੁੱਖਵਾਕ</h2><p>25-10-2026 05:30 AM</p><h4>${record.original.split('ੴ')[0]}</h4><p>ੴ${record.original.split('ੴ')[1]}</p><p>ਐਤਵਾਰ, ੯ ਕੱਤਕ (ਸੰਮਤ ੫੫੮ ਨਾਨਕਸ਼ਾਹੀ)</p><p>(ਅੰਗ: ੬੭੮)</p><h4>ਪੰਜਾਬੀ ਵਿਆਖਿਆ</h4><p>${record.translation}</p><h4>English Translation</h4>`;
-async function run(responses) {
+async function run(responses, query = "?refresh=1") {
   const calls = [];
   global.fetch = async value => {
     const url = String(value); calls.push(url);
     assert.ok(Object.values(urls).includes(url), `Unapproved provider: ${url}`);
     return Object.hasOwn(responses, url) ? new Response(responses[url]) : new Response('', { status: 503 });
   };
-  const response = await GET(new Request('https://example.com/api/hukamnama/live?refresh=1'));
+  const response = await GET(new Request('https://example.com/api/hukamnama/live' + query));
   return { status: response.status, data: await response.json(), calls };
 }
 (async () => {
@@ -131,6 +131,29 @@ async function run(responses) {
   assert.deepEqual(sikhizmUnavailableMeaning.calls, [urls.feed, urls.article, urls.baniAng], 'failed meaning lookup cannot cause a daily-source switch');
   const noAuthor = await run({ [urls.feed]: feed, [urls.article]: html.replaceAll('Guru Arjan Dev Ji', 'Unknown Writer').replaceAll('ਧਨਾਸਰੀ ਮਹਲਾ ੫ ਘਰੁ ੬', 'ਧਨਾਸਰੀ'), [urls.sahib]: sahibHtml });
   assert.deepEqual(noAuthor.calls, [urls.feed, urls.article], 'Sikhizm selection stops daily queries even without an author');
+
+  // Manual source selection is a per-request allowlist, not a change to defaults.
+  const onlyDekho = await run({ [urls.dekho]: dekhoHtml, [urls.feed]: feed }, '?sources=dekhoji&translation=0');
+  assert.equal(onlyDekho.status, 200); assert.deepEqual(onlyDekho.calls, [urls.dekho]);
+  const ordered = await run({ [urls.sahib]: sahibHtml }, '?sources=dekhoji,hukamnamasahib&translation=0');
+  assert.deepEqual(ordered.calls, [urls.sahib], 'checkbox order cannot change priority');
+  const sgpcOnly = await run({ [urls.daily]: missingTranslation }, '?sources=sgpc&translation=0');
+  assert.deepEqual(sgpcOnly.calls, [urls.sgpc, urls.daily], 'SGPC includes both official endpoints');
+  assert.equal(sgpcOnly.data.translation, '');
+  const manualEnriched = await run({ [urls.daily]: missingTranslation, [urls.baniAng]: JSON.stringify(baniAng), [urls.baniShabad]: JSON.stringify(baniShabad) }, '?sources=sgpc&translation=1');
+  assert.equal(manualEnriched.data.translation, meaning);
+  const primaryOnly = await run({ [urls.feed]: feed, [urls.article]: sikhizmNoMeaning, [urls.sahib]: sahibHtml }, '?sources=sikhizm&translation=0');
+  assert.deepEqual(primaryOnly.calls, [urls.feed, urls.article]);
+  assert.equal(primaryOnly.data.translation, '', 'disabled BaniDB never fetches a translation');
+  const manualStale = await run({ [urls.sgpc]: staleHtml }, '?sources=sgpc');
+  assert.equal(manualStale.status, 502, 'manual fetching cannot silently load a stale source');
+  const noFallback = await run({ [urls.feed]: feed, [urls.article]: html }, '?sources=dekhoji');
+  assert.equal(noFallback.status, 502); assert.deepEqual(noFallback.calls, [urls.dekho]);
+  for (const query of ['?sources=', '?sources=banidb', '?sources=https://evil.test', '?sources=sgpc&sources=sikhizm', '?sources=sgpc&translation=invalid']) {
+    const invalid = await run({}, query); assert.equal(invalid.status, 400); assert.deepEqual(invalid.calls, []);
+  }
+  const defaultsAfterManual = await run({ [urls.feed]: feed, [urls.article]: html }, '?refresh=1');
+  assert.deepEqual(defaultsAfterManual.calls, [urls.feed, urls.article], 'manual requests do not persist or affect automatic policy');
 
   fixedNow = '2026-10-26T03:30:00Z';
   const ravidasFeed = `<rss><channel><item><title>Hukamnama</title><link>${urls.ravidas}</link><pubDate>Mon, 26 Oct 2026 00:00:00 +0000</pubDate></item></channel></rss>`;

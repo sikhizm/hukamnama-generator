@@ -1,3 +1,4 @@
+import { readSourceSelection } from "@/lib/hukamnama/sourceSelection";
 import { lookupPunjabiTranslation } from "@/lib/hukamnama/translationLookup";
 import { NextResponse } from "next/server";
 import { parseHukamnamaSahib, parseDekhoJi, parseSikhNet, headingAuthor } from "@/lib/hukamnama/fallbackSources";
@@ -44,7 +45,11 @@ async function loadSikhizmToday(todayISO: string, checkedAt: string, refresh: bo
 }
 
 export async function GET(request: Request) {
-  const refresh = new URL(request.url).searchParams.get("refresh") === "1";
+  const params = new URL(request.url).searchParams;
+  let selection: ReturnType<typeof readSourceSelection>;
+  try { selection = readSourceSelection(params); }
+  catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid sources." }, { status: 400, headers: { "Cache-Control": "no-store" } }); }
+  const refresh = selection !== null || params.get("refresh") === "1";
   try {
     const checkedAt = new Date().toISOString();
     const todayISO = indiaDateISO(new Date());
@@ -67,13 +72,13 @@ export async function GET(request: Request) {
     };
     // The two official pages form the SGPC step. No other providers are queried.
     const sources = [
-      () => loadSikhizmToday(todayISO, checkedAt, refresh),
-      () => fromPage("https://hs.sgpc.net/index.php", parseSgpcPage),
-      () => fromPage("https://sgpc.net/daily-mukhwak-pdf/", parseSgpcDailyMukhwakPage),
-      () => fromPage(`https://hukamnamasahib.com/hukamnama/${todayISO}-morning`, parseHukamnamaSahib),
-      () => fromPage("https://sikhnet.com/hukam", parseSikhNet),
-      () => fromPage("https://www.dekho-ji.com/hukamnama?t=today", parseDekhoJi),
-    ];
+      { id: "sikhizm", load: () => loadSikhizmToday(todayISO, checkedAt, refresh) },
+      { id: "sgpc", load: () => fromPage("https://hs.sgpc.net/index.php", parseSgpcPage) },
+      { id: "sgpc", load: () => fromPage("https://sgpc.net/daily-mukhwak-pdf/", parseSgpcDailyMukhwakPage) },
+      { id: "hukamnamasahib", load: () => fromPage(`https://hukamnamasahib.com/hukamnama/${todayISO}-morning`, parseHukamnamaSahib) },
+      { id: "sikhnet", load: () => fromPage("https://sikhnet.com/hukam", parseSikhNet) },
+      { id: "dekhoji", load: () => fromPage("https://www.dekho-ji.com/hukamnama?t=today", parseDekhoJi) },
+    ].filter(source => !selection || selection.sources.some(id => id === source.id));
     const cache = new Map<number, LiveHukamnama | null>();
     const errors: string[] = [];
     let stale: LiveHukamnama | null = null;
@@ -81,7 +86,7 @@ export async function GET(request: Request) {
       if (cache.has(index)) return cache.get(index)!;
       let candidate: LiveHukamnama | null = null;
       try {
-        candidate = await sources[index]();
+        candidate = await sources[index].load();
         if (candidate.sourceDateISO !== todayISO) {
           candidate.isToday = false;
           if (candidate.sourceDateISO < todayISO && (!stale || candidate.sourceDateISO > stale.sourceDateISO)) stale = candidate;
@@ -99,7 +104,7 @@ export async function GET(request: Request) {
       record = { ...candidate };
       // Once a dated daily source is selected, do not query lower-priority daily
       // providers. A missing meaning can only come from an exact scripture match.
-      if (!record.translation) {
+      if (!record.translation && (selection?.translation ?? true)) {
         try {
           const translation = await lookupPunjabiTranslation(record);
           if (translation) { record.translation = translation; record.sourceName += " + matched BaniDB Punjabi translation"; }
@@ -107,7 +112,7 @@ export async function GET(request: Request) {
       }
       break;
     }
-    record ??= stale;
+    if (!selection) record ??= stale;
     if (!record) throw new Error(errors.join(" ") || "No current-day Hukamnama is available from the configured sources yet.");
     return NextResponse.json(record, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

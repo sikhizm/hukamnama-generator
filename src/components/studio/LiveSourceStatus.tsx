@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CircleCheck, CloudDownload, LoaderCircle, RefreshCw, TriangleAlert } from "lucide-react";
 import type { LiveHukamnama } from "@/lib/hukamnama/liveSource";
+import SourceSettings from "./SourceSettings";
 import { indiaClock } from "@/lib/morningPlan";
 
 interface Props {
@@ -108,6 +109,7 @@ export default function LiveSourceStatus({ onUse, onStatus }: Props) {
           <CloudDownload size={12} /> {loading ? "Loading today’s text…" : "Load today’s text"}
         </button>
       )}
+      <SourceSettings onUse={onUse} />
     </section>
   );
 }
