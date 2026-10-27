@@ -7,7 +7,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:renderer": "node tests/renderer.cjs && node tests/live-route.cjs && node tests/excerpt.cjs && node tests/sikhizm-links.cjs",
+    "test:renderer": "node tests/renderer.cjs && node tests/live-route.cjs && node tests/excerpt.cjs && node tests/sikhizm-links.cjs && node tests/oct27-sources.cjs",
     "test:reel": "node tests/reel-http.cjs",
     "test:social": "node tests/meta-connection.cjs && node tests/social-publish.cjs && node tests/morning-media.cjs && node tests/app-session.cjs && node tests/studio-publishing.cjs && node tests/whatsapp-clipboard.cjs && node tests/morning-captions.cjs",
     "test:publisher": "node tests/publisher.cjs"

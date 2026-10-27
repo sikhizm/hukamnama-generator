@@ -36,7 +36,11 @@ export function hukamnamaExcerpt(original: string, translation: string): Hukamna
   // Match the complete marker sequence, so a repeated ੧ or a final ੩।੧।੨੯। cannot pick the wrong stanza.
   const prefix = markers.slice(0, markers.indexOf(chosen) + 1);
   const translated = endings(translation);
-  if (prefix.some((marker, i) => translated[i]?.key !== marker.key)) {
+  // Sahib Singh explanations sometimes place the numbered rahau meaning before
+  // stanza 1. Accept that exact three-marker permutation without dropping either.
+  const rahauFirst = prefix.map(marker => marker.key).join(",") === "1,1,rahau"
+    && translated.slice(0, 3).map(marker => marker.key).join(",") === "1,rahau,1";
+  if (!rahauFirst && prefix.some((marker, i) => translated[i]?.key !== marker.key)) {
     return { ...full, error: "The Punjabi translation has no matching stanza markers for this excerpt. Add the corresponding marked translation before exporting." };
   }
   const translationEnd = translated[prefix.length - 1].end;

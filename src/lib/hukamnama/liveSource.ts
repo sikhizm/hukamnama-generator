@@ -225,6 +225,16 @@ export function findSikhizmPdfUrl(html: string, articleUrl: string): string | nu
   return preferred?.url ?? directPdf?.url ?? anyDownload?.url ?? null;
 }
 
+/** Complete marked scripture can start directly with a verse, without a mangal. */
+export function isCompleteGurbani(text: string): boolean {
+  const ending = /[॥।]\s*[੦-੯0-9]+(?:\s*[॥।]\s*[੦-੯0-9]+)*\s*[॥।]\s*$/u;
+  if (!ending.test(text) || !/[\u0A00-\u0A7F]/u.test(text) || /(?:[A-Za-z]|\p{Script=Devanagari})/u.test(text)) return false;
+  if (text.includes("ੴ") && /ਸਤਿਗੁਰ\s*ਪ੍ਰਸਾਦਿ/u.test(text)) return true;
+  // Headerless passages need multiple stanza markers and a closing stanza/count.
+  return !/[(),:!?=]/u.test(text) && [...text.matchAll(/[॥।]\s*[੦-੯0-9]+\s*[॥।]/gu)].length >= 2
+    && /[॥।]\s*[੦-੯0-9]+\s*[॥।]\s*[੦-੯0-9]+\s*[॥।]\s*$/u.test(text);
+}
+
 /** Read only explicitly marked Gurbani blocks, including nested shortcode markup. */
 function sikhizmGurbaniBlocks(html: string): string[] {
   const clean = html.replace(/<!--[\s\S]*?-->|<(script|style|noscript)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ");
@@ -253,8 +263,7 @@ export function parseSikhizmPunjabiTranslation(html: string, expectedOriginal: s
   if (!angMatches) return null;
 
   const mangal = expectedOriginal.match(/ੴ\s*ਸਤਿਗੁਰ\s*ਪ੍ਰਸਾਦਿ\s*॥/u);
-  if (!mangal) return null;
-  const sourceOpening = normalizeGurbani(expectedOriginal.slice((mangal.index ?? 0) + mangal[0].length)).slice(0, 36);
+  const sourceOpening = normalizeGurbani(expectedOriginal.slice(mangal ? (mangal.index ?? 0) + mangal[0].length : 0)).slice(0, 36);
   const articleText = normalizeGurbani(lines.join(" "));
   if (sourceOpening.length < 24 || !articleText.includes(sourceOpening)) return null;
 
@@ -273,7 +282,7 @@ export function parseSikhizmPunjabiTranslation(html: string, expectedOriginal: s
   return translation || null;
 }
 
-/** Use today's Sikhizm post as a last-resort source when both official SGPC pages block server requests. */
+/** Read the first-priority, explicitly dated Sikhizm article. */
 export function parseSikhizmLiveArticle(
   html: string,
   post: Pick<SikhizmFeedPost, "publishedAt" | "localDateISO">,
@@ -292,7 +301,7 @@ export function parseSikhizmLiveArticle(
   }
 
   const candidates = sikhizmGurbaniBlocks(html).map(block => htmlToLines(block).join(" ").trim());
-  const original = candidates.find(text => text.includes("ੴ") && /ਸਤਿਗੁਰ\s*ਪ੍ਰਸਾਦਿ/u.test(text) && /[॥।]\s*[੦-੯0-9]+(?:\s*[॥।]\s*[੦-੯0-9]+)*\s*[॥।]\s*$/u.test(text)) ?? "";
+  const original = candidates.find(text => isCompleteGurbani(text)) ?? "";
   if (!original) {
     throw new Error("Could not locate the complete Gurmukhi Hukamnama in today's Sikhizm post.");
   }
