@@ -1,14 +1,15 @@
 import { toUnicode } from "gurmukhi-utils";
-import { htmlToLines, type LiveHukamnama } from "./liveSource";
+import { htmlToLines, isCompleteGurbani, type LiveHukamnama } from "./liveSource";
 import { normalizeAuthor } from "./authors";
 import { publishedSgpcDate } from "./sgpcCalendar";
 
 const digits = (value: string) => value.replace(/[੦-੯]/g, char => String("੦੧੨੩੪੫੬੭੮੯".indexOf(char)));
-const completeVerse = (value: string) => /ੴ/u.test(value) && /[॥।]\s*[੦-੯0-9]+(?:\s*[॥।]\s*[੦-੯0-9]+)*\s*[॥।]\s*$/u.test(value);
+const completeVerse = isCompleteGurbani;
 export const normalizedVerse = (value: string) => value.normalize("NFC").replace(/[^\p{L}\p{M}\p{N}]/gu, "");
 
 /** An explicit single Mehl heading identifies its Guru; a mixed-author passage stays unresolved. */
 export function headingAuthor(original: string): string | null {
+  if (/ਕਹੁ\s+ਕਬੀਰ/u.test(original) && !/ਮਹਲਾ|ਮਃ|ਨਾਮਦੇਵ|ਰਵਿਦਾਸ|ਫਰੀਦ/u.test(original)) return "Bhagat Kabir Ji";
   if (/ਕਬੀਰ|ਨਾਮਦੇਵ|ਰਵਿਦਾਸ|ਫਰੀਦ|ਜੈਦੇਵ|ਤ੍ਰਿਲੋਚਨ|ਬੇਣੀ|ਧੰਨਾ|ਪੀਪਾ|ਸੈਣ/u.test(original)) return null;
   const mehls = [...original.matchAll(/(?:ਮਹਲਾ|ਮਃ)\s*([੦-੯0-9]+)/gu)].map(match => digits(match[1]));
   if (!mehls.length || new Set(mehls).size !== 1) return null;
@@ -52,7 +53,7 @@ export function parseHukamnamaSahib(html: string, today: string, checkedAt = new
   // Ignore the truncated schema description, related-post cards and other scripts.
   const paragraphs = [...content.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(match => htmlToLines(match[1]).join(" "));
   const translations = paragraphs.filter(line => line !== original && /[\u0A00-\u0A7F]/u.test(line)
-    && !/\p{Script=Devanagari}/u.test(line) && !/(?:https?:|www\.)/i.test(line) && line.length > 80
+    && !/\p{Script=Devanagari}/u.test(line) && !/(?:https?:|www\.|=)/i.test(line) && line.length > 80
     && (/^(?:ਅਰਥ|ਅਰਥਾਂ)\s*[:：-]/u.test(line) || /^ਰਾਗ\s/u.test(line) || line.includes("॥੧॥")));
   const translation = translations.join(" ").replace(/^(?:ਅਰਥ|ਅਰਥਾਂ)\s*[:：-]+\s*/u, "").trim();
   return sourceRecord("HukamnamaSahib.com morning Hukamnama", today, today, original, translation, ang, checkedAt, headingAuthor(original));
@@ -67,12 +68,15 @@ export function parseDekhoJi(html: string, today: string, checkedAt = new Date()
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const month = stamp ? months.findIndex(value => value.toLowerCase() === stamp[2].toLowerCase()) + 1 : 0;
   const date = stamp && month ? `${stamp[3]}-${String(month).padStart(2, "0")}-${stamp[1].padStart(2, "0")}` : "";
-  const ang = metaText.match(/\bAng\s+(\d+)\b/i)?.[1] ?? "";
+  const range = metaText.match(/\bAng\s+(\d+)(?:\s+to\s+(\d+))?\b/i);
+  const ang = range?.[1] ?? "";
+  const endAng = Number(range?.[2] ?? ang);
+  if (endAng < Number(ang) || endAng > Number(ang) + 1) throw new Error("Dekho Ji Ang range is ambiguous.");
   const paragraphs = [...html.matchAll(/<p\b[^>]*class\s*=\s*(["'])(l1|m1|i1)\1[^>]*>([\s\S]*?)<\/p>/gi)];
   const original = paragraphs.filter(match => match[2] === "l1").map(match => htmlToLines(match[3]).join(" ")).join(" ").trim();
   const translation = paragraphs.filter(match => match[2] === "m1").map(match => htmlToLines(match[3]).join(" ")).join(" ").trim();
   const metadata = paragraphs.filter(match => match[2] === "i1").map(match => htmlToLines(match[3]).join(" "));
-  if (!metadata.length || metadata.some(line => line.match(/\bAng\s+(\d+)/i)?.[1] !== ang)) throw new Error("Dekho Ji line metadata does not match its stated Ang.");
+  if (!metadata.length || metadata.some(line => { const page = Number(line.match(/\bAng\s+(\d+)/i)?.[1]); return !page || page < Number(ang) || page > endAng; })) throw new Error("Dekho Ji line metadata does not match its stated Ang.");
   const authors = [...new Set(metadata.map(line => normalizeAuthor(line.split(" / ")[0])).filter(Boolean))];
   const author = authors.length === 1 ? authors[0] : null;
   return sourceRecord("Dekho Ji daily Hukamnama", date, today, original, translation, ang, checkedAt, author);
@@ -93,7 +97,8 @@ export function parseSikhNet(html: string, today: string, checkedAt = new Date()
   const translation = Array.isArray(meanings) && meanings.every(line => typeof line === "string") ? toUnicode(meanings.join(" ")) : "";
   const angs = Object.keys(hukam.shabad_meta?.angs ?? {});
   const writers = Object.values(hukam.shabad_meta?.writers ?? {});
-  const author = writers.length === 1 && typeof writers[0] === "string" ? normalizeAuthor(writers[0].replace("Ravi Daas", "Ravidas")) : null;
-  if (angs.length !== 1) throw new Error("SikhNet Ang is ambiguous.");
+  const author = writers.length === 1 && typeof writers[0] === "string" ? normalizeAuthor(writers[0].replace("Ravi Daas", "Ravidas").replace("Kabeer", "Kabir")) : null;
+  angs.sort((a, b) => Number(a) - Number(b));
+  if (!angs.length || angs.length > 2 || angs.some((ang, index) => !/^\d+$/.test(ang) || Number(ang) !== Number(angs[0]) + index)) throw new Error("SikhNet Ang is ambiguous.");
   return sourceRecord("SikhNet daily Hukamnama", archive, today, original, translation, angs[0], checkedAt, author);
 }

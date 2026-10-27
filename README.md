@@ -543,3 +543,9 @@ A separate **Download Image** button prepares the PNG for manual attachment when
 Morning publishing uses the applied Gurbani/translation excerpt from the editors. Facebook 1080×1350 image posts receive the complete greeting/date/Gurbani/meaning/article/PDF/hashtags template. Instagram reels receive the same template with the article/PDF link sections omitted. Facebook reels receive only the greeting, Hukamnama heading, date, separator and hashtags. Stories continue to contain artwork only. YouTube descriptions retain the complete template with available links, and Short titles follow `TODAY's HUKAMNAMA SRI DARBAR SAHIB AMRITSAR 26-OCTOBER-2026 MONDAY`, generated from the selected Hukamnama date.
 
 The former shared short/full caption setting no longer overrides these destination rules. Each selected feed/reel destination has a read-only caption preview, and the YouTube title is visible before publishing. Manual link edits, verified evergreen link lookup, missing-link omission, pending-edit guards and safe retries remain in place. WhatsApp clipboard templates remain unchanged.
+
+### Public app policy pages
+
+`/privacy`, `/terms`, and `/data-deletion` are public server-rendered pages outside the authentication proxy matcher. Use their production URLs in Meta App Settings after this change is deployed. They describe the current private publishing app, browser storage, encrypted connection cookies, server-configured credentials, and the operator contact/deletion process. Protected studio and API routes retain their existing authentication.
+
+The 27 October source regression covers complete scripture without an opening mangal, a shabad spanning adjacent Ang 654–655 (displaying its starting Ang), and a Punjabi explanation that places the numbered rahau before stanza 1. Current-day validation, source priority, and stop-after-Sikhizm behavior remain in force. Source HTTP 403 blocks are still reported; parser changes do not bypass those blocks.
