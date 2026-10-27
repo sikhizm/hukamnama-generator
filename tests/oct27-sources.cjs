@@ -35,6 +35,46 @@ assert.equal(live.isCompleteGurbani(primary.original.replace(/॥੪॥੩॥$/,
 assert.equal(live.isCompleteGurbani('ਹੇ ਮਨ! ਇਹ ਅਰਥ ਹਨ।੧। ਹੋਰ ਅਰਥ।੪।੩।'), false);
 assert.throws(() => fallback.parseSikhNet(fixture('sikhnet').replace('"655":655', '"657":657'), day));
 assert.throws(() => fallback.parseDekhoJi(fixture('dekhoji').replace('Ang 655 (#', 'Ang 657 (#'), day));
+// The article was subsequently updated with its introductory heading and Latin SEO label.
+const updatedHtml = fs.readFileSync(path.join(__dirname, 'fixtures/sikhizm-2026-10-27-heading.html'), 'utf8');
+const updated = parsers.sikhizm(updatedHtml);
+const { loadedContent } = require('../src/lib/hukamnama/loadedContent.ts');
+const { splitIntroduction } = require('../src/lib/hukamnama/introduction.ts');
+const applied = loadedContent(updated);
+assert.ok(updated.original.startsWith('ਰਾਗੁ ਸੋਰਠਿ'));
+assert.ok(!/[A-Za-z]/.test(updated.translation), 'English SEO prefix is excluded');
+assert.ok(updated.translation.includes('(ਜੋ ਕਰਨ-ਜੋਗ ਸੀ)'), 'Punjabi parentheses are retained');
+assert.ok(applied.original.endsWith('ਰਹਾਉ ॥'));
+assert.ok(!applied.original.includes('ਬਨ ਖੰਡ'));
+assert.ok(applied.translation.includes('ਜਿਨ੍ਹਾਂ ਸਿਆਣੇ'));
+assert.ok(!applied.translation.includes('ਕਈ ਲੋਕਾਂ'));
+assert.ok([...applied.original].length <= 250);
+assert.equal(applied.fullOriginal, updated.original);
+assert.ok(splitIntroduction(applied.original).introduction.endsWith('ਪ੍ਰਸਾਦਿ ॥'));
+assert.equal(live.cleanPunjabiTranslation('(English keyword) ਹੇ ਮਨ! (ਪੰਜਾਬੀ ਅਰਥ) ਹੋਰ।੧।'), 'ਹੇ ਮਨ! (ਪੰਜਾਬੀ ਅਰਥ) ਹੋਰ।੧।');
+assert.equal(live.cleanPunjabiTranslation('Keyword phrase — ਹੇ ਮਨ! [English label] ਹੋਰ।੧।'), 'ਹੇ ਮਨ! ਹੋਰ।੧।');
+assert.ok(hukamnamaExcerpt(updated.original, updated.translation.replace('।੧।ਰਹਾਉ।', '।੨।ਰਹਾਉ।').replace('।੧।', '।੨।')).error, 'unrelated numbered meanings cannot be accepted');
+
+// Read-only responses from SGPC's archive calendar, retrieved 27 October.
+const archive = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/sgpc-archive-oct20-27.json'), 'utf8'));
+assert.equal(archive.length, 8);
+for (const item of archive) {
+  const original = [item.gheading1, item.gheading2, item.ghukamnama].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+  const [year, month, date] = item.date.split('-');
+  const html = `<p>${date}-${month}-${year} 05:30 AM</p><h4>${item.gheading1}</h4><h5>${item.gheading2}</h5><p>${item.ghukamnama}</p><p>${item.gfooter1}</p><p>${item.gfooter2}</p><h4>ਪੰਜਾਬੀ ਵਿਆਖਿਆ</h4><p>${item.ghukamnamadesc}</p><h4>English Translation</h4>`;
+  const parsed = live.parseSgpcPage(html, item.date);
+  assert.equal(parsed.original, original, item.date);
+  assert.equal(parsed.isToday, true);
+  const excerpt = hukamnamaExcerpt(parsed.original, parsed.translation);
+  if (!excerpt.error) assert.ok([...excerpt.original].length <= 250, item.date);
+  else assert.ok(excerpt.error.includes('250 characters') || excerpt.error.includes('matching stanza'), 'unsafe cases stay blocked for manual review');
+  if (!item.gheading2) {
+    const split = splitIntroduction(original);
+    assert.equal(split.introduction, item.gheading1);
+    assert.ok(split.body.startsWith(item.ghukamnama.slice(0, 10)));
+  }
+}
+console.log(`Updated Sikhizm article: ${[...applied.original].length} characters through numbered rahau, clean matching Punjabi meanings. Eight SGPC archive entries checked.`);
 const realDate = Date, realFetch = fetch;
 class FixedDate extends realDate { constructor(value) { super(value === undefined ? '2026-10-27T01:00:00Z' : value); } }
 (async () => {

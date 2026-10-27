@@ -225,7 +225,7 @@ const body = 'ਹਮ ਸਰਿ ਦੀਨੁ ਦਇਆਲੁ ਨ ਤੁਮ ਸਰ
 const source = `${intro} ${body}`;
 assert.deepEqual(splitIntroduction(source), { introduction: intro, body });
 assert.equal(joinIntroduction(intro, body), source);
-assert.deepEqual(splitIntroduction('ਸਲੋਕੁ ਮਃ ੫ ॥ ਮੇਰਾ ਪਾਠ ॥੧॥'), { introduction: '', body: 'ਸਲੋਕੁ ਮਃ ੫ ॥ ਮੇਰਾ ਪਾਠ ॥੧॥' }, 'ambiguous boundaries stay editable instead of guessing');
+assert.deepEqual(splitIntroduction('ਸਲੋਕੁ ਮਃ ੫ ॥ ਮੇਰਾ ਪਾਠ ॥੧॥'), { introduction: 'ਸਲੋਕੁ ਮਃ ੫ ॥', body: 'ਮੇਰਾ ਪਾਠ ॥੧॥' }, 'explicit Mehl headings split without requiring a mangal');
 assert.equal(splitIntroduction(source, '').body, source, 'explicitly empty introduction preserves the whole body');
 assert.equal(splitIntroduction(source, 'old heading').introduction, intro, 'stale saved introduction cannot remove new source text');
 for (const id of ['feed', 'vertical']) {
