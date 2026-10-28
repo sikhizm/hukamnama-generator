@@ -1,9 +1,8 @@
-import { findSikhizmPdfUrl, htmlToLines } from "./liveSource";
+import { findSikhizmPdfUrl, htmlToLines, readSikhizmAng } from "./liveSource";
 
 export interface LinkSource { date: string; ang: string; original: string }
 export interface SikhizmLinks { found: boolean; articleUrl: string; pdfUrl: string; title?: string; message: string }
 const normalized = (value: string) => value.normalize("NFC").replace(/[^\p{L}\p{M}\p{N}]/gu, "");
-const digits = (value: string) => value.replace(/[੦-੯]/gu, digit => String("੦੧੨੩੪੫੬੭੮੯".indexOf(digit)));
 
 export function openingText(original: string): string {
   const mangal = original.match(/ੴ\s*ਸਤਿਗੁਰ\s*ਪ੍ਰਸਾਦਿ\s*[॥।]+/u);
@@ -22,8 +21,7 @@ export function isSikhizmArticle(value: string): boolean {
 /** Ang alone is insufficient: require the same Gurbani passage, preserving vowel marks. */
 export function matchesSikhizmArticle(html: string, source: Pick<LinkSource, "ang" | "original">): boolean {
   const lines = htmlToLines(html);
-  const index = lines.findIndex(line => /^(?:Ang|ਅੰਗ|Page|SGGS\s*(?:Ang|Page))\s*:?$/iu.test(line));
-  const ang = index >= 0 ? digits(lines[index + 1] ?? "").match(/^\d{1,4}\b/u)?.[0] : lines.map(digits).map(line => line.match(/^(?:Ang|ਅੰਗ|Page)\s*:\s*(\d{1,4})\b/iu)?.[1]).find(Boolean);
+  const ang = readSikhizmAng(html);
   if (Number(ang) !== Number(source.ang)) return false;
   const passage = normalized(openingText(source.original)).slice(0, 72);
   return passage.length >= 32 && normalized(lines.join(" ")).includes(passage);
