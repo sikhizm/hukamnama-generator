@@ -563,6 +563,7 @@ export function TypographySection(p: PanelProps) {
         format={(v) => v.toFixed(2)}
         onChange={(v) => patchTypo({ lineHeight: v })}
       />
+      <p className="text-[10px] text-zinc-500">Applies to all three text areas. Auto-fit may reduce font sizes when spacing increases; turn it off to keep your pixel sizes.</p>
     </Section>
   );
 }

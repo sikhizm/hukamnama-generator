@@ -254,3 +254,28 @@ for (const id of ['feed', 'vertical']) {
   assert.equal(overflow.introduction.fits, false);
 }
 console.log('Introduction hierarchy passed: automatic split, custom boundary, full-source preservation, both formats, independent pixel sizes, wrapping and overflow gating.');
+
+// Reference artwork must use the visible line-height control in both export sizes.
+for (const id of ['feed', 'vertical']) {
+  const source = {
+    ...defaultState(), presetId: id,
+    original: 'ਧਨਾਸਰੀ ਮਹਲਾ ੫ ਘਰੁ ੬ ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ ' + 'ਵਾਹਿਗੁਰੂ '.repeat(18),
+    translation: 'ਪੰਜਾਬੀ ਵਿਆਖਿਆ '.repeat(15),
+  };
+  const measured = (autoFit, lineHeight) => computeLayout({ ...source, typo: { ...source.typo, autoFit, originalSize: 48, translationSize: 32, lineHeight } }, getPreset(id), ctx);
+  for (const autoFit of [false, true]) {
+    const tight = measured(autoFit, 1.3), loose = measured(autoFit, 1.9);
+    for (let index = 0; index < 2; index++) {
+      assert.ok(loose.blocks[index].lineH / loose.blocks[index].px > tight.blocks[index].lineH / tight.blocks[index].px + .4, `${id}: line spacing follows slider in ${autoFit ? 'auto' : 'manual'} mode`);
+      assert.equal(loose.blocks[index].lines.join(' '), tight.blocks[index].lines.join(' '), 'spacing never changes words');
+    }
+    assert.ok(loose.introduction.lineH / loose.introduction.px > tight.introduction.lineH / tight.introduction.px, 'introduction follows the same spacing setting');
+    assert.ok(loose.blocks[0].px > loose.blocks[1].px && loose.blocks[0].px > loose.introduction.px, 'font hierarchy is preserved');
+    assert.ok(loose.blocks[1].textRect.y >= loose.blocks[0].textRect.y + loose.blocks[0].contentH, 'translation is repositioned below the spaced Gurbani');
+    if (autoFit) assert.ok(loose.blocks.every(block => block.fits), 'auto-fit accounts for increased line spacing');
+    else assert.ok(loose.blocks[0].contentH > tight.blocks[0].contentH, 'manual spacing changes the actual rendered block height');
+  }
+  const overflow = computeLayout({ ...source, original: 'ਵਾਹਿਗੁਰੂ '.repeat(150), typo: { ...source.typo, autoFit: false, originalSize: 96, translationSize: 60, lineHeight: 1.9 } }, getPreset(id), ctx);
+  assert.ok(overflow.blocks.some(block => !block.fits), 'manual overflow stays blocked instead of clipping spaced content');
+}
+console.log('Reference line height passed: both formats, manual/auto-fit, all text blocks, hierarchy and overflow guards.');

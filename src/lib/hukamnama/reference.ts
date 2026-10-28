@@ -47,17 +47,18 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
   const minTranslationPx = 24;
   const ratio = Math.max(1.2, state.typo.originalSizeRatio);
   const availableH = c.bodyBottom - bodyTop;
+  const lineHeight = Number.isFinite(state.typo.lineHeight) ? Math.max(1.3, Math.min(1.9, state.typo.lineHeight)) : 1.62;
   const introductionMeasures = new Map<number, ReturnType<typeof measureBalancedAt>>();
   const originalMeasures = new Map<number, ReturnType<typeof measureBalancedAt>>();
   const translationMeasures = new Map<number, ReturnType<typeof measureBalancedAt>>();
   const measurePair = (originalPx: number, translationPx: number, separator = true) => {
     const introPx = Math.max(12, Math.min(state.typo.introductionSize ?? 34, originalPx - 4));
-    const intro = introductionMeasures.get(introPx) ?? measureBalancedAt(ctx, text.introduction, introPx, originalW);
+    const intro = introductionMeasures.get(introPx) ?? measureBalancedAt(ctx, text.introduction, introPx, originalW, lineHeight);
     introductionMeasures.set(introPx, intro);
     const introH = text.introduction ? intro.contentH + 16 : 0;
     const originalTop = bodyTop + introH;
-    const original = originalMeasures.get(originalPx) ?? measureBalancedAt(ctx, text.body, originalPx, originalW);
-    const translation = translationMeasures.get(translationPx) ?? measureBalancedAt(ctx, state.translation, translationPx, translationW);
+    const original = originalMeasures.get(originalPx) ?? measureBalancedAt(ctx, text.body, originalPx, originalW, lineHeight);
+    const translation = translationMeasures.get(translationPx) ?? measureBalancedAt(ctx, state.translation, translationPx, translationW, lineHeight);
     originalMeasures.set(originalPx, original);
     translationMeasures.set(translationPx, translation);
     const gapBefore = separator ? 24 : 12;
