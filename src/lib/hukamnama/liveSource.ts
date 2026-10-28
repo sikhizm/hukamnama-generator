@@ -271,12 +271,40 @@ export function cleanPunjabiTranslation(value: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
+/** Read explicit scripture metadata, accepting the site's Ang/Page label variants.
+ * Conflicting labels or invalid page numbers stay unresolved rather than guessing.
+ */
+export function readSikhizmAng(html: string): string | null {
+  const label = /^(?:SGGS\s*)?(?:Ang(?:\s*\/\s*Page)?|Page|ਅੰਗ|ਪੰਨਾ)\s*[:：]?$/iu;
+  const number = (value: string): string | null => {
+    const normalized = value.replace(/[੦-੯]/gu, digit => GURMUKHI_DIGITS[digit]);
+    if (!/^\d{1,4}$/u.test(normalized.trim())) return null;
+    const ang = Number(normalized.trim());
+    return ang >= 1 && ang <= 1430 ? String(ang) : null;
+  };
+  const values: Array<string | null> = [];
+  for (const row of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr\s*>/gi)) {
+    const cells = [...row[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]\s*>/gi)];
+    if (cells.length === 2 && label.test(htmlToLines(cells[0][1]).join(" "))) values.push(number(htmlToLines(cells[1][1]).join(" ")));
+  }
+  // Also support explicit standalone metadata in older article markup.
+  if (!values.length) {
+    const lines = htmlToLines(html);
+    for (let index = 0; index < lines.length; index++) {
+      if (label.test(lines[index])) values.push(number(lines[index + 1] ?? ""));
+      else {
+        const inline = lines[index].match(/^((?:SGGS\s*)?(?:Ang(?:\s*\/\s*Page)?|Page|ਅੰਗ|ਪੰਨਾ))\s*[:：]\s*([੦-੯0-9]+)\s*$/iu);
+        if (inline) values.push(number(inline[2]));
+      }
+    }
+  }
+  return values.length && values.every(value => value !== null && value === values[0]) ? values[0] : null;
+}
+
 /** Return Sikhizm's Punjabi explanation only when Ang and Gurbani opening agree. */
 export function parseSikhizmPunjabiTranslation(html: string, expectedOriginal: string, expectedAng: string): string | null {
   const lines = htmlToLines(html);
-  const angMatches = lines.some((line, index) => /^ang$/i.test(line) && lines[index + 1]?.trim() === expectedAng)
-    || lines.some((line) => new RegExp(`\\bAng\\s*${expectedAng}\\b`, "i").test(line));
-  if (!angMatches) return null;
+  if (readSikhizmAng(html) !== expectedAng) return null;
 
   const mangal = expectedOriginal.match(/ੴ\s*ਸਤਿਗੁਰ\s*ਪ੍ਰਸਾਦਿ\s*॥/u);
   const sourceOpening = normalizeGurbani(expectedOriginal.slice(mangal ? (mangal.index ?? 0) + mangal[0].length : 0)).slice(0, 36);
@@ -284,7 +312,7 @@ export function parseSikhizmPunjabiTranslation(html: string, expectedOriginal: s
   if (sourceOpening.length < 24 || !articleText.includes(sourceOpening)) return null;
 
   const headings = [...html.matchAll(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1\s*>/gi)];
-  const heading = headings.filter(item => /^(?:\d+\.\s*)?(?:Punjabi Translation|Translation in Punjabi)(?: by Prof\.? Sahib Singh Ji)?$/i.test(htmlToLines(item[2]).join(" "))).at(-1);
+  const heading = headings.filter(item => /^(?:\d+\.\s*)?(?:Punjabi Translation|Translation in Punjabi|(?:Hukamnama )?(?:Meaning|Translation) in (?:Gurmukhi|Punjabi))(?: by Prof\.? Sahib Singh Ji)?$/i.test(htmlToLines(item[2]).join(" "))).at(-1);
   if (!heading) return null;
   const start = (heading.index ?? 0) + heading[0].length;
   const nextHeading = headings.find(item => (item.index ?? 0) >= start)?.index ?? html.length;
@@ -292,6 +320,7 @@ export function parseSikhizmPunjabiTranslation(html: string, expectedOriginal: s
   const translationLines: string[] = [];
   for (const line of htmlToLines(section)) {
     if (/^(?:ਸ਼ਬਦ ਦਾ ਭਾਵ:|ਸ਼ਬਦ ਦਾ ਭਾਵ:|Tags:|Previous Post|Related Entries|\d+\. )/u.test(line)) break;
+    if (/^ਅਰਥ\s*[:：]?$/u.test(line)) continue;
     if (/[\u0A00-\u0A7F]/u.test(line)) translationLines.push(cleanPunjabiTranslation(line));
   }
   const translation = translationLines.join(" ").trim();
@@ -322,10 +351,7 @@ export function parseSikhizmLiveArticle(
     throw new Error("Could not locate the complete Gurmukhi Hukamnama in today's Sikhizm post.");
   }
 
-  const lines = htmlToLines(html);
-  const angIndex = lines.findIndex((line) => /^Ang$/i.test(line) || /^ਅੰਗ$/u.test(line));
-  const angRaw = angIndex >= 0 ? lines[angIndex + 1]?.match(/^([੦-੯0-9]+)/u)?.[1] ?? "" : "";
-  const ang = angRaw.replace(/[੦-੯]/g, (digit) => GURMUKHI_DIGITS[digit] ?? digit);
+  const ang = readSikhizmAng(html);
   if (!ang) throw new Error("Could not locate the Ang in today's Sikhizm post.");
 
   // Read only the labelled Creator cell of this already date-validated article.
