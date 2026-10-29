@@ -20,7 +20,7 @@ const grouped = 'ਅ'.repeat(220) + '॥੨॥੧॥' + 'ਅ'.repeat(100);
 assert.equal(hukamnamaExcerpt(grouped, 'ਵਿਆਖਿਆ।੨।੧। ਹੋਰ').original, 'ਅ'.repeat(220) + '॥੨॥੧॥');
 assert.equal(hukamnamaExcerpt(grouped, 'ਵਿਆਖਿਆ।੨।੧। ਹੋਰ').translation, 'ਵਿਆਖਿਆ।੨।੧।');
 assert.ok(hukamnamaExcerpt(grouped, 'unmarked explanation').error);
-assert.ok(hukamnamaExcerpt('ਅ'.repeat(260) + '॥੧॥', 'ਵਿਆਖਿਆ।੧।').error);
+assert.equal(hukamnamaExcerpt('ਅ'.repeat(260) + '॥੧॥' + 'ਅ'.repeat(70) + '॥੨॥', 'ਵਿਆਖਿਆ।੧। ਹੋਰ।੨।').original, 'ਅ'.repeat(260) + '॥੧॥');
 assert.equal(hukamnamaExcerpt('ਛੋਟਾ ਸ਼ਬਦ ॥੧॥', 'ਪੂਰੀ ਵਿਆਖਿਆ।੧।').shortened, false);
 // A later rahau overrides the usual 250-character budget, with aligned meaning.
 const late = 'ਅ'.repeat(220) + '॥੧॥ ' + 'ਅ'.repeat(40) + chant;
@@ -67,8 +67,9 @@ assert.equal(oct29Excerpt.original, oct29.original.slice(0, rahauEnd));
 assert.ok([...oct29Excerpt.original].length > 250);
 assert.ok(oct29Excerpt.original.endsWith('॥੧॥ ਰਹਾਉ ॥'));
 assert.ok(!oct29Excerpt.original.includes('ਤੂ ਦਇਆਲੁ'));
-assert.ok(oct29Excerpt.translation.startsWith('ਹੇ ਭਾਈ! ਮਾਇਆ ਦਾ ਮੋਹ'));
-assert.ok(oct29Excerpt.translation.endsWith('ਮਨੁੱਖ ਆਪਣਾ ਬੜਾ ਕੀਮਤੀ ਜੀਵਨ ਗਵਾ ਲੈਂਦਾ ਹੈ ।੧।'));
+assert.ok(oct29Excerpt.translation.startsWith('ਹੇ ਭਾਈ! ਜੇ ਇਸ ਸਰੀਰ'));
+assert.ok(oct29Excerpt.translation.endsWith('।੧।ਰਹਾਉ।'));
+assert.ok(oct29Excerpt.translation.indexOf('ਜੀਵਨ ਗਵਾ ਲੈਂਦਾ') < oct29Excerpt.translation.indexOf('ਮਾਇਆ ਦਾ ਮੋਹ'), 'stanza 1 meaning now precedes rahau');
 assert.ok(!oct29Excerpt.translation.includes('ਦਇਆ ਦਾ ਘਰ'));
 const oct29Loaded = loadedContent(oct29);
 assert.equal(oct29Loaded.original, oct29Excerpt.original);
@@ -76,3 +77,43 @@ assert.equal(oct29Loaded.translation, oct29Excerpt.translation);
 assert.equal(oct29Loaded.fullOriginal, oct29.original);
 assert.equal(oct29Loaded.fullTranslation, oct29.translation);
 console.log(`Oct 29 regression passed: ${[...oct29Excerpt.original].length}-character rahau excerpt, rahau-first aligned meaning and full source preservation.`);
+
+// Revised fallback rules and whole-section translation reordering.
+const noEnding = { original: 'ਅ'.repeat(300), translation: 'ਪੂਰੇ ਅਰਥ ਬਿਨਾਂ ਅੰਤ ਚਿੰਨ੍ਹ' };
+assert.ok(hukamnamaExcerpt(noEnding.original, noEnding.translation).error);
+assert.deepEqual(loadedContent(noEnding), { ...noEnding, fullOriginal: undefined, fullTranslation: undefined }, 'failed truncation leaves full fields editable');
+const mismatched = { original: grouped, translation: 'ਗਲਤ ਅਰਥ।੩।' };
+assert.deepEqual(loadedContent(mismatched), { ...mismatched, fullOriginal: undefined, fullTranslation: undefined }, 'failed alignment preserves both full fields');
+assert.equal(hukamnamaExcerpt('ਸੋਧਿਆ ਛੋਟਾ ਪੂਰਾ ਪਾਠ ॥੧॥', 'ਆਪਣੇ ਸੋਧੇ ਅਰਥ।੧।').error, null, 'manual correction can be applied');
+const withoutNumber = hukamnamaExcerpt(early, 'ਪਹਿਲੇ ਪਦੇ ਦੇ ਅਰਥ ॥ ਵਿਰਾਮ ਦੇ ਅਰਥ ॥ ਠਹਿਰਾਉ ॥ ਬਾਕੀ ਅਰਥ ॥');
+assert.equal(withoutNumber.error, null);
+assert.equal(withoutNumber.translation, 'ਪਹਿਲੇ ਪਦੇ ਦੇ ਅਰਥ ॥ ਵਿਰਾਮ ਦੇ ਅਰਥ ॥ ਠਹਿਰਾਉ ॥');
+const reordered = hukamnamaExcerpt(early, 'ਵਿਰਾਮ ਦੇ ਅਰਥ ॥ ਠਹਿਰਾਉ ॥ ਪਹਿਲੇ ਪਦੇ ਦੇ ਅਰਥ ॥੧॥ ਬਾਕੀ ॥੨॥');
+assert.equal(reordered.error, null);
+assert.equal(reordered.translation, 'ਪਹਿਲੇ ਪਦੇ ਦੇ ਅਰਥ ॥੧॥ ਵਿਰਾਮ ਦੇ ਅਰਥ ॥ ਠਹਿਰਾਉ ॥');
+assert.deepEqual(hukamnamaExcerpt(reordered.original, reordered.translation), { original: reordered.original, translation: reordered.translation, shortened: false, error: null }, 'reloading the applied excerpt is stable');
+const reorderedLong = hukamnamaExcerpt(oct29Excerpt.original, oct29Excerpt.translation);
+assert.equal(reorderedLong.translation, oct29Excerpt.translation, 'long excerpts remain stable after a second render pass');
+assert.ok(hukamnamaExcerpt(early, 'ਗਲਤ ਪਦੇ ਦੇ ਅਰਥ ॥੨॥ ਵਿਰਾਮ ॥ ਠਹਿਰਾਉ ॥').error, 'pause alias cannot hide conflicting stanza numbers');
+const earlyPause = 'ਅ'.repeat(90) + '॥ ਰਹਾਉ ॥' + 'ਅ'.repeat(200) + '॥੧॥';
+assert.equal(hukamnamaExcerpt(earlyPause, 'ਵਿਰਾਮ।ਠਹਿਰਾਉ। ਬਾਕੀ।੧।').original, 'ਅ'.repeat(90) + '॥ ਰਹਾਉ ॥', 'early pause is fallback when no numbered ending fits');
+const { parseSikhizmPunjabiTranslation } = require('../src/lib/hukamnama/liveSource.ts');
+for (const [name, ang, length] of [['hoho', '493', 227], ['rasna', '560', 145]]) {
+  const html = fs.readFileSync(`tests/fixtures/sikhizm-${name}.html`, 'utf8');
+  const original = html.match(/<div class="su-box-content">([\s\S]*?)<\/div>/)[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  const translation = parseSikhizmPunjabiTranslation(html, original, ang);
+  assert.ok(translation, name + ': native meaning extracted');
+  const selected = hukamnamaExcerpt(original, translation);
+  assert.equal(selected.error, null, name);
+  assert.equal([...selected.original].length, length);
+  assert.ok(selected.original.endsWith('॥੧॥ ਰਹਾਉ ॥'));
+  assert.ok(!selected.translation.includes('Rasna Har Saad'));
+  assert.ok(selected.translation.endsWith(name === 'hoho' ? 'ਠਹਿਰਾਉ ॥' : 'ਰਹਾਉ ॥'));
+  assert.ok(!selected.translation.includes(name === 'hoho' ? 'ਹੇ ਦਿਲਾਂ ਦੀਆਂ' : 'ਇਕ ਪਰਮਾਤਮਾ ਵਿਚ'));
+  assert.equal(loadedContent({ original, translation }).translation, selected.translation);
+}
+console.log('Revised rules passed: late numbered fallback, ਠਹਿਰਾਉ, unnumbered pause explanations, reordered meanings, editable failure fallback and both reviewed article examples.');
+
+assert.ok(hukamnamaExcerpt(early, 'ਵਿਰਾਮ ॥ ਠਹਿਰਾਉ ॥ ਗਲਤ ਪਦੇ ਦੇ ਅਰਥ ॥੨॥').error, 'missing stanza 1 cannot be hidden by pause-first conflicting numbered sections');
+
+assert.ok(hukamnamaExcerpt(early, 'ਪਹਿਲੇ ਅਰਥ ॥ ਠਹਿਰਾਉ ॥ ਦੁਹਰਾਏ ਅਰਥ ॥ ਰਹਾਉ ॥').error, 'two unnumbered pause sections are ambiguous');
