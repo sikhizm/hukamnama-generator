@@ -152,7 +152,7 @@ export default function Studio() {
     const translationNotice = record.translation
       ? ""
       : " The source has no verified Punjabi explanation, so add it manually before export.";
-    notify(`Loaded today’s Gurbani and Ang ${record.ang} from ${record.sourceName}. ${authorNotice}.${translationNotice}`);
+    notify(`Loaded ${record.manualUrl ? "manually selected" : "today’s"} Gurbani and Ang ${record.ang} from ${record.sourceName}. ${authorNotice}.${translationNotice}`);
   }, [notify]);
   const patchBg = useCallback((p: Partial<BgSettings>) => {
     setState((prev) => ({ ...prev, bg: { ...prev.bg, ...p } }));

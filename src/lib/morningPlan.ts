@@ -41,7 +41,7 @@ export function expandTemplate(template: string, fields: Record<string, string>)
 }
 export function needsReel(targets: MorningTargets) { return targets["facebook-reel"] || targets["instagram-reel"] || targets["youtube-reel"]; }
 export function verifyMorningState(state: StudioState, live: LiveHukamnama | null, day: string) {
-  const validLive = live?.sourceDateISO === day && live.isToday && live.metadataMatched && !!live.original && !!live.translation && !!live.dateText && !!live.matchedAuthor;
+  const validLive = live?.sourceDateISO === day && !live.manualUrl && live.isToday && live.metadataMatched && !!live.original && !!live.translation && !!live.dateText && !!live.matchedAuthor;
   const full = captionContent(state);
   const expected = state.fullOriginal && live ? hukamnamaExcerpt(live.original, live.translation) : null;
   const validExcerpt = !expected || (!expected.error && state.original === expected.original && state.translation === expected.translation);
