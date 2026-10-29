@@ -14,6 +14,8 @@ export interface LiveHukamnama {
   ang: string;
   matchedAuthor: string | null;
   metadataMatched: boolean;
+  /** Explicit operator selection, never proof of today’s daily Hukamnama. */
+  manualUrl?: string;
 }
 
 function normalizeGurbani(value: string): string {
@@ -327,6 +329,30 @@ export function parseSikhizmPunjabiTranslation(html: string, expectedOriginal: s
   return translation || null;
 }
 
+/** Extract scripture and metadata without making a daily-date claim. */
+export function parseSikhizmArticleContent(html: string): Pick<LiveHukamnama, "original" | "translation" | "ang" | "matchedAuthor" | "metadataMatched"> {
+  const candidates = sikhizmGurbaniBlocks(html).map(block => htmlToLines(block).join(" ").trim());
+  const original = candidates.find(text => isCompleteGurbani(text)) ?? "";
+  if (!original) {
+    throw new Error("Could not locate the complete Gurmukhi Hukamnama in this Sikhizm post.");
+  }
+
+  const ang = readSikhizmAng(html);
+  if (!ang) throw new Error("Could not locate the Ang in this Sikhizm post.");
+
+  // Read only the labelled Creator cell of this article.
+  const creatorRows = [...html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr\s*>/gi)];
+  const creators = creatorRows.flatMap(row => {
+    const cells = [...row[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]\s*>/gi)];
+    return cells.length === 2 && /^(?:Creator|Author|ਬਾਣੀਕਾਰ)$/iu.test(htmlToLines(cells[0][1]).join(" "))
+      ? [normalizeAuthor(htmlToLines(cells[1][1]).join(" "))] : [];
+  }).filter(Boolean);
+  const matchedAuthor = new Set(creators).size === 1 ? creators[0] : null;
+
+  const translation = parseSikhizmPunjabiTranslation(html, original, ang) ?? "";
+  return { original, translation, ang, matchedAuthor, metadataMatched: Boolean(matchedAuthor) };
+}
+
 /** Read the first-priority, explicitly dated Sikhizm article. */
 export function parseSikhizmLiveArticle(
   html: string,
@@ -345,30 +371,11 @@ export function parseSikhizmLiveArticle(
     throw new Error("The Sikhizm Hukamnama post is not confirmed for today.");
   }
 
-  const candidates = sikhizmGurbaniBlocks(html).map(block => htmlToLines(block).join(" ").trim());
-  const original = candidates.find(text => isCompleteGurbani(text)) ?? "";
-  if (!original) {
-    throw new Error("Could not locate the complete Gurmukhi Hukamnama in today's Sikhizm post.");
-  }
-
-  const ang = readSikhizmAng(html);
-  if (!ang) throw new Error("Could not locate the Ang in today's Sikhizm post.");
-
-  // Read only the labelled Creator cell of this already date-validated article.
-  const creatorRows = [...html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr\s*>/gi)];
-  const creators = creatorRows.flatMap(row => {
-    const cells = [...row[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]\s*>/gi)];
-    return cells.length === 2 && /^(?:Creator|Author|ਬਾਣੀਕਾਰ)$/iu.test(htmlToLines(cells[0][1]).join(" "))
-      ? [normalizeAuthor(htmlToLines(cells[1][1]).join(" "))] : [];
-  }).filter(Boolean);
-  const matchedAuthor = new Set(creators).size === 1 ? creators[0] : null;
-
+  const content = parseSikhizmArticleContent(html);
   const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", weekday: "long" }).format(publishedDate);
   const month = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", month: "long" }).format(publishedDate);
   const day = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", day: "numeric" }).format(publishedDate);
   const year = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", year: "numeric" }).format(publishedDate);
-  const translation = parseSikhizmPunjabiTranslation(html, original, ang) ?? "";
-
   return {
     sourceDateISO: articleDateISO,
     sourceTime: "",
@@ -378,10 +385,6 @@ export function parseSikhizmLiveArticle(
     // The annual SGPC calendar remains available locally when its daily page is blocked.
     // Only dates covered by the verified published year receive a Nanakshahi date.
     dateText: publishedSgpcDate(articleDateISO) ?? `${Number(day)}-${month}-${year} | ${weekday}`,
-    original,
-    translation,
-    ang,
-    matchedAuthor,
-    metadataMatched: Boolean(matchedAuthor),
+    ...content,
   };
 }

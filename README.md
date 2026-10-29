@@ -562,6 +562,14 @@ The 27 October source regression covers complete scripture without an opening ma
 
 The updated 27 October Sikhizm article is also covered with its full introductory heading and Latin SEO prefix. Punjabi extraction drops Latin-only bracket labels and leading Latin keywords while preserving Punjabi parentheses. Excerpt matching treats a numbered rahau as one unit and permits a rahau-first explanation only when the same numbered stanza sequence is retained. Regression checks include eight dated SGPC calendar responses (20–27 October), including headings without ੴ and a misspelled weekday in a calendar footer. If no complete ending exists or numbered translation sections cannot be matched, manual review is still required.
 
+### Import an evergreen Sikhizm URL
+
+In **Source settings · manual override → Choose sources**, paste a public Sikhizm post URL and press **Import Sikhizm URL**. The URL import works independently of the daily-source checkboxes, including when none is selected. It needs no WordPress login and ignores the evergreen article’s publication date. It reads the complete Gurbani, Ang, author and native Punjabi explanation, then applies the same excerpt/introduction rules as daily loading. The BaniDB checkbox permits an exact-match translation lookup only if the native explanation is missing.
+
+The editor uses today’s India date and calendar text; review or edit it before manual posting. The result is explicitly a manual URL selection, never a verified current-day source, even when the article was published today. It cannot satisfy unattended posting verification or turn the current-day freshness indicator green. Automatic fetching retains its existing date checks and source order. Failed imports keep existing editor content; failed excerpt matching loads the full editable original and translation. An unavailable meaning stays blank for manual entry. The public post is read only; nothing on WordPress is modified.
+
+The authenticated `/api/hukamnama/sikhizm` route shares the Social Publisher’s public HTTPS Sikhizm allowlist, validates every redirect, limits response size and uses uncached requests. Media pages and incomplete/non-scripture pages are rejected.
+
 ### Manual source override
 
 Expand **Source settings · manual override** in the Hukamnama source strip, select **Choose sources**, tick the daily sources to try and press **Fetch from selected sources**. The fixed priority is Sikhizm → SGPC (both official endpoints) → HukamnamaSahib → SikhNet → Dekho Ji. BaniDB is a separate, optional exact-match lookup for missing Punjabi meanings; native meanings are preserved. An empty selection cannot fetch, unchecked sources are never tried, and a failed/stale request does not replace editor content.
