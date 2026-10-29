@@ -26,7 +26,9 @@ for (const [name, parse] of Object.entries(parsers)) {
   assert.ok(record.translation.length > 800);
   const excerpt = hukamnamaExcerpt(record.original, record.translation);
   assert.equal(excerpt.error, null, name);
-  assert.ok(excerpt.original.endsWith('ਰਹਾਉ ॥'));
+  assert.ok(excerpt.original.endsWith(name === 'dekhoji' ? 'ਰਹਾਉ ॥' : '॥੨॥'));
+  assert.equal([...excerpt.original].length, name === 'dekhoji' ? 202 : 233);
+  assert.ok(name === 'dekhoji' || /[।॥]੨[।॥]$/.test(excerpt.translation), 'extended stanza has its matching explanation');
   assert.ok([...excerpt.original].length <= 250);
 }
 const primary = parsers.sikhizm(fixture('sikhizm'));
@@ -66,8 +68,8 @@ for (const item of archive) {
   assert.equal(parsed.original, original, item.date);
   assert.equal(parsed.isToday, true);
   const excerpt = hukamnamaExcerpt(parsed.original, parsed.translation);
-  if (!excerpt.error) assert.ok([...excerpt.original].length <= 250, item.date);
-  else assert.ok(excerpt.error.includes('250 characters') || excerpt.error.includes('matching stanza'), 'unsafe cases stay blocked for manual review');
+  if (!excerpt.error) assert.ok(/[॥।]$/.test(excerpt.original), item.date);
+  else assert.ok(excerpt.error.includes('No complete numbered verse') || excerpt.error.includes('matching stanza'), 'unsafe cases stay blocked for manual review');
   if (!item.gheading2) {
     const split = splitIntroduction(original);
     assert.equal(split.introduction, item.gheading1);

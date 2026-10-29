@@ -516,7 +516,17 @@ Only a missing Punjabi explanation may be supplemented through BaniDB (the allia
 
 In the generation column, edit both text fields and press **Update text & preview**. Pending changes block sharing, exports and posting until applied. With Auto-post OFF, **Publish selected updates now** posts your applied artwork and caption without re-fetching or replacing manual edits. Confirmed failures have individual and batch retry controls. Successful destinations are skipped; uncertain outcomes require checking the platform before an explicit retry. Auto-post retains all current-day freshness and exact-content verification checks.
 
-Image excerpts still have a 250-character ceiling. When stanza `॥੧॥` precedes `ਰਹਾਉ`, the complete `ਰਹਾਉ` ending takes priority if it fits that ceiling; the Punjabi explanation is cut at the corresponding marker.
+Image excerpts normally use a 250-character budget, including the introduction. Complete texts within that budget remain unchanged. For longer texts, use these priorities:
+
+1. End at a complete `ਰਹਾਉ` after character 200, or when a separate stanza `॥੧॥` precedes it, even beyond 250 characters.
+2. If the selected rahau ends before character 200, extend to a later complete numbered ending at 200–250 characters: prefer 220–230, then nearest 225 (ties favour the longer excerpt). If none exists, keep the selected pause. This overrides the earlier stanza-1-before-rahau priority only for this extension.
+3. Otherwise prefer a numbered ending at 220–230 characters, then the numbered ending nearest 225 within 250 (a tie favours the longer excerpt).
+4. If none qualifies, use an available complete `ਰਹਾਉ` anywhere; if no pause exists, use the first complete numbered ending even beyond 250.
+5. Preserve whole compound endings and numbered pauses. If no complete ending exists, retain the full original and translation for manual editing rather than cutting a sentence.
+
+Punjabi translation selection uses corresponding stanza markers. `ਠਹਿਰਾਉ` is accepted as a translation equivalent of `ਰਹਾਉ`, retaining its source spelling. A verified rahau-first explanation is rearranged into the original's order by moving whole sections, without rewriting their wording; other numbered sections retain their sequence. When the selected original ends at rahau and the explanation omits all stanza numbers, retain the translation from its beginning through its first marked pause. Conflicting numbered markers still require review.
+
+If truncation or translation matching fails, both full fetched fields remain editable. Correct them and press **Update text & preview**; publishing and export still require valid text and a fitting layout. The untouched full source remains separately preserved after successful excerpt selection.
 
 ## Introduction typography and reel preview
 
@@ -550,7 +560,7 @@ The former shared short/full caption setting no longer overrides these destinati
 
 The 27 October source regression covers complete scripture without an opening mangal, a shabad spanning adjacent Ang 654–655 (displaying its starting Ang), and a Punjabi explanation that places the numbered rahau before stanza 1. Current-day validation, source priority, and stop-after-Sikhizm behavior remain in force. Source HTTP 403 blocks are still reported; parser changes do not bypass those blocks.
 
-The updated 27 October Sikhizm article is also covered with its full introductory heading and Latin SEO prefix. Punjabi extraction drops Latin-only bracket labels and leading Latin keywords while preserving Punjabi parentheses. Excerpt matching treats a numbered rahau as one unit and permits a rahau-first explanation only when the same numbered stanza sequence is retained. Regression checks include eight dated SGPC calendar responses (20–27 October), including headings without ੴ and a misspelled weekday in a calendar footer. If no complete verse ends within 250 characters, manual review is still required.
+The updated 27 October Sikhizm article is also covered with its full introductory heading and Latin SEO prefix. Punjabi extraction drops Latin-only bracket labels and leading Latin keywords while preserving Punjabi parentheses. Excerpt matching treats a numbered rahau as one unit and permits a rahau-first explanation only when the same numbered stanza sequence is retained. Regression checks include eight dated SGPC calendar responses (20–27 October), including headings without ੴ and a misspelled weekday in a calendar footer. If no complete ending exists or numbered translation sections cannot be matched, manual review is still required.
 
 ### Manual source override
 
