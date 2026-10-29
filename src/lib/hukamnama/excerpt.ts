@@ -27,7 +27,8 @@ export function hukamnamaExcerpt(original: string, translation: string): Hukamna
   const markers = endings(source);
   const safe = markers.filter(marker => marker.length <= 250);
   const firstOne = markers.findIndex(marker => marker.key === "1");
-  const rahau = safe.find(marker => marker.key === "rahau" && (marker.length > 200
+  // A complete rahau takes priority even beyond the usual 250-character budget.
+  const rahau = markers.find(marker => marker.key === "rahau" && (marker.length > 200
     || (firstOne >= 0 && firstOne < markers.indexOf(marker))));
   const numbered = safe.filter(marker => marker.key !== "rahau");
   const preferred = numbered.filter(marker => marker.length >= 220 && marker.length <= 230);

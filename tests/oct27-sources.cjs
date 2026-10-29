@@ -66,7 +66,7 @@ for (const item of archive) {
   assert.equal(parsed.original, original, item.date);
   assert.equal(parsed.isToday, true);
   const excerpt = hukamnamaExcerpt(parsed.original, parsed.translation);
-  if (!excerpt.error) assert.ok([...excerpt.original].length <= 250, item.date);
+  if (!excerpt.error) assert.ok([...excerpt.original].length <= 250 || excerpt.original.endsWith('ਰਹਾਉ ॥'), item.date);
   else assert.ok(excerpt.error.includes('250 characters') || excerpt.error.includes('matching stanza'), 'unsafe cases stay blocked for manual review');
   if (!item.gheading2) {
     const split = splitIntroduction(original);

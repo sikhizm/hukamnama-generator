@@ -516,7 +516,7 @@ Only a missing Punjabi explanation may be supplemented through BaniDB (the allia
 
 In the generation column, edit both text fields and press **Update text & preview**. Pending changes block sharing, exports and posting until applied. With Auto-post OFF, **Publish selected updates now** posts your applied artwork and caption without re-fetching or replacing manual edits. Confirmed failures have individual and batch retry controls. Successful destinations are skipped; uncertain outcomes require checking the platform before an explicit retry. Auto-post retains all current-day freshness and exact-content verification checks.
 
-Image excerpts still have a 250-character ceiling. When stanza `॥੧॥` precedes `ਰਹਾਉ`, the complete `ਰਹਾਉ` ending takes priority if it fits that ceiling; the Punjabi explanation is cut at the corresponding marker.
+Image excerpts normally use a 250-character budget. A complete `ਰਹਾਉ` ending takes priority when it follows 200 characters or stanza `॥੧॥`, even beyond 250 characters. The Punjabi explanation retains the corresponding stanzas, including sources that put the rahau explanation first. Early rahau and numbered-ending selection keep their existing rules.
 
 ## Introduction typography and reel preview
 
@@ -550,7 +550,7 @@ The former shared short/full caption setting no longer overrides these destinati
 
 The 27 October source regression covers complete scripture without an opening mangal, a shabad spanning adjacent Ang 654–655 (displaying its starting Ang), and a Punjabi explanation that places the numbered rahau before stanza 1. Current-day validation, source priority, and stop-after-Sikhizm behavior remain in force. Source HTTP 403 blocks are still reported; parser changes do not bypass those blocks.
 
-The updated 27 October Sikhizm article is also covered with its full introductory heading and Latin SEO prefix. Punjabi extraction drops Latin-only bracket labels and leading Latin keywords while preserving Punjabi parentheses. Excerpt matching treats a numbered rahau as one unit and permits a rahau-first explanation only when the same numbered stanza sequence is retained. Regression checks include eight dated SGPC calendar responses (20–27 October), including headings without ੴ and a misspelled weekday in a calendar footer. If no complete verse ends within 250 characters, manual review is still required.
+The updated 27 October Sikhizm article is also covered with its full introductory heading and Latin SEO prefix. Punjabi extraction drops Latin-only bracket labels and leading Latin keywords while preserving Punjabi parentheses. Excerpt matching treats a numbered rahau as one unit and permits a rahau-first explanation only when the same numbered stanza sequence is retained. Regression checks include eight dated SGPC calendar responses (20–27 October), including headings without ੴ and a misspelled weekday in a calendar footer. If neither a priority rahau nor a complete verse within 250 characters is available, manual review is still required.
 
 ### Manual source override
 
