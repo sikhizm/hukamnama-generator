@@ -519,9 +519,10 @@ In the generation column, edit both text fields and press **Update text & previe
 Image excerpts normally use a 250-character budget, including the introduction. Complete texts within that budget remain unchanged. For longer texts, use these priorities:
 
 1. End at a complete `ਰਹਾਉ` after character 200, or when a separate stanza `॥੧॥` precedes it, even beyond 250 characters.
-2. Otherwise prefer a numbered ending at 220–230 characters, then the numbered ending nearest 225 within 250 (a tie favours the longer excerpt).
-3. If none qualifies, use an available complete `ਰਹਾਉ` anywhere; if no pause exists, use the first complete numbered ending even beyond 250.
-4. Preserve whole compound endings and numbered pauses. If no complete ending exists, retain the full original and translation for manual editing rather than cutting a sentence.
+2. If the selected rahau ends before character 200, extend to a later complete numbered ending at 200–250 characters: prefer 220–230, then nearest 225 (ties favour the longer excerpt). If none exists, keep the selected pause. This overrides the earlier stanza-1-before-rahau priority only for this extension.
+3. Otherwise prefer a numbered ending at 220–230 characters, then the numbered ending nearest 225 within 250 (a tie favours the longer excerpt).
+4. If none qualifies, use an available complete `ਰਹਾਉ` anywhere; if no pause exists, use the first complete numbered ending even beyond 250.
+5. Preserve whole compound endings and numbered pauses. If no complete ending exists, retain the full original and translation for manual editing rather than cutting a sentence.
 
 Punjabi translation selection uses corresponding stanza markers. `ਠਹਿਰਾਉ` is accepted as a translation equivalent of `ਰਹਾਉ`, retaining its source spelling. A verified rahau-first explanation is rearranged into the original's order by moving whole sections, without rewriting their wording; other numbered sections retain their sequence. When the selected original ends at rahau and the explanation omits all stanza numbers, retain the translation from its beginning through its first marked pause. Conflicting numbered markers still require review.
 

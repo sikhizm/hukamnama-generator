@@ -36,7 +36,14 @@ export function hukamnamaExcerpt(original: string, translation: string): Hukamna
   const numbered = safe.filter(marker => marker.key !== "rahau");
   const preferred = numbered.filter(marker => marker.length >= 220 && marker.length <= 230);
   const nearest = (items: typeof markers) => [...items].sort((a, b) => Math.abs(a.length - 225) - Math.abs(b.length - 225) || b.length - a.length)[0];
-  const chosen = rahau ?? nearest(preferred) ?? nearest(numbered) ?? markers.find(marker => marker.key === "rahau") ?? markers[0];
+  let chosen = rahau ?? nearest(preferred) ?? nearest(numbered) ?? markers.find(marker => marker.key === "rahau") ?? markers[0];
+  // Fill the useful range after an early selected pause without splitting a
+  // verse. This overrides stanza-1-before-rahau priority only below 200.
+  if (chosen?.key === "rahau" && chosen.length < 200) {
+    const pauseEnd = chosen.end;
+    const later = numbered.filter(marker => marker.end > pauseEnd && marker.length >= 200);
+    chosen = nearest(later.filter(marker => marker.length >= 220 && marker.length <= 230)) ?? nearest(later) ?? chosen;
+  }
   if (!chosen) return { ...full, error: "No complete numbered verse or ਰਹਾਉ ending was found. The full text remains editable; prepare a complete excerpt before exporting." };
 
   // Match the complete marker sequence, so a repeated ੧ or a final ੩।੧।੨੯। cannot pick the wrong stanza.

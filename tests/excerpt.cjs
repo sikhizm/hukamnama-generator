@@ -98,7 +98,7 @@ assert.ok(hukamnamaExcerpt(early, 'ਗਲਤ ਪਦੇ ਦੇ ਅਰਥ ॥੨�
 const earlyPause = 'ਅ'.repeat(90) + '॥ ਰਹਾਉ ॥' + 'ਅ'.repeat(200) + '॥੧॥';
 assert.equal(hukamnamaExcerpt(earlyPause, 'ਵਿਰਾਮ।ਠਹਿਰਾਉ। ਬਾਕੀ।੧।').original, 'ਅ'.repeat(90) + '॥ ਰਹਾਉ ॥', 'early pause is fallback when no numbered ending fits');
 const { parseSikhizmPunjabiTranslation } = require('../src/lib/hukamnama/liveSource.ts');
-for (const [name, ang, length] of [['hoho', '493', 227], ['rasna', '560', 145]]) {
+for (const [name, ang, length] of [['hoho', '493', 227], ['rasna', '560', 200]]) {
   const html = fs.readFileSync(`tests/fixtures/sikhizm-${name}.html`, 'utf8');
   const original = html.match(/<div class="su-box-content">([\s\S]*?)<\/div>/)[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
   const translation = parseSikhizmPunjabiTranslation(html, original, ang);
@@ -106,10 +106,10 @@ for (const [name, ang, length] of [['hoho', '493', 227], ['rasna', '560', 145]])
   const selected = hukamnamaExcerpt(original, translation);
   assert.equal(selected.error, null, name);
   assert.equal([...selected.original].length, length);
-  assert.ok(selected.original.endsWith('॥੧॥ ਰਹਾਉ ॥'));
+  assert.ok(selected.original.endsWith(name === 'hoho' ? '॥੧॥ ਰਹਾਉ ॥' : '॥੨॥'));
   assert.ok(!selected.translation.includes('Rasna Har Saad'));
-  assert.ok(selected.translation.endsWith(name === 'hoho' ? 'ਠਹਿਰਾਉ ॥' : 'ਰਹਾਉ ॥'));
-  assert.ok(!selected.translation.includes(name === 'hoho' ? 'ਹੇ ਦਿਲਾਂ ਦੀਆਂ' : 'ਇਕ ਪਰਮਾਤਮਾ ਵਿਚ'));
+  assert.ok(selected.translation.endsWith(name === 'hoho' ? 'ਠਹਿਰਾਉ ॥' : '॥੨॥'));
+  assert.ok(!selected.translation.includes(name === 'hoho' ? 'ਹੇ ਦਿਲਾਂ ਦੀਆਂ' : 'ਸ਼ਬਦ ਦੀ ਬਰਕਤ'));
   assert.equal(loadedContent({ original, translation }).translation, selected.translation);
 }
 console.log('Revised rules passed: late numbered fallback, ਠਹਿਰਾਉ, unnumbered pause explanations, reordered meanings, editable failure fallback and both reviewed article examples.');
@@ -117,3 +117,34 @@ console.log('Revised rules passed: late numbered fallback, ਠਹਿਰਾਉ, u
 assert.ok(hukamnamaExcerpt(early, 'ਵਿਰਾਮ ॥ ਠਹਿਰਾਉ ॥ ਗਲਤ ਪਦੇ ਦੇ ਅਰਥ ॥੨॥').error, 'missing stanza 1 cannot be hidden by pause-first conflicting numbered sections');
 
 assert.ok(hukamnamaExcerpt(early, 'ਪਹਿਲੇ ਅਰਥ ॥ ਠਹਿਰਾਉ ॥ ਦੁਹਰਾਏ ਅਰਥ ॥ ਰਹਾਉ ॥').error, 'two unnumbered pause sections are ambiguous');
+
+// A selected early rahau extends only to a complete later ending at 200–250.
+function atPositions(entries) {
+  let text = '';
+  for (const [end, marker] of entries) text += 'ਅ'.repeat(end - [...text].length - [...marker].length) + marker;
+  return text;
+}
+const extend = atPositions([[77, '॥੧॥'], [145, '॥੧॥ ਰਹਾਉ ॥'], [200, '॥੨॥'], [266, '॥੩॥']]);
+const extended = hukamnamaExcerpt(extend, 'ਵਿਰਾਮ।ਠਹਿਰਾਉ। ਪਹਿਲਾ।੧। ਦੂਜਾ।੨। ਤੀਜਾ।੩।');
+assert.equal(extended.error, null);
+assert.equal([...extended.original].length, 200);
+assert.equal(extended.translation, 'ਪਹਿਲਾ।੧। ਵਿਰਾਮ।ਠਹਿਰਾਉ। ਦੂਜਾ।੨।');
+for (const [positions, expected] of [
+  [[200, 225, 250], 225],
+  [[210, 250], 210],
+  [[250], 250],
+  [[199, 251], 145],
+]) {
+  const entries = [[77, '॥੧॥'], [145, '॥੧॥ ਰਹਾਉ ॥'], ...positions.map((pos, i) => [pos, `॥${i + 2}॥`]), [330, '॥੯॥']];
+  const source = atPositions(entries);
+  const meaning = 'ਪਹਿਲਾ।੧। ਵਿਰਾਮ।ਰਹਾਉ। ' + positions.map((_, i) => `ਅਰਥ।${i + 2}।`).join(' ') + ' ਅੰਤ।੯।';
+  const selected = hukamnamaExcerpt(source, meaning);
+  assert.equal(selected.error, null);
+  assert.equal([...selected.original].length, expected);
+}
+const boundaryPause = atPositions([[77, '॥੧॥'], [200, '॥੧॥ ਰਹਾਉ ॥'], [225, '॥੨॥'], [310, '॥੩॥']]);
+assert.equal([...hukamnamaExcerpt(boundaryPause, 'ਪਹਿਲਾ।੧। ਵਿਰਾਮ।ਰਹਾਉ। ਦੂਜਾ।੨। ਅੰਤ।੩।').original].length, 200, 'pause at exactly 200 keeps existing priority');
+const missingExtension = { original: extend, translation: 'ਪਹਿਲਾ।੧। ਵਿਰਾਮ।ਰਹਾਉ। ਗਲਤ।੩।' };
+assert.ok(hukamnamaExcerpt(missingExtension.original, missingExtension.translation).error);
+assert.deepEqual(loadedContent(missingExtension), { ...missingExtension, fullOriginal: undefined, fullTranslation: undefined }, 'unmatched added stanza retains full editable fields');
+console.log('Early rahau extension passed: actual Rasna now 200 characters, 200/250 boundaries, 220–230 preference, nearest ending, reordered matching meaning and manual fallback.');

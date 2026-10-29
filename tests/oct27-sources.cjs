@@ -26,7 +26,9 @@ for (const [name, parse] of Object.entries(parsers)) {
   assert.ok(record.translation.length > 800);
   const excerpt = hukamnamaExcerpt(record.original, record.translation);
   assert.equal(excerpt.error, null, name);
-  assert.ok(excerpt.original.endsWith('ਰਹਾਉ ॥'));
+  assert.ok(excerpt.original.endsWith(name === 'dekhoji' ? 'ਰਹਾਉ ॥' : '॥੨॥'));
+  assert.equal([...excerpt.original].length, name === 'dekhoji' ? 202 : 233);
+  assert.ok(name === 'dekhoji' || /[।॥]੨[।॥]$/.test(excerpt.translation), 'extended stanza has its matching explanation');
   assert.ok([...excerpt.original].length <= 250);
 }
 const primary = parsers.sikhizm(fixture('sikhizm'));
