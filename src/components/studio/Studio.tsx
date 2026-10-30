@@ -41,7 +41,6 @@ import {
   type TypoSettings,
 } from "@/lib/hukamnama/types";
 import { isReference, referenceConfig } from "@/lib/hukamnama/reference";
-import referenceSample from "@/lib/hukamnama/reference-sample.json";
 import { defaultState } from "@/lib/hukamnama/defaults";
 import { computeLayout, type LayoutResult } from "@/lib/hukamnama/layout";
 import { buildComposite, drawHukamnama, type LogoImages } from "@/lib/hukamnama/renderer";
@@ -561,13 +560,6 @@ export default function Studio() {
               <div className="flex gap-2">{exportPresets.map(p => <button key={p.id} type="button"
                 aria-pressed={state.presetId === p.id} onClick={() => patch({ presetId: p.id })}
                 className={`rounded border p-2 text-xs ${state.presetId === p.id ? "border-amber-300 text-amber-200" : "border-zinc-700"}`}>{p.w} × {p.h}</button>)}</div>
-              <button type="button" className="text-xs text-amber-300 underline" onClick={() => {
-                patch({ ...referenceSample, banikar: "Bani Bhagat Namdev Ji", ang: "718", fontId: "chatrikuni",
-                  dateISO: "2026-10-24", dateManual: true,
-                  dateText: "24-October-2026 | ਕੱਤਕ (Katak) 08 | ਸ਼ਨੀਵਾਰ (Saturday)",
-                  typo: { ...state.typo, autoFit: true } });
-                notify("Loaded reference example dated 24 October 2026 — not a live daily fetch.");
-              }}>Load supplied reference example (24 Oct 2026)</button>
               {!backgroundReady && <p role="status" className="text-xs text-amber-300">Waiting for template artwork. Export remains locked.</p>}
             </div>
             <p className="text-xs text-amber-200">Dates use SGPC’s daily page or its published Samvat 558 calendar. Other years require a verified SGPC date line.</p>
