@@ -9,6 +9,7 @@ export function buildSocialCaption(
   state: Pick<StudioState, "dateText" | "original" | "translation" | "fullOriginal" | "fullTranslation">,
   articleUrl: string,
   pdfUrl: string,
+  includeHashtags = true,
 ): string {
   const content = captionContent(state);
   return [
@@ -19,10 +20,10 @@ export function buildSocialCaption(
     `📜 *${content.original.trim()}* 📜`,
     "----",
     `🗒️ ${content.translation.trim()}`,
-    "----",
+    ...(articleUrl.trim() || pdfUrl.trim() || includeHashtags ? ["----"] : []),
     ...(articleUrl.trim() ? ["📌 Read Complete Hukamnama Punjabi-English-Hindi Translation in detail:", `🔗 ${articleUrl.trim()}`, ""] : []),
     ...(pdfUrl.trim() ? ["📃 Download Hukamnama PDF", `🔗 ${pdfUrl.trim()}`] : []),
-    ...(articleUrl.trim() || pdfUrl.trim() ? ["----"] : []),
-    DEFAULT_HASHTAGS,
+    ...(includeHashtags && (articleUrl.trim() || pdfUrl.trim()) ? ["----"] : []),
+    ...(includeHashtags ? [DEFAULT_HASHTAGS] : []),
   ].join("\n");
 }
