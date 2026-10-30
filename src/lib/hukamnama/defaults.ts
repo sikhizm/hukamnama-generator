@@ -48,6 +48,8 @@ export function defaultState(): StudioState {
       translationSize: 32,
       originalSizeRatio: 1.5,
       lineHeight: 1.62,
+      separatorPaddingTop: 6,
+      separatorPaddingBottom: 14,
     },
     footer: true,
     fontId: "chatrikuni",

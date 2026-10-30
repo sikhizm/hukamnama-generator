@@ -279,3 +279,25 @@ for (const id of ['feed', 'vertical']) {
   assert.ok(overflow.blocks.some(block => !block.fits), 'manual overflow stays blocked instead of clipping spaced content');
 }
 console.log('Reference line height passed: both formats, manual/auto-fit, all text blocks, hierarchy and overflow guards.');
+
+// Separator padding uses blank space around the 36px ornament in both formats.
+for (const id of ['feed', 'vertical']) {
+  const state = { ...defaultState(), presetId: id, original: 'ਵਾਹਿਗੁਰੂ '.repeat(12), translation: 'ਪੰਜਾਬੀ ਵਿਆਖਿਆ '.repeat(8) };
+  const measure = (top, bottom, autoFit = false) => computeLayout({ ...state, typo: { ...state.typo, autoFit, originalSize: 48, translationSize: 32, separatorPaddingTop: top, separatorPaddingBottom: bottom } }, getPreset(id), ctx);
+  const base = measure(6, 14), above = measure(46, 14), below = measure(6, 54), zero = measure(0, 0);
+  assert.equal(above.blocks[0].dividerY - base.blocks[0].dividerY, 40);
+  assert.equal(above.blocks[1].textRect.y - base.blocks[1].textRect.y, 40);
+  assert.equal(below.blocks[0].dividerY, base.blocks[0].dividerY);
+  assert.equal(below.blocks[1].textRect.y - base.blocks[1].textRect.y, 40);
+  assert.equal(zero.blocks[0].dividerY - (zero.blocks[0].textRect.y + zero.blocks[0].contentH), 18);
+  assert.equal(zero.blocks[1].textRect.y - zero.blocks[0].dividerY, 18);
+  const fitted = measure(40, 60, true);
+  assert.ok(fitted.blocks[0].dividerY > 0, 'custom padding keeps the separator instead of silently hiding it');
+  assert.ok(fitted.blocks.every(block => block.fits));
+  assert.equal(fitted.blocks[0].dividerY - (fitted.blocks[0].textRect.y + fitted.blocks[0].contentH), 58);
+  assert.equal(fitted.blocks[1].textRect.y - fitted.blocks[0].dividerY, 78);
+  assert.ok(fitted.blocks[0].px > fitted.blocks[1].px);
+  const legacy = measure(undefined, undefined);
+  assert.deepEqual(legacy.blocks, base.blocks, 'older saved settings keep the existing spacing defaults');
+}
+console.log('Separator padding passed: independent top/bottom spacing, zero padding without ornament overlap, old defaults, both formats and auto-fit.');

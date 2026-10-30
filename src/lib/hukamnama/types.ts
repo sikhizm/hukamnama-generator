@@ -142,6 +142,9 @@ export interface TypoSettings {
   originalSizeRatio: number;
   /** Line-height multiplier 1.3–1.9. */
   lineHeight: number;
+  /** Blank space above/below the separator ornament, in export pixels. */
+  separatorPaddingTop: number;
+  separatorPaddingBottom: number;
 }
 
 export interface StudioState {

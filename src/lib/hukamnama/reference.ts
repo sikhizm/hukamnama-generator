@@ -48,6 +48,10 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
   const ratio = Math.max(1.2, state.typo.originalSizeRatio);
   const availableH = c.bodyBottom - bodyTop;
   const lineHeight = Number.isFinite(state.typo.lineHeight) ? Math.max(1.3, Math.min(1.9, state.typo.lineHeight)) : 1.62;
+  const padding = (value: number | undefined, fallback: number) => Number.isFinite(value) ? Math.max(0, Math.min(160, value!)) : fallback;
+  const separatorTop = padding(state.typo.separatorPaddingTop, 6);
+  const separatorBottom = padding(state.typo.separatorPaddingBottom, 14);
+  const keepSeparator = separatorTop !== 6 || separatorBottom !== 14;
   const introductionMeasures = new Map<number, ReturnType<typeof measureBalancedAt>>();
   const originalMeasures = new Map<number, ReturnType<typeof measureBalancedAt>>();
   const translationMeasures = new Map<number, ReturnType<typeof measureBalancedAt>>();
@@ -61,8 +65,10 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
     const translation = translationMeasures.get(translationPx) ?? measureBalancedAt(ctx, state.translation, translationPx, translationW, lineHeight);
     originalMeasures.set(originalPx, original);
     translationMeasures.set(translationPx, translation);
-    const gapBefore = separator ? 24 : 12;
-    const gapAfter = separator ? 32 : 12;
+    // The ornament is 36px high: padding is measured from its outer edge,
+    // so even zero padding cannot move text through the ornament itself.
+    const gapBefore = separator ? 18 + separatorTop : 12;
+    const gapAfter = separator ? 18 + separatorBottom : 12;
     const dividerY = separator ? originalTop + original.contentH + gapBefore : 0;
     const translationTop = originalTop + original.contentH + gapBefore + gapAfter;
     const originalBoxH = Math.max(0, Math.min(original.contentH, availableH - introH));
@@ -80,7 +86,7 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
     for (let px = 96; px >= minOriginalPx; px--) {
       const target = Math.round(px / ratio);
       for (let tp = Math.max(minTranslationPx, target - 4); tp <= Math.min(px - 4, target + 2); tp++) {
-        for (const separator of [true, false]) {
+        for (const separator of (keepSeparator ? [true] : [true, false])) {
           const candidate = measurePair(px, tp, separator);
           if (candidate.original.contentH > candidate.originalBoxH || candidate.translation.contentH > candidate.translationBoxH) continue;
           const fill = (candidate.translationTop + candidate.translation.contentH - bodyTop) / availableH;
@@ -93,7 +99,7 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
     if (bestScore === -Infinity) {
       originalPx = minOriginalPx;
       translationPx = minTranslationPx;
-      pair = measurePair(originalPx, translationPx, false);
+      pair = measurePair(originalPx, translationPx, keepSeparator);
     }
   }
 
