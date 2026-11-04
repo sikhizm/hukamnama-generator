@@ -5,7 +5,7 @@ import type { StudioState } from "./types";
 /** Editable fields show the media excerpt; untouched source remains available to captions and verification. */
 export function loadedContent(record: LiveHukamnama) {
   const excerpt = hukamnamaExcerpt(record.original, record.translation);
-  return excerpt.error
+  return excerpt.error || excerpt.warning
     ? { original: record.original, translation: record.translation, fullOriginal: undefined, fullTranslation: undefined }
     : { original: excerpt.original, translation: excerpt.translation, fullOriginal: record.original, fullTranslation: record.translation };
 }
