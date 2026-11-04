@@ -364,14 +364,13 @@ export default function Studio() {
   const fontReady = fontStatus === "ready" || !strictFont;
   const contentReady = !!(splitIntroduction(state.original, state.introduction).body.trim() && state.translation.trim() && state.dateText.trim() && state.banikar.trim() && state.ang.trim());
   const excerpt = hukamnamaExcerpt(state.original, state.translation);
-  const canExport = !textPending && !excerpt.error && contentReady && fontReady && (!referenceMode || backgroundReady) && !!layout && layout.introduction?.fits !== false && layout.blocks.every(b => b.fits);
+  const canExport = !textPending && contentReady && fontReady && (!referenceMode || backgroundReady) && !!layout && layout.introduction?.fits !== false && layout.blocks.every(b => b.fits);
 
   const renderToBlob = async (p: PresetDef, format: "png" | "jpeg"): Promise<Blob | null> => {
     const mctx = measureRef.current;
     if (!mctx) return Promise.resolve(null);
     if (textPending) throw new Error("Press Update text & preview to apply your edits first.");
     if (!contentReady) throw new Error("Enter complete content and a verified date before exporting.");
-    if (excerpt.error) throw new Error(excerpt.error);
     const exportState = { ...state, original: excerpt.original, translation: excerpt.translation, presetId: p.id, safeArea: false };
     const L = computeLayout(exportState, p, mctx);
     if (L.introduction?.fits === false || L.blocks.some(b => !b.fits)) throw new Error(`${p.label}: text does not fit. Export blocked to prevent incomplete Gurbani.`);
@@ -555,6 +554,7 @@ export default function Studio() {
               <p className="text-sm font-semibold">Sikhizm Hukamnama template</p>
               <p className="text-xs text-zinc-400">Original artwork, header, QR and footer. ChatrikUni is required to match the body; Latin labels use LEMON MILK when installed.</p>
               {excerpt.error && <p role="alert" className="mb-2 text-xs text-red-300">{excerpt.error}</p>}
+              {excerpt.warning && <p role="status" className="mb-2 text-xs text-amber-200">{excerpt.warning}</p>}
               {(excerpt.shortened || (state.fullOriginal && state.fullOriginal !== state.original)) && <p className="mb-2 text-xs text-amber-200">Image and reel excerpt: {[...excerpt.original].length}/250 characters, with the matching Punjabi explanation. Editors show the excerpt; the untouched full source is retained for captions.</p>}
               {!canExport && fontReady && <p role="alert" className="mb-2 text-xs text-red-300">Export blocked: complete the text, author, Ang and verified date; check artwork and text-fit warnings.</p>}
               <div className="flex gap-2">{exportPresets.map(p => <button key={p.id} type="button"
