@@ -40,7 +40,7 @@ const priority = hukamnamaExcerpt(early, 'ਪਹਿਲਾ ॥੧॥ ਰੁਕਾ
 assert.equal(priority.error, null);
 assert.ok(priority.original.endsWith('॥ ਰਹਾਉ ॥'));
 assert.equal(priority.translation, 'ਪਹਿਲਾ ॥੧॥ ਰੁਕਾਉ ॥ ਰਹਾਉ ॥');
-assert.ok(hukamnamaExcerpt(early, 'ਪਹਿਲਾ ॥੧॥ unmarked rest').error);
+assert.ok(hukamnamaExcerpt(early, 'ਪਹਿਲਾ ॥੧॥ unmarked rest').warning);
 
 const { loadedContent, captionContent } = require('../src/lib/hukamnama/loadedContent.ts');
 const today = parseSikhizmLiveArticle(fs.readFileSync('tests/fixtures/sikhizm-2026-10-26.html', 'utf8'), { publishedAt: '2026-10-26T00:00:00Z', localDateISO: '2026-10-26' }, '2026-10-26');
@@ -114,7 +114,7 @@ for (const [name, ang, length] of [['hoho', '493', 227], ['rasna', '560', 200]])
 }
 console.log('Revised rules passed: late numbered fallback, ਠਹਿਰਾਉ, unnumbered pause explanations, reordered meanings, editable failure fallback and both reviewed article examples.');
 
-assert.ok(hukamnamaExcerpt(early, 'ਵਿਰਾਮ ॥ ਠਹਿਰਾਉ ॥ ਗਲਤ ਪਦੇ ਦੇ ਅਰਥ ॥੨॥').error, 'missing stanza 1 cannot be hidden by pause-first conflicting numbered sections');
+assert.ok(hukamnamaExcerpt(early, 'ਵਿਰਾਮ ॥ ਠਹਿਰਾਉ ॥ ਗਲਤ ਪਦੇ ਦੇ ਅਰਥ ॥੨॥').warning, 'missing stanza 1 remains editable');
 
 assert.ok(hukamnamaExcerpt(early, 'ਪਹਿਲੇ ਅਰਥ ॥ ਠਹਿਰਾਉ ॥ ਦੁਹਰਾਏ ਅਰਥ ॥ ਰਹਾਉ ॥').warning, 'ambiguous pause sections remain editable');
 
@@ -124,6 +124,11 @@ function atPositions(entries) {
   for (const [end, marker] of entries) text += 'ਅ'.repeat(end - [...text].length - [...marker].length) + marker;
   return text;
 }
+const noEarlyPause = atPositions([[100, '॥੧॥'], [225, '॥੨॥'], [650, '॥ ਰਹਾਉ ॥']]);
+const firstEnding = hukamnamaExcerpt(noEarlyPause, 'ਪਹਿਲਾ ॥੧॥ ਦੂਜਾ ॥੨॥ ਵਿਰਾਮ ॥ ਰਹਾਉ ॥');
+assert.equal([...firstEnding.original].length, 100, 'without rahau in the first 600 characters, stop at the first complete ending');
+assert.ok(firstEnding.original.endsWith('॥੧॥'));
+
 const extend = atPositions([[77, '॥੧॥'], [145, '॥੧॥ ਰਹਾਉ ॥'], [200, '॥੨॥'], [266, '॥੩॥']]);
 const extended = hukamnamaExcerpt(extend, 'ਵਿਰਾਮ।ਠਹਿਰਾਉ। ਪਹਿਲਾ।੧। ਦੂਜਾ।੨। ਤੀਜਾ।੩।');
 assert.equal(extended.error, null);
