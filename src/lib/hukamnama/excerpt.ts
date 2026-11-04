@@ -41,7 +41,7 @@ export function hukamnamaExcerpt(original: string, translation: string): Hukamna
   // When no complete pause appears in the first 600 characters, use the
   // first complete ending (number or pause) rather than preferring a later one.
   const hasEarlyRahau = markers.some(marker => marker.key === "rahau" && marker.length <= 600);
-  if (!hasEarlyRahau) chosen = safe[0] ?? null;
+  if (!hasEarlyRahau) chosen = markers[0] ?? null;
   // Fill the useful range after an early selected pause without splitting a
   // verse. This overrides stanza-1-before-rahau priority only below 200.
   if (chosen?.key === "rahau" && chosen.length < 200) {
