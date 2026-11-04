@@ -3,6 +3,7 @@ export interface HukamnamaExcerpt {
   translation: string;
   shortened: boolean;
   error: string | null;
+  warning?: string;
 }
 
 const digits: Record<string, string> = Object.fromEntries([..."੦੧੨੩੪੫੬੭੮੯"].map((digit, i) => [digit, String(i)]));
@@ -37,6 +38,10 @@ export function hukamnamaExcerpt(original: string, translation: string): Hukamna
   const preferred = numbered.filter(marker => marker.length >= 220 && marker.length <= 230);
   const nearest = (items: typeof markers) => [...items].sort((a, b) => Math.abs(a.length - 225) - Math.abs(b.length - 225) || b.length - a.length)[0];
   let chosen = rahau ?? nearest(preferred) ?? nearest(numbered) ?? markers.find(marker => marker.key === "rahau") ?? markers[0];
+  // When no complete pause appears in the first 600 characters, use the
+  // first complete ending (number or pause) rather than preferring a later one.
+  const hasEarlyRahau = markers.some(marker => marker.key === "rahau" && marker.length <= 600);
+  if (!hasEarlyRahau) chosen = safe[0] ?? null;
   // Fill the useful range after an early selected pause without splitting a
   // verse. This overrides stanza-1-before-rahau priority only below 200.
   if (chosen?.key === "rahau" && chosen.length < 200) {
@@ -44,7 +49,7 @@ export function hukamnamaExcerpt(original: string, translation: string): Hukamna
     const later = numbered.filter(marker => marker.end > pauseEnd && marker.length >= 200);
     chosen = nearest(later.filter(marker => marker.length >= 220 && marker.length <= 230)) ?? nearest(later) ?? chosen;
   }
-  if (!chosen) return { ...full, error: "No complete numbered verse or ਰਹਾਉ ending was found. The full text remains editable; prepare a complete excerpt before exporting." };
+  if (!chosen) return { ...full, warning: "No complete stanza ending was found within the 250-character excerpt limit. The full source remains editable; shorten it manually before exporting." };
 
   // Match the complete marker sequence, so a repeated ੧ or a final ੩।੧।੨੯। cannot pick the wrong stanza.
   const prefix = markers.slice(0, markers.indexOf(chosen) + 1);
@@ -66,7 +71,9 @@ export function hukamnamaExcerpt(original: string, translation: string): Hukamna
     return { original: source.slice(0, chosen.end), translation: translation.slice(0, translated[0].end).trim(), shortened: true, error: null };
   }
   if (!sameOrder && !rahauFirst) {
-    return { ...full, error: "The Punjabi translation has no matching stanza markers for this excerpt. Add the corresponding marked translation before exporting." };
+    // Keep complete fetched text editable when provider markers disagree.
+    // The normal layout-fit checks still protect the final image.
+    return { ...full, warning: "Punjabi translation markers do not align with the Gurbani excerpt. The complete fetched text remains editable; correct or shorten it manually. This warning does not itself block export." };
   }
   const translationEnd = translated[prefix.length - 1].end;
   let excerptTranslation = translation.slice(0, translationEnd).trim();
