@@ -212,24 +212,44 @@ export function parseSikhizmFeed(xml: string): SikhizmFeedPost[] {
 }
 
 export function findSikhizmPdfUrl(html: string, articleUrl: string): string | null {
-  const anchors = [...html.matchAll(/<a\b[^>]*href\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a\s*>/gi)];
-  const candidates = anchors.map((anchor) => {
-    const href = decodeEntities(anchor[2]);
-    const label = htmlToLines(anchor[3]).join(" ");
+  const candidates: Array<{ url: string; label: string; path: string }> = [];
+  const add = (raw: string, label: string) => {
+    const href = decodeEntities(raw.trim()).replace(/^["']|["']$/g, "");
+    if (!href || /^(?:#|javascript:|mailto:|tel:)/i.test(href)) return;
     try {
       const url = new URL(href, articleUrl);
-      if (url.hostname !== "sikhizm.com" && url.hostname !== "www.sikhizm.com") return null;
-      return { url: url.toString(), label, path: url.pathname.toLowerCase() };
-    } catch {
-      return null;
-    }
-  }).filter((candidate): candidate is { url: string; label: string; path: string } => !!candidate);
+      if (url.protocol !== "https:" || (url.hostname !== "sikhizm.com" && url.hostname !== "www.sikhizm.com")) return;
+      candidates.push({ url: url.toString(), label, path: url.pathname.toLowerCase() });
+    } catch { /* Ignore malformed or external URLs. */ }
+  };
 
-  const preferred = candidates.find((candidate) => /\/download\//.test(candidate.path)
+  // Normal anchors (including nested button/icon markup) are the primary source.
+  const anchors = [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi)];
+  for (const anchor of anchors) {
+    const attrs = anchor[1];
+    const href = attrs.match(/\bhref\s*=\s*(["'])(.*?)\1/i)?.[2];
+    const label = [htmlToLines(anchor[2]).join(" "), attrs.match(/\b(?:aria-label|title)\s*=\s*(["'])(.*?)\1/i)?.[2] ?? ""].join(" ");
+    if (href) add(href, label);
+  }
+
+  // Download widgets and PDF embeds sometimes store their destination in data
+  // attributes or iframe/object/embed elements rather than a normal anchor.
+  for (const match of html.matchAll(/<(?:a|button|iframe|embed|object|source)\b([^>]*)>/gi)) {
+    const attrs = match[1];
+    const label = [attrs.match(/\b(?:aria-label|title)\s*=\s*(["'])(.*?)\1/i)?.[2] ?? "", attrs.match(/\bclass\s*=\s*(["'])(.*?)\1/i)?.[2] ?? ""].join(" ");
+    for (const attribute of ["href", "data-href", "data-url", "data-download-url", "src", "data"]) {
+      const value = attrs.match(new RegExp("\\b" + attribute + "\\s*=\\s*([\\"'])(.*?)\\1", "i"))?.[2];
+      if (value) add(value, label);
+    }
+  }
+
+  const unique = [...new Map(candidates.map(item => [item.url, item])).values()];
+  const preferred = unique.find(candidate => /\/(?:download|downloads)\//.test(candidate.path)
     && /pdf|download|ਹੁਕਮਨਾਮ/i.test(candidate.label));
-  const directPdf = candidates.find((candidate) => candidate.path.endsWith(".pdf"));
-  const anyDownload = candidates.find((candidate) => /\/download\//.test(candidate.path));
-  return preferred?.url ?? directPdf?.url ?? anyDownload?.url ?? null;
+  const directPdf = unique.find(candidate => candidate.path.endsWith(".pdf"));
+  const anyDownload = unique.find(candidate => /\/(?:download|downloads)\//.test(candidate.path));
+  const embeddedPdf = unique.find(candidate => /pdf/i.test(candidate.label) && /\.pdf$/i.test(candidate.path));
+  return preferred?.url ?? directPdf?.url ?? anyDownload?.url ?? embeddedPdf?.url ?? null;
 }
 
 /** Complete marked scripture can start directly with a verse, without a mangal. */
