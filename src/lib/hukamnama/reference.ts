@@ -51,7 +51,7 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
   const padding = (value: number | undefined, fallback: number) => Number.isFinite(value) ? Math.max(0, Math.min(160, value!)) : fallback;
   const separatorTop = padding(state.typo.separatorPaddingTop, 6);
   const separatorBottom = padding(state.typo.separatorPaddingBottom, 14);
-  const keepSeparator = separatorTop !== 6 || separatorBottom !== 14;
+  const keepSeparator = preset.id === "feed" || separatorTop !== 6 || separatorBottom !== 14;
   const introductionMeasures = new Map<number, ReturnType<typeof measureBalancedAt>>();
   const originalMeasures = new Map<number, ReturnType<typeof measureBalancedAt>>();
   const translationMeasures = new Map<number, ReturnType<typeof measureBalancedAt>>();
