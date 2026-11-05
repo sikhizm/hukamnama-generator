@@ -18,56 +18,84 @@ export function isSikhizmArticle(value: string): boolean {
   } catch { return false; }
 }
 
-/** Ang alone is insufficient: require the same Gurbani passage, preserving vowel marks. */
+/** Match the passage with its Ang, allowing harmless layout/markup differences. */
 export function matchesSikhizmArticle(html: string, source: Pick<LinkSource, "ang" | "original">): boolean {
   const lines = htmlToLines(html);
   const ang = readSikhizmAng(html);
   if (Number(ang) !== Number(source.ang)) return false;
-  const passage = normalized(openingText(source.original)).slice(0, 72);
+  const passage = normalized(openingText(source.original)).slice(0, 48);
   return passage.length >= 32 && normalized(lines.join(" ")).includes(passage);
 }
 
 export function searchResultArticles(html: string): string[] {
   const headings = [...html.matchAll(/<h[1-6]\b[^>]*class=["'][^"']*\bjeg_post_title\b[^"']*["'][^>]*>([\s\S]*?)<\/h[1-6]>/gi)];
-  return [...new Set(headings.flatMap(heading => [...heading[1].matchAll(/href=["']([^"']+)["']/gi)].map(match => match[1].replace(/&amp;/g, "&"))).filter(isSikhizmArticle))].slice(0, 6);
+  return [...new Set(headings.flatMap(heading => [...heading[1].matchAll(/href=["']([^"']+)["']/gi)].map(match => match[1].replace(/&amp;/g, "&"))).filter(isSikhizmArticle))].slice(0, 20);
 }
 const noMatch = (): SikhizmLinks => ({ found: false, articleUrl: "", pdfUrl: "", message: "No verified Sikhizm article matched this Ang and Gurbani. Automatic captions will omit the links; you can add them manually." });
 
 export async function findEvergreenLinks(source: LinkSource, fetcher: typeof fetch = fetch): Promise<SikhizmLinks> {
-  const phrase = openingText(source.original).split(/[॥।]/u)[0].trim().split(/\s+/).slice(0, 4).join(" ");
-  if (normalized(phrase).length < 8 || normalized(openingText(source.original)).length < 32) return noMatch();
+  const words = openingText(source.original).split(/[॥।]/u)[0].trim().split(/\s+/).filter(Boolean);
+  const queries = [...new Set([
+    words.slice(0, 4).join(" "),
+    words.slice(0, 3).join(" "),
+    words.slice(0, 2).join(" "),
+    openingText(source.original).split(/[॥।]/u)[0].trim(),
+    source.ang,
+  ].filter(value => normalized(value).length >= 4))];
+  if (normalized(openingText(source.original)).length < 32 || !queries.length) return noMatch();
+
   const read = async (url: string) => {
-    const response = await fetcher(url, { headers: { "user-agent": "Sikhizm-Hukamnama-Studio/1.0", accept: "application/json, text/html" }, signal: AbortSignal.timeout(6_000), next: { revalidate: 180 } });
+    const response = await fetcher(url, { headers: { "user-agent": "Sikhizm-Hukamnama-Studio/1.0", accept: "application/json, text/html" }, signal: AbortSignal.timeout(8_000), next: { revalidate: 180 } });
     if (!response.ok) throw new Error(`Sikhizm returned HTTP ${response.status}.`);
     return response;
   };
-  const result = (articleUrl: string, html: string, title?: string): SikhizmLinks => ({ found: true, articleUrl, pdfUrl: findSikhizmPdfUrl(html, articleUrl) ?? "", title, message: "Matched Sikhizm article by Ang and Gurbani." });
-  // Publication dates are deliberately ignored: these articles are evergreen.
-  for (const search of [...new Set([phrase, source.ang])]) {
+  const result = (articleUrl: string, html: string, title?: string): SikhizmLinks => ({
+    found: true, articleUrl, pdfUrl: findSikhizmPdfUrl(html, articleUrl) ?? "", title,
+    message: "Matched Sikhizm article by Ang and Gurbani.",
+  });
+  const checked = new Set<string>();
+  const verifyPage = async (url: string, title?: string): Promise<SikhizmLinks | null> => {
+    if (!isSikhizmArticle(url) || checked.has(url)) return null;
+    checked.add(url);
     try {
-      const query = new URLSearchParams({ search, per_page: "12", _fields: "link,title,content" });
+      const html = await (await read(url)).text();
+      return matchesSikhizmArticle(html, source) ? result(url, html, title) : null;
+    } catch { return null; }
+  };
+
+  // Search several progressively broader Gurbani phrases. Search results are
+  // candidates only: every final URL is verified against Ang + the passage.
+  for (const search of queries) {
+    try {
+      const query = new URLSearchParams({ search, per_page: "50", page: "1", _fields: "link,title,content" });
       const posts: unknown = await (await read(`https://sikhizm.com/wp-json/wp/v2/posts?${query}`)).json();
       if (!Array.isArray(posts)) continue;
       for (const post of posts) {
-        const html = post?.content?.rendered;
-        if (typeof post?.link !== "string" || !isSikhizmArticle(post.link) || typeof html !== "string" || !matchesSikhizmArticle(html, source)) continue;
-        let resolved = result(post.link, html, htmlToLines(post.title?.rendered ?? "").join(" "));
-        if (!resolved.pdfUrl) {
-          try {
-            const page = await (await read(post.link)).text();
-            if (matchesSikhizmArticle(page, source)) resolved = result(post.link, page, resolved.title);
-          } catch { /* A verified article remains useful without a PDF. */ }
+        if (typeof post?.link !== "string" || !isSikhizmArticle(post.link)) continue;
+        const title = htmlToLines(post.title?.rendered ?? "").join(" ");
+        const rendered = typeof post.content?.rendered === "string" ? post.content.rendered : "";
+        if (rendered && matchesSikhizmArticle(rendered, source)) {
+          const found = result(post.link, rendered, title);
+          // The REST content can omit download controls; inspect the page when
+          // it has no PDF, without sacrificing a verified article URL.
+          if (!found.pdfUrl) {
+            const fullPage = await verifyPage(post.link, title);
+            if (fullPage) return fullPage;
+          }
+          return found;
         }
-        return resolved;
+        // Some WP responses expose trimmed/filtered content. Verify the
+        // actual article page before rejecting an otherwise relevant result.
+        const fullPage = await verifyPage(post.link, title);
+        if (fullPage) return fullPage;
       }
-    } catch { /* Try the next public search method. */ }
+    } catch { /* Continue with broader query and public HTML search. */ }
   }
+
+  // Public theme search is independent of the REST API and remains a fallback.
   try {
-    const urls = searchResultArticles(await (await read(`https://sikhizm.com/?s=${encodeURIComponent(phrase)}`)).text());
-    const candidates = await Promise.allSettled(urls.map(async url => {
-      const html = await (await read(url)).text();
-      return matchesSikhizmArticle(html, source) ? result(url, html) : null;
-    }));
+    const urls = searchResultArticles(await (await read(`https://sikhizm.com/?s=${encodeURIComponent(queries[0])}`)).text());
+    const candidates = await Promise.allSettled(urls.map(url => verifyPage(url)));
     for (const candidate of candidates) if (candidate.status === "fulfilled" && candidate.value) return candidate.value;
   } catch { /* Missing links must never reuse the previous Hukamnama's URLs. */ }
   return noMatch();
