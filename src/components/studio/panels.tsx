@@ -564,9 +564,8 @@ export function TypographySection(p: PanelProps) {
         onChange={(v) => patchTypo({ lineHeight: v })}
       />
       <p className="text-[10px] text-zinc-500">Applies to all three text areas. Auto-fit may reduce font sizes when spacing increases; turn it off to keep your pixel sizes.</p>
-      <SliderRow label="Padding above separator" value={state.typo.separatorPaddingTop ?? 6} min={0} max={160} step={1} format={v => `${v}px`} onChange={v => patchTypo({ separatorPaddingTop: v })} />
-      <SliderRow label="Padding below separator" value={state.typo.separatorPaddingBottom ?? 14} min={0} max={160} step={1} format={v => `${v}px`} onChange={v => patchTypo({ separatorPaddingBottom: v })} />
-      <p className="text-[10px] text-zinc-500">Separator padding changes the space between Gurbani and translation. Auto-fit may reduce text sizes to make room.</p>
+      <SliderRow label="Padding around separator" value={Math.round(((state.typo.separatorPaddingTop ?? 6) + (state.typo.separatorPaddingBottom ?? 14)) / 2)} min={0} max={160} step={1} format={v => `${v}px`} onChange={v => patchTypo({ separatorPaddingTop: v, separatorPaddingBottom: v })} />
+      <p className="text-[10px] text-zinc-500">Increases or decreases the space equally above and below the separator. Auto-fit may reduce text sizes to make room.</p>
     </Section>
   );
 }
