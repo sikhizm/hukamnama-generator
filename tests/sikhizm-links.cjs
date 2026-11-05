@@ -13,7 +13,8 @@ const source = parseSikhizmLiveArticle(html, { publishedAt: '2026-10-25T00:00:11
 source.date = '2026-10-25';
 const article = 'https://sikhizm.com/sunahu-sant-pyare-binou-hamare-jio/';
 const pdf = 'https://sikhizm.com/download/279567/';
-const withPdf = html + `<a href="${pdf}">Download PDF</a>`;\nconst embeddedPdf = html + `<iframe title="Download Hukamnama PDF" src="${pdf}"></iframe>`;
+const withPdf = html + `<a href="${pdf}">Download PDF</a>`;
+const embeddedPdf = html + `<iframe title="Download Hukamnama PDF" src="${pdf}"></iframe>`;
 assert(matchesSikhizmArticle(html, source));
 assert.equal(matchesSikhizmArticle(html.replace('<td>678</td>', '<td>679</td>'), source), false);
 assert.equal(matchesSikhizmArticle(html.replaceAll('ਸੁਨਹੁ', 'ਸਿਨਹੁ'), source), false, 'preserve vowel marks while matching');
@@ -22,7 +23,10 @@ assert.notEqual(linkContext({ ...source, dateISO: '2026-10-25' }), linkContext({
 (async () => {
   const evergreen = withPdf.replace('2026-10-25', '2018-06-21');
   const found = await findEvergreenLinks(source, async () => Response.json([{ link: article, date: '2018-06-21', content: { rendered: evergreen } }]));
-  assert.equal(found.articleUrl, article); assert.equal(found.pdfUrl, pdf, 'publication date is irrelevant for evergreen posts');\n  const apiTrimmed = await findEvergreenLinks(source, async url => url.includes('wp-json') ? Response.json([{ link: article, title: { rendered: 'Verified article' }, content: { rendered: '<p>REST response omitted the Gurbani block.</p>' } }]) : url === article ? new Response(embeddedPdf) : new Response('', { status: 404 }));\n  assert.equal(apiTrimmed.articleUrl, article, 'verify the published article when REST content is trimmed');\n  assert.equal(apiTrimmed.pdfUrl, pdf, 'extract the PDF from an embedded download control');
+  assert.equal(found.articleUrl, article); assert.equal(found.pdfUrl, pdf, 'publication date is irrelevant for evergreen posts');
+  const apiTrimmed = await findEvergreenLinks(source, async url => url.includes('wp-json') ? Response.json([{ link: article, title: { rendered: 'Verified article' }, content: { rendered: '<p>REST response omitted the Gurbani block.</p>' } }]) : url === article ? new Response(embeddedPdf) : new Response('', { status: 404 }));
+  assert.equal(apiTrimmed.articleUrl, article, 'verify the published article when REST content is trimmed');
+  assert.equal(apiTrimmed.pdfUrl, pdf, 'extract the PDF from an embedded download control');
   const noPdf = await findEvergreenLinks(source, async url => url.includes('wp-json') ? Response.json([{ link: article, content: { rendered: html } }]) : new Response('', { status: 503 }));
   assert.equal(noPdf.found, true); assert.equal(noPdf.pdfUrl, '', 'missing PDF never carries a previous PDF forward');
   const publicSearch = `<h3 class="jeg_post_title"><a href="${article}">Article</a></h3><h3 class="jeg_post_title"><a href="https://evil.example/">Reject</a></h3>`;
@@ -32,7 +36,8 @@ assert.notEqual(linkContext({ ...source, dateISO: '2026-10-25' }), linkContext({
   const missing = await findEvergreenLinks(source, async url => url.includes('wp-json') ? Response.json([]) : new Response('No matches'));
   assert.equal(missing.found, false); assert.equal(missing.articleUrl, ''); assert.equal(missing.pdfUrl, '');
   const caption = buildSocialCaption(source, '', '');
-  assert(!caption.includes('Read Complete')); assert(!caption.includes('Download Hukamnama PDF')); assert(!caption.includes('🔗')); assert(!caption.includes('----\n----'));
+  assert(!caption.includes('Read Complete')); assert(!caption.includes('Download Hukamnama PDF')); assert(!caption.includes('🔗')); assert(!caption.includes('----
+----'));
   const short = expandTemplate(SHORT_TEMPLATE, { date: 'today', articleUrl: '', pdfUrl: '' });
   assert(!short.includes('Read the complete')); assert(!short.includes('PDF:')); assert(short.includes('#Hukamnama'));
   assert.equal((await GET()).status, 400, 'a date alone cannot identify a shabad');
