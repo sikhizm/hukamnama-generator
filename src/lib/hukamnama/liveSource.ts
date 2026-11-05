@@ -238,7 +238,7 @@ export function findSikhizmPdfUrl(html: string, articleUrl: string): string | nu
     const attrs = match[1];
     const label = [attrs.match(/\b(?:aria-label|title)\s*=\s*(["'])(.*?)\1/i)?.[2] ?? "", attrs.match(/\bclass\s*=\s*(["'])(.*?)\1/i)?.[2] ?? ""].join(" ");
     for (const attribute of ["href", "data-href", "data-url", "data-download-url", "src", "data"]) {
-      const value = attrs.match(new RegExp("\\b" + attribute + "\\s*=\\s*([\\"'])(.*?)\\1", "i"))?.[2];
+      const value = [...attrs.matchAll(/([^\s=]+)\s*=\s*(["'])(.*?)\2/g)].find(item => item[1].toLowerCase() === attribute)?.[3];
       if (value) add(value, label);
     }
   }
