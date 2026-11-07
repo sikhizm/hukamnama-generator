@@ -40,7 +40,7 @@ for (const id of ['feed', 'vertical']) {
   assert.equal(manual.blocks[0].fits, false);
   const clears = [];
   const imageDraws = [];
-  let ornamentStrokes = 0;
+  let ornamentStrokes = 0;\n  let ornamentFills = 0;
   referenceComposite({
     canvas: {width: 1080, height: getPreset(id).h},
     fillRect(...r) { clears.push(r); },
