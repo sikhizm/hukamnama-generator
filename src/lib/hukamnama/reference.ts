@@ -148,24 +148,43 @@ export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImage
   ctx.fillStyle = "#fbd58c";
   ctx.fillRect(0, c.bodyTop, 1080, c.date[1] - c.bodyTop);
   if (layout.blocks[0].dividerY > 0) {
-    const dividerY = layout.blocks[0].dividerY;
-    if (id === "vertical" && img) {
-      const crop = { x: 400, y: 956, w: 280, h: 36 };
-      ctx.drawImage(img, crop.x, crop.y, crop.w, crop.h,
-        crop.x, dividerY - crop.h / 2, crop.w, crop.h);
-    } else if (id === "feed") {
-      // Keep the 4:5 separator simple and linear, matching the restrained
-      // line treatment used by the 9:16 reference instead of a curved flourish.
-      ctx.save();
-      ctx.strokeStyle = "#17100a";
-      ctx.lineWidth = 3.4;
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(400, dividerY);
-      ctx.lineTo(680, dividerY);
-      ctx.stroke();
-      ctx.restore();
-    }
+    const y = layout.blocks[0].dividerY;
+    // One shared, symmetric ornament for both export sizes: tapered ends,
+    // a pair of round accents and a small central diamond.
+    ctx.save();
+    ctx.fillStyle = "#17100a";
+    ctx.beginPath();
+    ctx.moveTo(390, y);
+    ctx.lineTo(493, y - 2);
+    ctx.lineTo(505, y - 7);
+    ctx.lineTo(516, y - 6);
+    ctx.lineTo(524, y - 3);
+    ctx.lineTo(532, y - 7);
+    ctx.lineTo(540, y);
+    ctx.lineTo(548, y - 7);
+    ctx.lineTo(556, y - 3);
+    ctx.lineTo(564, y - 6);
+    ctx.lineTo(575, y - 7);
+    ctx.lineTo(587, y - 2);
+    ctx.lineTo(690, y);
+    ctx.lineTo(587, y + 2);
+    ctx.lineTo(575, y + 7);
+    ctx.lineTo(564, y + 6);
+    ctx.lineTo(556, y + 3);
+    ctx.lineTo(548, y + 7);
+    ctx.lineTo(540, y);
+    ctx.lineTo(532, y + 7);
+    ctx.lineTo(524, y + 3);
+    ctx.lineTo(516, y + 6);
+    ctx.lineTo(505, y + 7);
+    ctx.lineTo(493, y + 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(520, y, 8, 0, Math.PI * 2);
+    ctx.arc(560, y, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
   ctx.fillStyle = "#ba0000";
   ctx.fillRect(c.stripe[0], c.stripe[1], c.stripe[2], c.stripe[3]);
