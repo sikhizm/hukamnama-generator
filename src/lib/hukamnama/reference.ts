@@ -154,24 +154,15 @@ export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImage
       ctx.drawImage(img, crop.x, crop.y, crop.w, crop.h,
         crop.x, dividerY - crop.h / 2, crop.w, crop.h);
     } else if (id === "feed") {
-      // The 4:5 reference artwork has no baked-in ornament. Draw the same
-      // centered flourish in its measured position, matching the 9:16 design.
-      const cy = dividerY;
+      // Keep the 4:5 separator simple and linear, matching the restrained
+      // line treatment used by the 9:16 reference instead of a curved flourish.
       ctx.save();
       ctx.strokeStyle = "#17100a";
       ctx.lineWidth = 3.4;
       ctx.lineCap = "round";
-      ctx.lineJoin = "round";
       ctx.beginPath();
-      ctx.moveTo(438, cy + 7);
-      ctx.bezierCurveTo(475, cy + 7, 488, cy - 1, 493, cy - 12);
-      ctx.bezierCurveTo(499, cy - 26, 478, cy - 30, 472, cy - 18);
-      ctx.bezierCurveTo(467, cy - 8, 480, cy - 2, 489, cy - 9);
-      ctx.bezierCurveTo(507, cy - 22, 521, cy - 22, 540, cy - 5);
-      ctx.bezierCurveTo(559, cy - 22, 573, cy - 22, 591, cy - 9);
-      ctx.bezierCurveTo(600, cy - 2, 613, cy - 8, 608, cy - 18);
-      ctx.bezierCurveTo(602, cy - 30, 581, cy - 26, 587, cy - 12);
-      ctx.bezierCurveTo(592, cy - 1, 605, cy + 7, 642, cy + 7);
+      ctx.moveTo(400, dividerY);
+      ctx.lineTo(680, dividerY);
       ctx.stroke();
       ctx.restore();
     }
