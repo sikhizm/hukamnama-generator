@@ -40,18 +40,18 @@ for (const id of ['feed', 'vertical']) {
   assert.equal(manual.blocks[0].fits, false);
   const clears = [];
   const imageDraws = [];
-  let ornamentStrokes = 0;\n  let ornamentFills = 0;
+  let ornamentStrokes = 0;
+  let ornamentFills = 0;
   referenceComposite({
     canvas: {width: 1080, height: getPreset(id).h},
     fillRect(...r) { clears.push(r); },
     drawImage(...r) { imageDraws.push(r); },
-    save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, bezierCurveTo() {},
-    stroke() { ornamentStrokes++; },
+    save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, bezierCurveTo() {}, arc() {}, closePath() {},
+    stroke() { ornamentStrokes++; }, fill() { ornamentFills++; },
   }, {}, id, l);
   assert(clears.some(r => r[1] === (id === 'feed' ? 379 : 483)), 'clear old Gurbani');
   assert(clears.some(r => r[1] === (id === 'feed' ? 1256 : 1644)), 'clear old date');
-  if (id === 'vertical' && l.blocks[0].dividerY > 0) assert.equal(imageDraws.at(-1)[6], l.blocks[0].dividerY - 18, 'reuse the original floral divider at its measured position');
-  if (id === 'feed') { assert(l.blocks[0].dividerY > 0, '4:5 feed keeps a measured separator position'); assert.equal(ornamentStrokes, 1, '4:5 feed draws its separator line'); }
+  if (l.blocks[0].dividerY > 0) { assert.equal(ornamentFills, 2, 'both formats draw the shared ornamental line and round accents'); assert.equal(ornamentStrokes, 0, 'ornament uses filled shapes, not a curved stroke'); }
 
   const mixed = { ...s, dateText: '24-October-2026 | ਕੱਤਕ (KATAK) 10 | ਸ਼ਨੀਚਰਵਾਰ (SATURDAY)', banikar: 'ਗੁਰੂ ਨਾਨਕ ਦੇਵ ਜੀ' };
   const drawn = [];
