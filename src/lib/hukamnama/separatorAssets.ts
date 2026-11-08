@@ -14,7 +14,10 @@ export const SEPARATOR_OPTIONS = [
 
 export async function loadSeparatorSpriteUrl(): Promise<string> {
   const binary = atob(SEPARATOR_SPRITE_GZIP_BASE64);
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
-  return URL.createObjectURL(await new Response(stream).blob());
+  const buffer = new ArrayBuffer(binary.length);
+  const bytes = new Uint8Array(buffer);
+  for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+  const stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream("gzip"));
+  const svgText = await new Response(stream).text();
+  return URL.createObjectURL(new Blob([svgText], { type: "image/svg+xml" }));
 }
