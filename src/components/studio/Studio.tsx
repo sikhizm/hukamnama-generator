@@ -788,7 +788,7 @@ export default function Studio() {
       patchHeader,
       patchTypo,
       patchLogo,
-      separatorSpriteUrl,
+
       fontStatus,
       fontCustom,
       strictFont,
