@@ -41,6 +41,7 @@ import {
   type TypoSettings,
 } from "@/lib/hukamnama/types";
 import { isReference, referenceConfig } from "@/lib/hukamnama/reference";
+import { loadSeparatorSpriteUrl } from "@/lib/hukamnama/separatorAssets";
 import { defaultState } from "@/lib/hukamnama/defaults";
 import { computeLayout, type LayoutResult } from "@/lib/hukamnama/layout";
 import { buildComposite, drawHukamnama, type LogoImages } from "@/lib/hukamnama/renderer";
@@ -84,6 +85,9 @@ export default function Studio() {
   const [fontVersion, setFontVersion] = useState(0);
   const [bgVersion, setBgVersion] = useState(0);
   const [logoVersion, setLogoVersion] = useState(0);
+  const [separatorVersion, setSeparatorVersion] = useState(0);
+  const [separatorReady, setSeparatorReady] = useState(false);
+  const [separatorSpriteUrl, setSeparatorSpriteUrl] = useState<string | null>(null);
   const [strictFont, setStrictFontState] = useState(true);
   const [exporting, setExporting] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -102,6 +106,7 @@ export default function Studio() {
   const bgImgRef = useRef<HTMLImageElement | null>(null);
   const logoMarkRef = useRef<HTMLImageElement | null>(null);
   const logoCardRef = useRef<HTMLImageElement | null>(null);
+  const separatorImgRef = useRef<HTMLImageElement | null>(null);
   const compositeCache = useRef<{ key: string; canvas: HTMLCanvasElement } | null>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
   const fontInputRef = useRef<HTMLInputElement>(null);
@@ -248,6 +253,34 @@ export default function Studio() {
     card.src = LOGO_SRC.card;
   }, []);
 
+  /* ----------------------------------------------- original separators */
+  useEffect(() => {
+    let alive = true;
+    let objectUrl: string | null = null;
+    setSeparatorReady(false);
+    loadSeparatorSpriteUrl().then((url) => {
+      objectUrl = url;
+      const image = new Image();
+      image.onload = () => {
+        if (!alive) return;
+        separatorImgRef.current = image;
+        setSeparatorSpriteUrl(url);
+        setSeparatorReady(true);
+        setSeparatorVersion((v) => v + 1);
+      };
+      image.onerror = () => {
+        if (alive) setSeparatorReady(false);
+      };
+      image.src = url;
+    }).catch(() => {
+      if (alive) setSeparatorReady(false);
+    });
+    return () => {
+      alive = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, []);
+
   /* ------------------------------------------------------ font detect */
   useEffect(() => {
     let alive = true;
@@ -317,12 +350,14 @@ export default function Studio() {
       state.bg.gradBottom,
       (state.bg.dataUrl || "").length,
       L.blocks[0]?.dividerY,
+      state.typo.separatorId,
+      separatorVersion,
       bgVersion,
     ].join("|");
     if (compositeCache.current?.key !== key) {
       compositeCache.current = {
         key,
-        canvas: buildComposite(preset.w, preset.h, mediaState, bgImgRef.current, L),
+        canvas: buildComposite(preset.w, preset.h, mediaState, bgImgRef.current, L, separatorImgRef.current),
       };
     }
     if (canvas.width !== preset.w) canvas.width = preset.w;
@@ -330,7 +365,7 @@ export default function Studio() {
     const ctx = canvas.getContext("2d");
     const logos: LogoImages = { mark: logoMarkRef.current, card: logoCardRef.current };
     if (ctx) drawHukamnama(ctx, L, mediaState, compositeCache.current.canvas, logos);
-  }, [state, preset, fontVersion, bgVersion, logoVersion]);
+  }, [state, preset, fontVersion, bgVersion, logoVersion, separatorVersion]);
 
   /* ---------------------------------------------------------- uploads */
   const onBgFile = (f: File | undefined) => {
@@ -364,7 +399,7 @@ export default function Studio() {
   const fontReady = fontStatus === "ready" || !strictFont;
   const contentReady = !!(splitIntroduction(state.original, state.introduction).body.trim() && state.translation.trim() && state.dateText.trim() && state.banikar.trim() && state.ang.trim());
   const excerpt = hukamnamaExcerpt(state.original, state.translation);
-  const canExport = !textPending && contentReady && fontReady && (!referenceMode || backgroundReady) && !!layout && layout.introduction?.fits !== false && layout.blocks.every(b => b.fits);
+  const canExport = !textPending && contentReady && fontReady && (!referenceMode || (backgroundReady && separatorReady)) && !!layout && layout.introduction?.fits !== false && layout.blocks.every(b => b.fits);
 
   const renderToBlob = async (p: PresetDef, format: "png" | "jpeg"): Promise<Blob | null> => {
     const mctx = measureRef.current;
@@ -382,7 +417,7 @@ export default function Studio() {
         img.src = referenceConfig(p.id).src;
       });
     }
-    const comp = buildComposite(p.w, p.h, exportState, bg, L);
+    const comp = buildComposite(p.w, p.h, exportState, bg, L, separatorImgRef.current);
     const c = document.createElement("canvas");
     c.width = p.w;
     c.height = p.h;
@@ -758,6 +793,7 @@ export default function Studio() {
       patchHeader,
       patchTypo,
       patchLogo,
+      separatorSpriteUrl,
       fontStatus,
       fontCustom,
       strictFont,
