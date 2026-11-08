@@ -111,7 +111,7 @@ export function buildComposite(
   const ctx = c.getContext("2d")!;
 
   if (isReference(state)) {
-    referenceComposite(ctx, img, state.presetId, layout, separatorImages, state.typo.separatorId);
+    referenceComposite(ctx, img, state.presetId, layout, separatorImages, state.typo.separatorId, state.typo.separatorScale ?? 100);
     return c;
   }
 
