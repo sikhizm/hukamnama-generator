@@ -145,7 +145,9 @@ export interface TypoSettings {
   /** Blank space above/below the separator ornament, in export pixels. */
   separatorPaddingTop: number;
   separatorPaddingBottom: number;
-  /** Selected original ornamental divider asset (01–18). */
+  /** Ornament scale percentage, 25–200; 100 is the standard size. */
+  separatorScale: number;
+  /** Selected original ornamental divider asset (01–10). */
   separatorId: string;
 }
 
