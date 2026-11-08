@@ -138,7 +138,7 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
 }
 
 /** Reference PNGs preserve all fixed artwork. Clear every variable region before drawing new text. */
-export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImageElement | null, id: string, layout: LayoutResult, separatorSprite: CanvasImageSource | null, separatorId: string) {
+export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImageElement | null, id: string, layout: LayoutResult, separatorImages: HTMLImageElement[], separatorId: string) {
   const c = referenceConfig(id);
   ctx.fillStyle = "#fbd58c";
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -147,12 +147,16 @@ export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImage
   // can be positioned from the measured content instead of fixed PSD boxes.
   ctx.fillStyle = "#fbd58c";
   ctx.fillRect(0, c.bodyTop, 1080, c.date[1] - c.bodyTop);
-  if (layout.blocks[0].dividerY > 0 && separatorSprite) {
-    const index = Math.max(0, Math.min(17, Number.parseInt(separatorId, 10) - 1 || 0));
-    const sourceX = (index % 2) * 900;
-    const sourceY = Math.floor(index / 2) * 150;
-    // All 18 original ornaments share a 900×150 sprite cell.
-    ctx.drawImage(separatorSprite, sourceX, sourceY, 900, 150, 230, layout.blocks[0].dividerY - 68, 620, 136);
+  if (layout.blocks[0].dividerY > 0 && separatorImages.length) {
+    const index = Math.max(0, Math.min(separatorImages.length - 1, Number.parseInt(separatorId, 10) - 1 || 0));
+    const ornament = separatorImages[index];
+    if (ornament?.complete && ornament.naturalWidth > 0 && ornament.naturalHeight > 0) {
+      // Preserve the PNG's original proportions and transparent background.
+      const scale = Math.min(620 / ornament.naturalWidth, 136 / ornament.naturalHeight);
+      const drawW = ornament.naturalWidth * scale;
+      const drawH = ornament.naturalHeight * scale;
+      ctx.drawImage(ornament, 540 - drawW / 2, layout.blocks[0].dividerY - drawH / 2, drawW, drawH);
+    }
   }
   ctx.fillStyle = "#ba0000";
   ctx.fillRect(c.stripe[0], c.stripe[1], c.stripe[2], c.stripe[3]);
