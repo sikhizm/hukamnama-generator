@@ -103,7 +103,7 @@ export function buildComposite(
   state: StudioState,
   img: HTMLImageElement | null,
   layout: LayoutResult,
-  separatorSprite: CanvasImageSource | null = null
+  separatorImages: HTMLImageElement[] = []
 ): HTMLCanvasElement {
   const c = document.createElement("canvas");
   c.width = w;
@@ -111,7 +111,7 @@ export function buildComposite(
   const ctx = c.getContext("2d")!;
 
   if (isReference(state)) {
-    referenceComposite(ctx, img, state.presetId, layout, separatorSprite, state.typo.separatorId);
+    referenceComposite(ctx, img, state.presetId, layout, separatorImages, state.typo.separatorId);
     return c;
   }
 
