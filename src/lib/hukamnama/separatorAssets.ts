@@ -20,13 +20,13 @@ export async function loadSeparatorSpriteUrl(): Promise<string> {
   const stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream("gzip"));
   const svgText = await new Response(stream).text();
   // SVGs without explicit intrinsic dimensions default to 300×150 in HTMLImageElement.
-  // The renderer crops this sheet as 2 columns × 9 rows of 900×200 cells, so
+  // The renderer crops this sheet as 2 columns × 9 rows of 900×150 cells, so
   // that default silently makes every source crop fall outside the image.
   const sizedSvg = svgText.replace(/<svg\b([^>]*)>/i, (_match, attributes: string) => {
     const normalized = attributes
       .replace(/\swidth\s*=\s*(["'])[^"']*\1/i, "")
       .replace(/\sheight\s*=\s*(["'])[^"']*\1/i, "");
-    return `<svg${normalized} width="1800" height="1800">`;
+    return `<svg${normalized} width="1800" height="1350">`;
   });
   return URL.createObjectURL(new Blob([sizedSvg], { type: "image/svg+xml" }));
 }
