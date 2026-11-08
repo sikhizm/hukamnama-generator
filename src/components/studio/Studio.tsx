@@ -41,7 +41,7 @@ import {
   type TypoSettings,
 } from "@/lib/hukamnama/types";
 import { isReference, referenceConfig } from "@/lib/hukamnama/reference";
-import { loadSeparatorSpriteUrl } from "@/lib/hukamnama/separatorAssets";
+import { separatorImagePath } from "@/lib/hukamnama/separatorAssets";
 import { defaultState } from "@/lib/hukamnama/defaults";
 import { computeLayout, type LayoutResult } from "@/lib/hukamnama/layout";
 import { buildComposite, drawHukamnama, type LogoImages } from "@/lib/hukamnama/renderer";
@@ -87,7 +87,7 @@ export default function Studio() {
   const [logoVersion, setLogoVersion] = useState(0);
   const [separatorVersion, setSeparatorVersion] = useState(0);
   const [separatorReady, setSeparatorReady] = useState(false);
-  const [separatorSpriteUrl, setSeparatorSpriteUrl] = useState<string | null>(null);
+  
   const [strictFont, setStrictFontState] = useState(true);
   const [exporting, setExporting] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -106,7 +106,7 @@ export default function Studio() {
   const bgImgRef = useRef<HTMLImageElement | null>(null);
   const logoMarkRef = useRef<HTMLImageElement | null>(null);
   const logoCardRef = useRef<HTMLImageElement | null>(null);
-  const separatorImgRef = useRef<HTMLCanvasElement | null>(null);
+  const separatorImgRef = useRef<HTMLImageElement[]>([])
   const compositeCache = useRef<{ key: string; canvas: HTMLCanvasElement } | null>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
   const fontInputRef = useRef<HTMLInputElement>(null);
@@ -253,44 +253,27 @@ export default function Studio() {
     card.src = LOGO_SRC.card;
   }, []);
 
-  /* ----------------------------------------------- original separators */
+  /* ----------------------------------------------- PNG separators */
   useEffect(() => {
     let alive = true;
-    let objectUrl: string | null = null;
     setSeparatorReady(false);
-    loadSeparatorSpriteUrl().then((url) => {
-      objectUrl = url;
+    Promise.all(Array.from({ length: 10 }, (_, index) => new Promise<HTMLImageElement>((resolve, reject) => {
       const image = new Image();
-      image.onload = () => {
-        if (!alive) return;
-        // Rasterize the SVG once at its exact source-sheet dimensions. Canvas
-        // crop coordinates are then deterministic across browsers and exports.
-        const sheet = document.createElement("canvas");
-        sheet.width = 1800;
-        sheet.height = 1350;
-        const context = sheet.getContext("2d");
-        if (!context || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
-          setSeparatorReady(false);
-          return;
-        }
-        context.clearRect(0, 0, sheet.width, sheet.height);
-        context.drawImage(image, 0, 0, sheet.width, sheet.height);
-        separatorImgRef.current = sheet;
-        setSeparatorSpriteUrl(url);
-        setSeparatorReady(true);
-        setSeparatorVersion((v) => v + 1);
-      };
-      image.onerror = () => {
-        if (alive) setSeparatorReady(false);
-      };
-      image.src = url;
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error(`Separator ${index + 1} could not load`));
+      image.src = separatorImagePath(String(index + 1));
+    }))).then((images) => {
+      if (!alive) return;
+      separatorImgRef.current = images;
+      setSeparatorReady(true);
+      setSeparatorVersion((v) => v + 1);
     }).catch(() => {
-      if (alive) setSeparatorReady(false);
+      if (alive) {
+        separatorImgRef.current = [];
+        setSeparatorReady(false);
+      }
     });
-    return () => {
-      alive = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
+    return () => { alive = false; };
   }, []);
 
   /* ------------------------------------------------------ font detect */
