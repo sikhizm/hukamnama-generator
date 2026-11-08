@@ -27,7 +27,7 @@ for (const id of ['feed', 'vertical']) {
   assert(l.blocks.every(b => b.fits));
   assert(l.blocks[0].px > l.blocks[1].px, "Gurbani must always be larger than its explanation");
   const longerOriginal = computeLayout({ ...s, original: 'ਵਾਹਿਗੁਰੂ '.repeat(35) }, getPreset(id), ctx);
-  assert(longerOriginal.blocks[1].textRect.y >= longerOriginal.blocks[0].textRect.y + longerOriginal.blocks[0].contentH, 'translation follows the complete original even when the separator is hidden');
+  assert(longerOriginal.blocks[1].textRect.y >= longerOriginal.blocks[0].textRect.y + longerOriginal.blocks[0].contentH, 'translation follows the complete original and selected separator');
   assert(longerOriginal.blocks[1].textRect.y > l.blocks[1].textRect.y, 'translation follows the dynamically placed separator');
   for (const b of l.blocks) {
     assert(b.textRect.y + b.textRect.h < l.date.rect.y);
@@ -40,18 +40,16 @@ for (const id of ['feed', 'vertical']) {
   assert.equal(manual.blocks[0].fits, false);
   const clears = [];
   const imageDraws = [];
-  let ornamentStrokes = 0;
-  let ornamentFills = 0;
   referenceComposite({
     canvas: {width: 1080, height: getPreset(id).h},
     fillRect(...r) { clears.push(r); },
     drawImage(...r) { imageDraws.push(r); },
     save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, bezierCurveTo() {}, arc() {}, closePath() {},
-    stroke() { ornamentStrokes++; }, fill() { ornamentFills++; },
-  }, {}, id, l);
+    stroke() {}, fill() {},
+  }, {}, id, l, {}, '01');
   assert(clears.some(r => r[1] === (id === 'feed' ? 379 : 483)), 'clear old Gurbani');
   assert(clears.some(r => r[1] === (id === 'feed' ? 1256 : 1644)), 'clear old date');
-  if (l.blocks[0].dividerY > 0) { assert.equal(ornamentFills, 2, 'both formats draw the shared ornamental line and round accents'); assert.equal(ornamentStrokes, 0, 'ornament uses filled shapes, not a curved stroke'); }
+  if (l.blocks[0].dividerY > 0) { const draw = imageDraws.at(-1); assert.equal(draw[1], 0, 'first design uses the first sprite column'); assert.equal(draw[2], 0, 'first design uses the first sprite row'); assert.equal(draw[3], 900); assert.equal(draw[4], 200); assert.equal(draw[7], 620); assert.equal(draw[8], 136); }
 
   const mixed = { ...s, dateText: '24-October-2026 | ਕੱਤਕ (KATAK) 10 | ਸ਼ਨੀਚਰਵਾਰ (SATURDAY)', banikar: 'ਗੁਰੂ ਨਾਨਕ ਦੇਵ ਜੀ' };
   const drawn = [];
