@@ -103,7 +103,7 @@ export function buildComposite(
   state: StudioState,
   img: HTMLImageElement | null,
   layout: LayoutResult,
-  separatorSprite: HTMLImageElement | null = null
+  separatorSprite: CanvasImageSource | null = null
 ): HTMLCanvasElement {
   const c = document.createElement("canvas");
   c.width = w;
