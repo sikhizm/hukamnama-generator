@@ -566,6 +566,8 @@ export function TypographySection(p: PanelProps) {
         onChange={(v) => patchTypo({ lineHeight: v })}
       />
       <p className="text-[10px] text-zinc-500">Applies to all three text areas. Auto-fit may reduce font sizes when spacing increases; turn it off to keep your pixel sizes.</p>
+      <SliderRow label="Separator size" value={state.typo.separatorScale ?? 100} min={25} max={200} step={5} format={v => `${v}%`} onChange={v => patchTypo({ separatorScale: v })} />
+      <p className="text-[10px] text-zinc-500">Resize the selected ornament without stretching it. The space around it adjusts with the size.</p>
       <SliderRow label="Padding around separator" value={Math.round(((state.typo.separatorPaddingTop ?? 6) + (state.typo.separatorPaddingBottom ?? 14)) / 2)} min={0} max={160} step={1} format={v => `${v}px`} onChange={v => patchTypo({ separatorPaddingTop: v, separatorPaddingBottom: v })} />
       <p className="text-[10px] text-zinc-500">Increases or decreases the space equally above and below the separator. Auto-fit may reduce text sizes to make room.</p>
       <div className="space-y-2 pt-2">
