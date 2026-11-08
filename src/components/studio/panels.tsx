@@ -64,7 +64,7 @@ export interface PanelProps {
   patchHeader: (p: Partial<HeaderSettings>) => void;
   patchTypo: (p: Partial<TypoSettings>) => void;
   patchLogo: (p: Partial<LogoSettings>) => void;
-  separatorSpriteUrl?: string | null;
+
   fontStatus: FontStatus;
   fontCustom: boolean;
   strictFont: boolean;
