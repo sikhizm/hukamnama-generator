@@ -51,6 +51,7 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
   const padding = (value: number | undefined, fallback: number) => Number.isFinite(value) ? Math.max(0, Math.min(160, value!)) : fallback;
   const separatorTop = padding(state.typo.separatorPaddingTop, 6);
   const separatorBottom = padding(state.typo.separatorPaddingBottom, 14);
+  const separatorScale = Number.isFinite(state.typo.separatorScale) ? Math.max(25, Math.min(200, state.typo.separatorScale)) / 100 : 1;
   const keepSeparator = true;
   const introductionMeasures = new Map<number, ReturnType<typeof measureBalancedAt>>();
   const originalMeasures = new Map<number, ReturnType<typeof measureBalancedAt>>();
@@ -67,8 +68,8 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
     translationMeasures.set(translationPx, translation);
     // Original ornamental assets are rendered inside an 80px vertical band.
     // Padding is measured outside that band, keeping text clear of every design.
-    const gapBefore = separator ? 40 + separatorTop : 12;
-    const gapAfter = separator ? 40 + separatorBottom : 12;
+    const gapBefore = separator ? 40 * separatorScale + separatorTop : 12;
+    const gapAfter = separator ? 40 * separatorScale + separatorBottom : 12;
     const dividerY = separator ? originalTop + original.contentH + gapBefore : 0;
     const translationTop = originalTop + original.contentH + gapBefore + gapAfter;
     const originalBoxH = Math.max(0, Math.min(original.contentH, availableH - introH));
@@ -152,7 +153,10 @@ export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImage
     const ornament = separatorImages[index];
     if (ornament?.complete && ornament.naturalWidth > 0 && ornament.naturalHeight > 0) {
       // Preserve the PNG's original proportions and transparent background.
-      const scale = Math.min(620 / ornament.naturalWidth, 136 / ornament.naturalHeight);
+      const sizePercent = Number.isFinite(layout.separatorScale) ? Math.max(25, Math.min(200, layout.separatorScale)) / 100 : 1;
+      const maxWidth = Math.min(620 * sizePercent, 900);
+      const maxHeight = Math.min(80 * sizePercent, 160);
+      const scale = Math.min(maxWidth / ornament.naturalWidth, maxHeight / ornament.naturalHeight);
       const drawW = ornament.naturalWidth * scale;
       const drawH = ornament.naturalHeight * scale;
       ctx.drawImage(ornament, 540 - drawW / 2, layout.blocks[0].dividerY - drawH / 2, drawW, drawH);
