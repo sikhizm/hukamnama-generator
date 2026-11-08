@@ -139,7 +139,7 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
 }
 
 /** Reference PNGs preserve all fixed artwork. Clear every variable region before drawing new text. */
-export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImageElement | null, id: string, layout: LayoutResult, separatorImages: HTMLImageElement[], separatorId: string) {
+export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImageElement | null, id: string, layout: LayoutResult, separatorImages: HTMLImageElement[], separatorId: string, separatorScale: number) {
   const c = referenceConfig(id);
   ctx.fillStyle = "#fbd58c";
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -153,7 +153,7 @@ export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImage
     const ornament = separatorImages[index];
     if (ornament?.complete && ornament.naturalWidth > 0 && ornament.naturalHeight > 0) {
       // Preserve the PNG's original proportions and transparent background.
-      const sizePercent = Number.isFinite(layout.separatorScale) ? Math.max(25, Math.min(200, layout.separatorScale)) / 100 : 1;
+      const sizePercent = Number.isFinite(separatorScale) ? Math.max(25, Math.min(200, separatorScale)) / 100 : 1;
       const maxWidth = Math.min(620 * sizePercent, 900);
       const maxHeight = Math.min(80 * sizePercent, 160);
       const scale = Math.min(maxWidth / ornament.naturalWidth, maxHeight / ornament.naturalHeight);
