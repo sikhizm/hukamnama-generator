@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { publishedSgpcDate } from "@/lib/hukamnama/sgpcCalendar";
+import { SEPARATOR_OPTIONS } from "@/lib/hukamnama/separatorAssets";
 import { formatSgpcCalendarDate } from "@/lib/hukamnama/sgpcDate";
 import { AUTHOR_OPTIONS, normalizeAuthor } from "@/lib/hukamnama/authors";
 import { Section, SliderRow, ToggleRow, SegRow, FieldLabel, TextInput, TextArea } from "./controls";
@@ -63,6 +64,7 @@ export interface PanelProps {
   patchHeader: (p: Partial<HeaderSettings>) => void;
   patchTypo: (p: Partial<TypoSettings>) => void;
   patchLogo: (p: Partial<LogoSettings>) => void;
+  separatorSpriteUrl?: string | null;
   fontStatus: FontStatus;
   fontCustom: boolean;
   strictFont: boolean;
@@ -566,6 +568,42 @@ export function TypographySection(p: PanelProps) {
       <p className="text-[10px] text-zinc-500">Applies to all three text areas. Auto-fit may reduce font sizes when spacing increases; turn it off to keep your pixel sizes.</p>
       <SliderRow label="Padding around separator" value={Math.round(((state.typo.separatorPaddingTop ?? 6) + (state.typo.separatorPaddingBottom ?? 14)) / 2)} min={0} max={160} step={1} format={v => `${v}px`} onChange={v => patchTypo({ separatorPaddingTop: v, separatorPaddingBottom: v })} />
       <p className="text-[10px] text-zinc-500">Increases or decreases the space equally above and below the separator. Auto-fit may reduce text sizes to make room.</p>
+      <div className="space-y-2 pt-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-semibold text-zinc-200">Ornamental separator</span>
+          <span className="text-[10px] text-zinc-500">{SEPARATOR_OPTIONS.length} original designs</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {SEPARATOR_OPTIONS.map((option, index) => {
+            const row = Math.floor(index / 2);
+            const column = index % 2;
+            const selected = state.typo.separatorId === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                aria-label={option.name}
+                aria-pressed={selected}
+                title={option.name}
+                onClick={() => patchTypo({ separatorId: option.id })}
+                className={`min-w-0 rounded-lg border p-1.5 text-left transition ${selected ? "border-amber-300 bg-amber-300/10 ring-1 ring-amber-300/40" : "border-white/10 bg-white/[0.025] hover:border-white/30"}`}
+              >
+                <span
+                  className="block h-8 w-full rounded bg-[#eee9dc]"
+                  style={p.separatorSpriteUrl ? {
+                    backgroundImage: `url("${p.separatorSpriteUrl}")`,
+                    backgroundRepeat: "no-repeat",
+                    backgroundSize: "200% 900%",
+                    backgroundPosition: `${column ? 100 : 0}% ${row * 12.5}%`,
+                  } : undefined}
+                />
+                <span className="mt-1 block truncate text-[10px] text-zinc-300">{option.id}. {option.name}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[10px] text-zinc-500">Choose an original ornamental design. The same selection is used in both 1080×1350 and 1080×1920 exports.</p>
+      </div>
     </Section>
   );
 }
