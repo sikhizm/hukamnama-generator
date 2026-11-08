@@ -573,7 +573,7 @@ export function TypographySection(p: PanelProps) {
           <span className="text-xs font-semibold text-zinc-200">Ornamental separator</span>
           <span className="text-[10px] text-zinc-500">{SEPARATOR_OPTIONS.length} original designs</span>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {SEPARATOR_OPTIONS.map((option, index) => {
             const row = Math.floor(index / 2);
             const column = index % 2;
