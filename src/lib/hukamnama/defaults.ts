@@ -50,6 +50,7 @@ export function defaultState(): StudioState {
       lineHeight: 1.62,
       separatorPaddingTop: 6,
       separatorPaddingBottom: 14,
+      separatorScale: 100,
       separatorId: "01",
     },
     footer: true,
