@@ -150,9 +150,9 @@ export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImage
   if (layout.blocks[0].dividerY > 0 && separatorSprite) {
     const index = Math.max(0, Math.min(17, Number.parseInt(separatorId, 10) - 1 || 0));
     const sourceX = (index % 2) * 900;
-    const sourceY = Math.floor(index / 2) * 200;
-    // All 18 original ornaments share a 900×200 sprite cell.
-    ctx.drawImage(separatorSprite, sourceX, sourceY, 900, 200, 230, layout.blocks[0].dividerY - 68, 620, 136);
+    const sourceY = Math.floor(index / 2) * 150;
+    // All 18 original ornaments share a 900×150 sprite cell.
+    ctx.drawImage(separatorSprite, sourceX, sourceY, 900, 150, 230, layout.blocks[0].dividerY - 68, 620, 136);
   }
   ctx.fillStyle = "#ba0000";
   ctx.fillRect(c.stripe[0], c.stripe[1], c.stripe[2], c.stripe[3]);
