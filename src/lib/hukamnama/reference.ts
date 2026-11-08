@@ -51,7 +51,7 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
   const padding = (value: number | undefined, fallback: number) => Number.isFinite(value) ? Math.max(0, Math.min(160, value!)) : fallback;
   const separatorTop = padding(state.typo.separatorPaddingTop, 6);
   const separatorBottom = padding(state.typo.separatorPaddingBottom, 14);
-  const keepSeparator = preset.id === "feed" || separatorTop !== 6 || separatorBottom !== 14;
+  const keepSeparator = true;
   const introductionMeasures = new Map<number, ReturnType<typeof measureBalancedAt>>();
   const originalMeasures = new Map<number, ReturnType<typeof measureBalancedAt>>();
   const translationMeasures = new Map<number, ReturnType<typeof measureBalancedAt>>();
@@ -65,10 +65,10 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
     const translation = translationMeasures.get(translationPx) ?? measureBalancedAt(ctx, state.translation, translationPx, translationW, lineHeight);
     originalMeasures.set(originalPx, original);
     translationMeasures.set(translationPx, translation);
-    // The ornament is 36px high: padding is measured from its outer edge,
-    // so even zero padding cannot move text through the ornament itself.
-    const gapBefore = separator ? 18 + separatorTop : 12;
-    const gapAfter = separator ? 18 + separatorBottom : 12;
+    // Original ornamental assets are rendered inside an 80px vertical band.
+    // Padding is measured outside that band, keeping text clear of every design.
+    const gapBefore = separator ? 40 + separatorTop : 12;
+    const gapAfter = separator ? 40 + separatorBottom : 12;
     const dividerY = separator ? originalTop + original.contentH + gapBefore : 0;
     const translationTop = originalTop + original.contentH + gapBefore + gapAfter;
     const originalBoxH = Math.max(0, Math.min(original.contentH, availableH - introH));
@@ -138,7 +138,7 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
 }
 
 /** Reference PNGs preserve all fixed artwork. Clear every variable region before drawing new text. */
-export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImageElement | null, id: string, layout: LayoutResult) {
+export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImageElement | null, id: string, layout: LayoutResult, separatorSprite: HTMLImageElement | null, separatorId: string) {
   const c = referenceConfig(id);
   ctx.fillStyle = "#fbd58c";
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -147,44 +147,12 @@ export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImage
   // can be positioned from the measured content instead of fixed PSD boxes.
   ctx.fillStyle = "#fbd58c";
   ctx.fillRect(0, c.bodyTop, 1080, c.date[1] - c.bodyTop);
-  if (layout.blocks[0].dividerY > 0) {
-    const y = layout.blocks[0].dividerY;
-    // One shared, symmetric ornament for both export sizes: tapered ends,
-    // a pair of round accents and a small central diamond.
-    ctx.save();
-    ctx.fillStyle = "#17100a";
-    ctx.beginPath();
-    ctx.moveTo(390, y);
-    ctx.lineTo(493, y - 2);
-    ctx.lineTo(505, y - 7);
-    ctx.lineTo(516, y - 6);
-    ctx.lineTo(524, y - 3);
-    ctx.lineTo(532, y - 7);
-    ctx.lineTo(540, y);
-    ctx.lineTo(548, y - 7);
-    ctx.lineTo(556, y - 3);
-    ctx.lineTo(564, y - 6);
-    ctx.lineTo(575, y - 7);
-    ctx.lineTo(587, y - 2);
-    ctx.lineTo(690, y);
-    ctx.lineTo(587, y + 2);
-    ctx.lineTo(575, y + 7);
-    ctx.lineTo(564, y + 6);
-    ctx.lineTo(556, y + 3);
-    ctx.lineTo(548, y + 7);
-    ctx.lineTo(540, y);
-    ctx.lineTo(532, y + 7);
-    ctx.lineTo(524, y + 3);
-    ctx.lineTo(516, y + 6);
-    ctx.lineTo(505, y + 7);
-    ctx.lineTo(493, y + 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(520, y, 8, 0, Math.PI * 2);
-    ctx.arc(560, y, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+  if (layout.blocks[0].dividerY > 0 && separatorSprite) {
+    const index = Math.max(0, Math.min(17, Number.parseInt(separatorId, 10) - 1 || 0));
+    const sourceX = (index % 2) * 900;
+    const sourceY = Math.floor(index / 2) * 200;
+    // All 18 original ornaments share a 900×200 sprite cell.
+    ctx.drawImage(separatorSprite, sourceX, sourceY, 900, 200, 230, layout.blocks[0].dividerY - 68, 620, 136);
   }
   ctx.fillStyle = "#ba0000";
   ctx.fillRect(c.stripe[0], c.stripe[1], c.stripe[2], c.stripe[3]);
