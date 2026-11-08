@@ -145,6 +145,8 @@ export interface TypoSettings {
   /** Blank space above/below the separator ornament, in export pixels. */
   separatorPaddingTop: number;
   separatorPaddingBottom: number;
+  /** Selected original ornamental divider asset (01–18). */
+  separatorId: string;
 }
 
 export interface StudioState {
