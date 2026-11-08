@@ -15,6 +15,8 @@ const { wrapText, measureBalancedAt } = require('../src/lib/hukamnama/text.ts');
 const { buildSocialCaption } = require('../src/lib/hukamnama/socialCaption.ts');
 const { parseSgpcPage, parseSgpcDailyMukhwakPage, parseSikhizmFeed, parseSikhizmLiveArticle, parseSikhizmPunjabiTranslation, findSikhizmPdfUrl, matchGurbaniNowMetadata } = require('../src/lib/hukamnama/liveSource.ts');
 const { referenceComposite, drawReference } = require('../src/lib/hukamnama/reference.ts');
+const { SEPARATOR_OPTIONS } = require('../src/lib/hukamnama/separatorAssets.ts');
+assert.equal(SEPARATOR_OPTIONS.length, 18, 'all supplied ornamental separators are available');
 // Deterministic measurement tests exercise bounds, not visual font equivalence.
 const ctx = { font: '', measureText(text) {
   const size = Number(this.font.match(/([\d.]+)px/)?.[1] || 16);
@@ -50,6 +52,10 @@ for (const id of ['feed', 'vertical']) {
   assert(clears.some(r => r[1] === (id === 'feed' ? 379 : 483)), 'clear old Gurbani');
   assert(clears.some(r => r[1] === (id === 'feed' ? 1256 : 1644)), 'clear old date');
   if (l.blocks[0].dividerY > 0) { const draw = imageDraws.at(-1); assert.equal(draw[1], 0, 'first design uses the first sprite column'); assert.equal(draw[2], 0, 'first design uses the first sprite row'); assert.equal(draw[3], 900); assert.equal(draw[4], 200); assert.equal(draw[7], 620); assert.equal(draw[8], 136); }
+  const selectedDraws = [];
+  referenceComposite({ canvas: { width: 1080, height: getPreset(id).h }, fillRect() {}, drawImage(...args) { selectedDraws.push(args); }, save() {}, restore() {} }, {}, id, l, {}, '18');
+  assert.equal(selectedDraws.at(-1)[1], 900, '18th design selects the second sprite column');
+  assert.equal(selectedDraws.at(-1)[2], 1600, '18th design selects the ninth sprite row');
 
   const mixed = { ...s, dateText: '24-October-2026 | ਕੱਤਕ (KATAK) 10 | ਸ਼ਨੀਚਰਵਾਰ (SATURDAY)', banikar: 'ਗੁਰੂ ਨਾਨਕ ਦੇਵ ਜੀ' };
   const drawn = [];
