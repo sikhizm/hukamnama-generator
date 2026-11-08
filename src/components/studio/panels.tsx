@@ -575,8 +575,6 @@ export function TypographySection(p: PanelProps) {
         </div>
         <div className="grid grid-cols-2 gap-2">
           {SEPARATOR_OPTIONS.map((option, index) => {
-            const row = Math.floor(index / 2);
-            const column = index % 2;
             const selected = state.typo.separatorId === option.id;
             return (
               <button
@@ -590,14 +588,9 @@ export function TypographySection(p: PanelProps) {
               >
                 <span
                   className="block h-8 w-full rounded bg-[#eee9dc]"
-                  style={p.separatorSpriteUrl ? {
-                    backgroundImage: `url("${p.separatorSpriteUrl}")`,
-                    backgroundRepeat: "no-repeat",
-                    backgroundSize: "200% 900%",
-                    backgroundPosition: `${column ? 100 : 0}% ${row * 12.5}%`,
-                  } : undefined}
+                  style={{ backgroundImage: `url("/separators/${Number(option.id)}.png")`, backgroundRepeat: "no-repeat", backgroundPosition: "center", backgroundSize: "contain" }}
                 />
-                <span className="mt-1 block truncate text-[10px] text-zinc-300">{option.id}. {option.name}</span>
+                <span className="mt-1 block truncate text-[10px] text-zinc-300">{Number(option.id)}. {option.name}</span>
               </button>
             );
           })}
