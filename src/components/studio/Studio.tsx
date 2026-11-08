@@ -106,7 +106,7 @@ export default function Studio() {
   const bgImgRef = useRef<HTMLImageElement | null>(null);
   const logoMarkRef = useRef<HTMLImageElement | null>(null);
   const logoCardRef = useRef<HTMLImageElement | null>(null);
-  const separatorImgRef = useRef<HTMLImageElement | null>(null);
+  const separatorImgRef = useRef<HTMLCanvasElement | null>(null);
   const compositeCache = useRef<{ key: string; canvas: HTMLCanvasElement } | null>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
   const fontInputRef = useRef<HTMLInputElement>(null);
@@ -263,7 +263,19 @@ export default function Studio() {
       const image = new Image();
       image.onload = () => {
         if (!alive) return;
-        separatorImgRef.current = image;
+        // Rasterize the SVG once at its exact source-sheet dimensions. Canvas
+        // crop coordinates are then deterministic across browsers and exports.
+        const sheet = document.createElement("canvas");
+        sheet.width = 1800;
+        sheet.height = 1350;
+        const context = sheet.getContext("2d");
+        if (!context || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+          setSeparatorReady(false);
+          return;
+        }
+        context.clearRect(0, 0, sheet.width, sheet.height);
+        context.drawImage(image, 0, 0, sheet.width, sheet.height);
+        separatorImgRef.current = sheet;
         setSeparatorSpriteUrl(url);
         setSeparatorReady(true);
         setSeparatorVersion((v) => v + 1);
