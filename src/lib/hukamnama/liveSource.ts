@@ -334,7 +334,7 @@ export function parseSikhizmPunjabiTranslation(html: string, expectedOriginal: s
   if (sourceOpening.length < 24 || !articleText.includes(sourceOpening)) return null;
 
   const headings = [...html.matchAll(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1\s*>/gi)];
-  const heading = headings.filter(item => /^(?:\d+\.\s*)?(?:Punjabi Translation|Translation in Punjabi|(?:Hukamnama )?(?:Meaning|Translation) in (?:Gurmukhi|Punjabi))(?: by Prof\.? Sahib Singh Ji)?$/i.test(htmlToLines(item[2]).join(" "))).at(-1);
+  const heading = headings.filter(item => /^(?:\d+\.\s*)?(?:Punjabi Translation|Translation in Punjabi|(?:Hukamnama )?(?:Meaning|Translation) in (?:Gurmukhi|Punjabi)(?:\s*\(\s*(?:Gurmukhi|Punjabi)\s*\))?)(?: by Prof\.? Sahib Singh Ji)?$/i.test(htmlToLines(item[2]).join(" "))).at(-1);
   if (!heading) return null;
   const start = (heading.index ?? 0) + heading[0].length;
   const nextHeading = headings.find(item => (item.index ?? 0) >= start)?.index ?? html.length;
