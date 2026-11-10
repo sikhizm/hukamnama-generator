@@ -9,6 +9,20 @@ export const metadata: Metadata = {
   icons: { icon: [{ url: "/favicon.ico?v=2", sizes: "32x32" }, { url: "/icons/ik-onkar.svg?v=2", type: "image/svg+xml" }], apple: "/icons/app-180.png?v=2" },
   description:
     "Create branded Daily Hukamnama visuals for Sikhizm.com: Sri Harmandir Sahib background, ChatrikUni Gurmukhi typography, and one-click exports for WhatsApp, Instagram Reels, YouTube Shorts and Facebook.",
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+      noarchive: true,
+      nosnippet: true,
+      "max-video-preview": -1,
+      "max-image-preview": "none",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export const viewport: Viewport = {
