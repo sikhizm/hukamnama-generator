@@ -369,8 +369,8 @@ final platform processing; inspect the account after the first live tests.
 ### YouTube connection
 
 Enable **YouTube Data API v3** in a Google Cloud project, configure its OAuth
-consent screen and your account as a test user if applicable, and create a Web
-application OAuth client. Register this redirect URI for production:
+consent screen, and create a Web application OAuth client. Register this redirect
+URI for production:
 
 `https://hukamnama-generator-nine.vercel.app/api/social/youtube/callback`
 
@@ -381,15 +381,32 @@ Set these server environment variables and redeploy:
 - `YOUTUBE_REDIRECT_URI`: the exact registered callback URI above.
 - `YOUTUBE_CHANNEL_ID`: optional expected channel ID to enforce the intended channel.
 
+**Important — Google OAuth publishing status:** Set the Google Auth Platform
+publishing status to **In production**, not **Testing**, for the OAuth project
+used by this live app. Google expires refresh tokens issued while an external
+OAuth consent screen is in Testing after 7 days when YouTube scopes are requested.
+No code change can override that Google-enforced limit. After changing the status,
+connect YouTube again once so the app receives a new refresh token under the
+production consent configuration. If the app is used only by its owner, Google
+may still show an unverified-app warning until verification; follow Google's
+current personal-use and verification rules.
+
 Click **Connect YouTube**, choose the intended Sikhizm channel, then **Check
-channel**. Upload and read-only channel scopes are requested. The refresh token
-is encrypted with AES-GCM under a key derived from `SOCIAL_ADMIN_KEY` and held
-in a Secure, HttpOnly, SameSite=Lax cookie on this browser. It is never returned
-to JavaScript or committed. OAuth state is signed/encrypted, short-lived and
-verified on callback. Each upload checks the authorized channel again. Rotating
-the setup key, revoking Google access, or clearing cookies requires reconnection.
-Google's consent mode and token expiry rules still apply. Uploads request public
-visibility; Google/channel policy and processing determine final availability.
+channel**. The app requests offline access and uses the refresh token to obtain
+short-lived access tokens automatically before uploads. If Google returns a
+replacement refresh token during renewal, the app saves it, including when a
+subsequent upload fails. Successful uploads also renew the encrypted connection
+cookie's one-year local lifetime. This local cookie lifetime does not extend
+Google's own refresh-token validity.
+
+The refresh token is encrypted with AES-GCM under a key derived from
+`SOCIAL_ADMIN_KEY` and held in a Secure, HttpOnly, SameSite=Lax cookie on this
+browser. It is never returned to JavaScript or committed. Keep
+`SOCIAL_ADMIN_KEY` stable; rotating it, revoking Google access, or clearing
+cookies requires reconnection. OAuth state is signed/encrypted, short-lived and
+verified on callback. Each upload checks the authorized channel again. Uploads
+request public visibility; Google/channel policy and processing determine final
+availability.
 
 The FFmpeg executable is a pinned Linux dependency, explicitly traced into only
 the reel function; intermediate files exist only in a per-request `/tmp`

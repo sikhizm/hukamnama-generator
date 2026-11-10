@@ -32,8 +32,16 @@ export function googleConfig() {
 export async function googleToken(fields: Record<string, string>, request: typeof fetch = fetch) {
   const config = googleConfig();
   const response = await request("https://oauth2.googleapis.com/token", { method: "POST", body: new URLSearchParams({ client_id: config.clientId, client_secret: config.clientSecret, ...fields }), signal: AbortSignal.timeout(20000), cache: "no-store" });
-  const data = await response.json();
-  if (!response.ok || !data.access_token) throw new Error("YouTube authorization failed. Connect your channel again.");
+  const data = await response.json() as { access_token?: string; refresh_token?: string; error?: string; error_subtype?: string };
+  if (!response.ok || !data.access_token) {
+    if (fields.grant_type === "refresh_token" && data.error === "invalid_grant") {
+      throw new Error("Google rejected the saved YouTube refresh token. If your Google OAuth consent screen is still set to Testing, Google expires these refresh tokens after 7 days. Change its publishing status to In production, then reconnect YouTube once. If it is already In production, access may have been revoked or the token invalidated; reconnect the channel.");
+    }
+    if (fields.grant_type === "refresh_token" && data.error_subtype === "invalid_rapt") {
+      throw new Error("Google requires you to sign in again because of an account session policy. Reconnect your YouTube channel.");
+    }
+    throw new Error("YouTube authorization failed. Connect your channel again.");
+  }
   return data as { access_token: string; refresh_token?: string };
 }
 export async function youtubeChannel(accessToken: string, request: typeof fetch = fetch) {
@@ -44,8 +52,10 @@ export async function youtubeChannel(accessToken: string, request: typeof fetch 
   if (process.env.YOUTUBE_CHANNEL_ID && channel.id !== process.env.YOUTUBE_CHANNEL_ID) throw new Error("Select the configured Sikhizm YouTube channel.");
   return { channelId: String(channel.id), title: String(channel.snippet.title) };
 }
-export async function publishYoutube(session: YoutubeSession, file: Blob, caption: string, title: string, request: typeof fetch = fetch) {
+export async function publishYoutube(session: YoutubeSession, file: Blob, caption: string, title: string, request: typeof fetch = fetch, onRefreshToken?: (refreshToken: string) => void) {
   const token = await googleToken({ grant_type: "refresh_token", refresh_token: session.refreshToken }, request);
+  // Google normally keeps the same refresh token, but persist it if token rotation is returned.
+  if (token.refresh_token) onRefreshToken?.(token.refresh_token);
   const channel = await youtubeChannel(token.access_token, request);
   if (channel.channelId !== session.channelId) throw new Error("The YouTube channel changed. Connect again before publishing.");
   const start = await request("https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status", {
