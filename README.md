@@ -370,11 +370,13 @@ final platform processing; inspect the account after the first live tests.
 
 Enable **YouTube Data API v3** in a Google Cloud project, configure its OAuth
 consent screen, and create a Web application OAuth client. Register this redirect
-URI for production:
+URI for production on the new custom domain:
 
-`https://hukamnama-generator-nine.vercel.app/api/social/youtube/callback`
+`https://hukam.sikhizm.com/api/social/youtube/callback`
 
-Set these server environment variables and redeploy:
+Set these server environment variables and redeploy. Update the Google OAuth client's
+Authorized redirect URIs to the new callback above, then reconnect YouTube on the new
+domain; browser cookies from the old Vercel hostname do not transfer:
 
 - `YOUTUBE_CLIENT_ID`: Web application OAuth client ID.
 - `YOUTUBE_CLIENT_SECRET`: OAuth client secret.
@@ -398,6 +400,21 @@ replacement refresh token during renewal, the app saves it, including when a
 subsequent upload fails. Successful uploads also renew the encrypted connection
 cookie's one-year local lifetime. This local cookie lifetime does not extend
 Google's own refresh-token validity.
+
+The app is intentionally excluded from search indexing: page metadata and the
+`X-Robots-Tag` response header send `noindex`, while `/robots.txt` allows crawlers
+to visit pages and read that directive. Do not add a `Disallow: /` rule, because
+that can stop Google from seeing the noindex instruction.
+
+The production app origin is `https://hukam.sikhizm.com`. Set
+`PUBLISHER_REDIRECT_BASE` to this origin and update every provider's OAuth callback
+URL to the corresponding `/api/social/publisher/callback/...` URL in
+`docs/social-publisher-v2.md`. The direct YouTube connection also requires
+`YOUTUBE_REDIRECT_URI=https://hukam.sikhizm.com/api/social/youtube/callback`.
+After the hostname changes, sign in again and reconnect social accounts: encrypted
+session and provider cookies are host-scoped and are not shared with the old
+`vercel.app` hostname. Keep `SOCIAL_ADMIN_KEY` unchanged so the encrypted
+connections remain decryptable if the browser still has the relevant cookie.
 
 The refresh token is encrypted with AES-GCM under a key derived from
 `SOCIAL_ADMIN_KEY` and held in a Secure, HttpOnly, SameSite=Lax cookie on this
