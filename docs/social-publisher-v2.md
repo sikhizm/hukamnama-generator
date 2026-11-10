@@ -68,14 +68,17 @@ can be configured independently; unavailable integrations stay unselectable.
 
 Common OAuth setting:
 
-- `PUBLISHER_REDIRECT_BASE`: the app HTTPS origin, for example
-  `https://hukamnama-generator-nine.vercel.app`.
+- `PUBLISHER_REDIRECT_BASE`: set to the production app HTTPS origin
+  `https://hukam.sikhizm.com`.
 - Existing `SOCIAL_ADMIN_KEY`: at least 32 characters; encrypts provider cookies,
   consistent with the existing YouTube connection. Credentials are HttpOnly,
   SameSite=Lax, Secure in production. New provider cookies are scoped to
   `/api/social/publisher`. Cookie capacity is checked before storing.
 
-Register these exact OAuth callback paths with each developer application:
+Register these exact OAuth callback paths with each developer application, using
+`https://hukam.sikhizm.com` as the origin. Update the callback URL in every
+provider console when moving from the old Vercel hostname. After deployment,
+reconnect the affected accounts because browser cookies are scoped to the old host:
 
 | Provider | Callback under PUBLISHER_REDIRECT_BASE | Other variables |
 | --- | --- | --- |
