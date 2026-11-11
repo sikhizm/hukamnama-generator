@@ -46,20 +46,39 @@ for (const id of ['feed', 'vertical']) {
   assert.equal(manual.blocks[0].fits, false);
   const clears = [];
   const imageDraws = [];
+  // Reference artwork now uses one PNG per separator, not a cropped sprite sheet.
+  const separatorImages = Array.from({ length: 10 }, () => ({
+    complete: true, naturalWidth: 620, naturalHeight: 80,
+  }));
   referenceComposite({
     canvas: {width: 1080, height: getPreset(id).h},
     fillRect(...r) { clears.push(r); },
     drawImage(...r) { imageDraws.push(r); },
     save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, bezierCurveTo() {}, arc() {}, closePath() {},
     stroke() {}, fill() {},
-  }, {}, id, l, {}, '01');
+  }, null, id, l, separatorImages, '01', 100);
   assert(clears.some(r => r[1] === (id === 'feed' ? 379 : 483)), 'clear old Gurbani');
   assert(clears.some(r => r[1] === (id === 'feed' ? 1256 : 1644)), 'clear old date');
-  if (l.blocks[0].dividerY > 0) { const draw = imageDraws.at(-1); assert.equal(draw[1], 0, 'first design uses the first sprite column'); assert.equal(draw[2], 0, 'first design uses the first sprite row'); assert.equal(draw[3], 900); assert.equal(draw[4], 150, 'each original design is 150px high'); assert.equal(draw[7], 620); assert.equal(draw[8], 136); }
+  if (l.blocks[0].dividerY > 0) {
+    const draw = imageDraws.at(-1);
+    assert.equal(draw[0], separatorImages[0], 'first design uses the first PNG asset');
+    assert.equal(draw[1], 230, 'first PNG is horizontally centred');
+    assert.equal(draw[2], l.blocks[0].dividerY - 40, 'first PNG is vertically centred on the measured separator line');
+    assert.equal(draw[3], 620);
+    assert.equal(draw[4], 80, 'PNG keeps its natural aspect ratio within the ornament band');
+  }
   const selectedDraws = [];
-  referenceComposite({ canvas: { width: 1080, height: getPreset(id).h }, fillRect() {}, drawImage(...args) { selectedDraws.push(args); }, save() {}, restore() {} }, {}, id, l, {}, '18');
-  assert.equal(selectedDraws.at(-1)[1], 900, '18th design selects the second sprite column');
-  assert.equal(selectedDraws.at(-1)[2], 1200, '18th design selects the ninth sprite row using 150px cells');
+  referenceComposite({
+    canvas: { width: 1080, height: getPreset(id).h },
+    fillRect() {},
+    drawImage(...args) { selectedDraws.push(args); },
+    save() {}, restore() {},
+  }, null, id, l, separatorImages, '10', 100);
+  assert.equal(selectedDraws.length, 1, 'selected separator renders one PNG asset');
+  assert.equal(selectedDraws[0][0], separatorImages[9], 'separator 10 selects its matching PNG asset');
+  assert.equal(selectedDraws[0][1], 230);
+  assert.equal(selectedDraws[0][3], 620);
+  assert.equal(selectedDraws[0][4], 80);
 
   const mixed = { ...s, dateText: '24-October-2026 | ਕੱਤਕ (KATAK) 10 | ਸ਼ਨੀਚਰਵਾਰ (SATURDAY)', banikar: 'ਗੁਰੂ ਨਾਨਕ ਦੇਵ ਜੀ' };
   const drawn = [];
