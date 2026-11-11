@@ -36,8 +36,7 @@ assert.notEqual(linkContext({ ...source, dateISO: '2026-10-25' }), linkContext({
   const missing = await findEvergreenLinks(source, async url => url.includes('wp-json') ? Response.json([]) : new Response('No matches'));
   assert.equal(missing.found, false); assert.equal(missing.articleUrl, ''); assert.equal(missing.pdfUrl, '');
   const caption = buildSocialCaption(source, '', '');
-  assert(!caption.includes('Read Complete')); assert(!caption.includes('Download Hukamnama PDF')); assert(!caption.includes('🔗')); assert(!caption.includes('----
-----'));
+  assert(!caption.includes('Read Complete')); assert(!caption.includes('Download Hukamnama PDF')); assert(!caption.includes('🔗')); assert(!caption.includes('----\n----'));
   const short = expandTemplate(SHORT_TEMPLATE, { date: 'today', articleUrl: '', pdfUrl: '' });
   assert(!short.includes('Read the complete')); assert(!short.includes('PDF:')); assert(short.includes('#Hukamnama'));
   assert.equal((await GET()).status, 400, 'a date alone cannot identify a shabad');

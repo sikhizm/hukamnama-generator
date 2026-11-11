@@ -99,6 +99,7 @@ export default function Studio() {
   const [reelTarget, setReelTarget] = useState<HTMLDivElement | null>(null);
   const [textPending, setTextPending] = useState(false);
   const [liveRecord, setLiveRecord] = useState<LiveHukamnama | null>(null);
+  const [activeMobileSection, setActiveMobileSection] = useState("mobile-generate");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -489,6 +490,22 @@ export default function Studio() {
     notify("Studio reset to defaults");
   };
 
+  const jumpToMobileSection = (sectionId: string) => {
+    setActiveMobileSection(sectionId);
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const mobileSections = [
+    { id: "mobile-generate", label: "Generate" },
+    { id: "mobile-font", label: "Font & artwork" },
+    { id: "mobile-date", label: "Date" },
+    { id: "mobile-details", label: "Details" },
+    { id: "mobile-content", label: "Content" },
+    { id: "mobile-typography", label: "Typography" },
+    { id: "mobile-preview", label: "Preview" },
+    { id: "mobile-share", label: "Publish" },
+  ];
+
   /* -------------------------------------------------------------- UI */
   const fontChip = (() => {
     if (fontStatus === "checking")
@@ -575,9 +592,22 @@ export default function Studio() {
 
       <LiveSourceStatus onUse={useLiveHukamnama} onStatus={setLiveRecord} />
 
+      {/* Mobile-only quick navigation. Desktop keeps its existing three-column layout. */}
+      <nav aria-label="Quick section navigation" className="sticky top-0 z-30 border-b border-white/10 bg-[#0c0d13]/95 px-3 py-2 shadow-lg shadow-black/20 backdrop-blur lg:hidden">
+        <div className="mb-1 px-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Jump to section</div>
+        <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {mobileSections.map((section) => (
+            <button key={section.id} type="button" onClick={() => jumpToMobileSection(section.id)} aria-current={activeMobileSection === section.id ? "location" : undefined}
+              className={`shrink-0 rounded-full border px-3 py-2 text-[11px] font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 ${activeMobileSection === section.id ? "border-amber-300/60 bg-amber-400/15 text-amber-200" : "border-white/10 bg-white/[0.03] text-zinc-300"}`}>
+              {section.label}
+            </button>
+          ))}
+        </div>
+      </nav>
+
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[270px_minmax(0,1fr)_320px] xl:grid-cols-[300px_minmax(0,1fr)_350px]">
         {/* ----------------------------------------------------- sidebar */}
-        <aside aria-label="Generation controls" className="studio-scroll order-3 min-w-0 border-r border-white/[0.06] bg-[#0d0e14] lg:order-1 lg:overflow-y-auto">
+        <aside id="mobile-generate" aria-label="Generation controls" className="studio-scroll order-3 min-w-0 scroll-mt-24 border-r border-white/[0.06] bg-[#0d0e14] lg:order-1 lg:overflow-y-auto">
           <h2 className="sticky top-0 z-20 border-b border-white/10 bg-[#0d0e14] px-4 py-3 text-sm font-semibold text-amber-200">1 · Generate</h2>
           <section className="space-y-3 border-b border-white/10 p-4">
             <div>
@@ -594,7 +624,7 @@ export default function Studio() {
             </div>
             <p className="text-xs text-amber-200">Dates use SGPC’s daily page or its published Samvat 558 calendar. Other years require a verified SGPC date line.</p>
           </section>
-          <FontSection
+          <div id="mobile-font" className="scroll-mt-24"><FontSection
             state={state}
             layout={layout}
             patch={patch}
@@ -609,16 +639,16 @@ export default function Studio() {
             onPickFont={() => fontInputRef.current?.click()}
             onUploadBg={() => bgInputRef.current?.click()}
             onResetBg={() => patchBg({ dataUrl: null })}
-          />
-          <DateSection {...panelProps()} />
-          <MetaSection {...panelProps()} />
-          <ContentSection key={JSON.stringify([state.original, state.translation, state.introduction])} {...panelProps()} onPendingChange={setTextPending} />
-          <TypographySection {...panelProps()} />
+          /></div>
+          <div id="mobile-date" className="scroll-mt-24"><DateSection {...panelProps()} /></div>
+          <div id="mobile-details" className="scroll-mt-24"><MetaSection {...panelProps()} /></div>
+          <div id="mobile-content" className="scroll-mt-24"><ContentSection key={JSON.stringify([state.original, state.translation, state.introduction])} {...panelProps()} onPendingChange={setTextPending} /></div>
+          <div id="mobile-typography" className="scroll-mt-24"><TypographySection {...panelProps()} /></div>
 
         </aside>
 
         {/* ------------------------------------------------------- stage */}
-        <main aria-label="Image and reel previews" className="order-1 flex min-h-0 min-w-0 flex-col lg:order-2 lg:overflow-y-auto">
+        <main id="mobile-preview" aria-label="Image and reel previews" className="order-1 flex min-h-0 min-w-0 scroll-mt-24 flex-col lg:order-2 lg:overflow-y-auto">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[#0d0e14] px-4 py-3">
             <h2 className="text-sm font-semibold text-amber-200">2 · Preview</h2>
             <div role="group" aria-label="Image preview zoom" className="flex gap-1">
@@ -669,7 +699,7 @@ export default function Studio() {
           </div>
           <div ref={setReelTarget} className="border-t border-white/10 bg-[#0d0e14] p-4" />
         </main>
-        <aside aria-label="Sharing and publishing" className="studio-scroll order-2 min-w-0 border-l border-white/10 bg-[#0d0e14] lg:order-3 lg:overflow-y-auto">
+        <aside id="mobile-share" aria-label="Sharing and publishing" className="studio-scroll order-2 min-w-0 scroll-mt-24 border-l border-white/10 bg-[#0d0e14] lg:order-3 lg:overflow-y-auto">
           <h2 className="sticky top-0 z-20 border-b border-white/10 bg-[#0d0e14] px-4 py-3 text-sm font-semibold text-emerald-200">3 · Share &amp; publish</h2>
           <SocialCaption
             pendingText={textPending}

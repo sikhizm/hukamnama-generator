@@ -15,11 +15,12 @@ const { wrapText, measureBalancedAt } = require('../src/lib/hukamnama/text.ts');
 const { buildSocialCaption } = require('../src/lib/hukamnama/socialCaption.ts');
 const { parseSgpcPage, parseSgpcDailyMukhwakPage, parseSikhizmFeed, parseSikhizmLiveArticle, parseSikhizmPunjabiTranslation, findSikhizmPdfUrl, matchGurbaniNowMetadata } = require('../src/lib/hukamnama/liveSource.ts');
 const { referenceComposite, drawReference } = require('../src/lib/hukamnama/reference.ts');
-const { SEPARATOR_OPTIONS, SEPARATOR_SPRITE_GZIP_BASE64 } = require('../src/lib/hukamnama/separatorAssets.ts');
-const { gunzipSync } = require('node:zlib');
-const separatorSvg = gunzipSync(Buffer.from(SEPARATOR_SPRITE_GZIP_BASE64, 'base64')).toString('utf8');
-assert.ok(separatorSvg.includes('viewBox="0 0 1800 1350"'), 'separator sprite keeps its original 1800×1350 coordinate system');
-assert.equal(SEPARATOR_OPTIONS.length, 18, 'all supplied ornamental separators are available');
+const { SEPARATOR_OPTIONS, separatorImagePath } = require('../src/lib/hukamnama/separatorAssets.ts');
+assert.equal(SEPARATOR_OPTIONS.length, 10, 'all supplied PNG separators are available');
+for (let index = 1; index <= 10; index++) {
+  const assetPath = require('node:path').join(__dirname, '..', 'public', separatorImagePath(String(index)));
+  assert.ok(fs.existsSync(assetPath), `separator ${index} exists at its configured public path`);
+}
 // Deterministic measurement tests exercise bounds, not visual font equivalence.
 const ctx = { font: '', measureText(text) {
   const size = Number(this.font.match(/([\d.]+)px/)?.[1] || 16);
@@ -45,20 +46,39 @@ for (const id of ['feed', 'vertical']) {
   assert.equal(manual.blocks[0].fits, false);
   const clears = [];
   const imageDraws = [];
+  // Reference artwork now uses one PNG per separator, not a cropped sprite sheet.
+  const separatorImages = Array.from({ length: 10 }, () => ({
+    complete: true, naturalWidth: 620, naturalHeight: 80,
+  }));
   referenceComposite({
     canvas: {width: 1080, height: getPreset(id).h},
     fillRect(...r) { clears.push(r); },
     drawImage(...r) { imageDraws.push(r); },
     save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, bezierCurveTo() {}, arc() {}, closePath() {},
     stroke() {}, fill() {},
-  }, {}, id, l, {}, '01');
+  }, null, id, l, separatorImages, '01', 100);
   assert(clears.some(r => r[1] === (id === 'feed' ? 379 : 483)), 'clear old Gurbani');
   assert(clears.some(r => r[1] === (id === 'feed' ? 1256 : 1644)), 'clear old date');
-  if (l.blocks[0].dividerY > 0) { const draw = imageDraws.at(-1); assert.equal(draw[1], 0, 'first design uses the first sprite column'); assert.equal(draw[2], 0, 'first design uses the first sprite row'); assert.equal(draw[3], 900); assert.equal(draw[4], 150, 'each original design is 150px high'); assert.equal(draw[7], 620); assert.equal(draw[8], 136); }
+  if (l.blocks[0].dividerY > 0) {
+    const draw = imageDraws.at(-1);
+    assert.equal(draw[0], separatorImages[0], 'first design uses the first PNG asset');
+    assert.equal(draw[1], 230, 'first PNG is horizontally centred');
+    assert.equal(draw[2], l.blocks[0].dividerY - 40, 'first PNG is vertically centred on the measured separator line');
+    assert.equal(draw[3], 620);
+    assert.equal(draw[4], 80, 'PNG keeps its natural aspect ratio within the ornament band');
+  }
   const selectedDraws = [];
-  referenceComposite({ canvas: { width: 1080, height: getPreset(id).h }, fillRect() {}, drawImage(...args) { selectedDraws.push(args); }, save() {}, restore() {} }, {}, id, l, {}, '18');
-  assert.equal(selectedDraws.at(-1)[1], 900, '18th design selects the second sprite column');
-  assert.equal(selectedDraws.at(-1)[2], 1200, '18th design selects the ninth sprite row using 150px cells');
+  referenceComposite({
+    canvas: { width: 1080, height: getPreset(id).h },
+    fillRect() {},
+    drawImage(...args) { selectedDraws.push(args); },
+    save() {}, restore() {},
+  }, null, id, l, separatorImages, '10', 100);
+  assert.equal(selectedDraws.length, 1, 'selected separator renders one PNG asset');
+  assert.equal(selectedDraws[0][0], separatorImages[9], 'separator 10 selects its matching PNG asset');
+  assert.equal(selectedDraws[0][1], 230);
+  assert.equal(selectedDraws[0][3], 620);
+  assert.equal(selectedDraws[0][4], 80);
 
   const mixed = { ...s, dateText: '24-October-2026 | ਕੱਤਕ (KATAK) 10 | ਸ਼ਨੀਚਰਵਾਰ (SATURDAY)', banikar: 'ਗੁਰੂ ਨਾਨਕ ਦੇਵ ਜੀ' };
   const drawn = [];
@@ -304,13 +324,13 @@ for (const id of ['feed', 'vertical']) {
   assert.equal(above.blocks[1].textRect.y - base.blocks[1].textRect.y, 40);
   assert.equal(below.blocks[0].dividerY, base.blocks[0].dividerY);
   assert.equal(below.blocks[1].textRect.y - base.blocks[1].textRect.y, 40);
-  assert.equal(zero.blocks[0].dividerY - (zero.blocks[0].textRect.y + zero.blocks[0].contentH), 18);
-  assert.equal(zero.blocks[1].textRect.y - zero.blocks[0].dividerY, 18);
+  assert.equal(zero.blocks[0].dividerY - (zero.blocks[0].textRect.y + zero.blocks[0].contentH), 40, 'zero padding retains the 40px ornament band');
+  assert.equal(zero.blocks[1].textRect.y - zero.blocks[0].dividerY, 40, 'zero padding retains the 40px ornament band');
   const fitted = measure(40, 60, true);
   assert.ok(fitted.blocks[0].dividerY > 0, 'custom padding keeps the separator instead of silently hiding it');
   assert.ok(fitted.blocks.every(block => block.fits));
-  assert.equal(fitted.blocks[0].dividerY - (fitted.blocks[0].textRect.y + fitted.blocks[0].contentH), 58);
-  assert.equal(fitted.blocks[1].textRect.y - fitted.blocks[0].dividerY, 78);
+  assert.equal(fitted.blocks[0].dividerY - (fitted.blocks[0].textRect.y + fitted.blocks[0].contentH), 80, '40px ornament band plus 40px top padding');
+  assert.equal(fitted.blocks[1].textRect.y - fitted.blocks[0].dividerY, 100, '40px ornament band plus 60px bottom padding');
   assert.ok(fitted.blocks[0].px > fitted.blocks[1].px);
   const legacy = measure(undefined, undefined);
   assert.deepEqual(legacy.blocks, base.blocks, 'older saved settings keep the existing spacing defaults');
