@@ -324,8 +324,8 @@ for (const id of ['feed', 'vertical']) {
   assert.equal(above.blocks[1].textRect.y - base.blocks[1].textRect.y, 40);
   assert.equal(below.blocks[0].dividerY, base.blocks[0].dividerY);
   assert.equal(below.blocks[1].textRect.y - base.blocks[1].textRect.y, 40);
-  assert.equal(zero.blocks[0].dividerY - (zero.blocks[0].textRect.y + zero.blocks[0].contentH), 18);
-  assert.equal(zero.blocks[1].textRect.y - zero.blocks[0].dividerY, 18);
+  assert.equal(zero.blocks[0].dividerY - (zero.blocks[0].textRect.y + zero.blocks[0].contentH), 40, 'zero padding retains the 40px ornament band');
+  assert.equal(zero.blocks[1].textRect.y - zero.blocks[0].dividerY, 40, 'zero padding retains the 40px ornament band');
   const fitted = measure(40, 60, true);
   assert.ok(fitted.blocks[0].dividerY > 0, 'custom padding keeps the separator instead of silently hiding it');
   assert.ok(fitted.blocks.every(block => block.fits));
