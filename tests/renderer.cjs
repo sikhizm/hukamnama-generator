@@ -329,8 +329,8 @@ for (const id of ['feed', 'vertical']) {
   const fitted = measure(40, 60, true);
   assert.ok(fitted.blocks[0].dividerY > 0, 'custom padding keeps the separator instead of silently hiding it');
   assert.ok(fitted.blocks.every(block => block.fits));
-  assert.equal(fitted.blocks[0].dividerY - (fitted.blocks[0].textRect.y + fitted.blocks[0].contentH), 58);
-  assert.equal(fitted.blocks[1].textRect.y - fitted.blocks[0].dividerY, 78);
+  assert.equal(fitted.blocks[0].dividerY - (fitted.blocks[0].textRect.y + fitted.blocks[0].contentH), 80, '40px ornament band plus 40px top padding');
+  assert.equal(fitted.blocks[1].textRect.y - fitted.blocks[0].dividerY, 100, '40px ornament band plus 60px bottom padding');
   assert.ok(fitted.blocks[0].px > fitted.blocks[1].px);
   const legacy = measure(undefined, undefined);
   assert.deepEqual(legacy.blocks, base.blocks, 'older saved settings keep the existing spacing defaults');
