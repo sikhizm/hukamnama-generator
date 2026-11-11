@@ -55,7 +55,7 @@ assert.equal(applied.fullOriginal, updated.original);
 assert.ok(splitIntroduction(applied.original).introduction.endsWith('ਪ੍ਰਸਾਦਿ ॥'));
 assert.equal(live.cleanPunjabiTranslation('(English keyword) ਹੇ ਮਨ! (ਪੰਜਾਬੀ ਅਰਥ) ਹੋਰ।੧।'), 'ਹੇ ਮਨ! (ਪੰਜਾਬੀ ਅਰਥ) ਹੋਰ।੧।');
 assert.equal(live.cleanPunjabiTranslation('Keyword phrase — ਹੇ ਮਨ! [English label] ਹੋਰ।੧।'), 'ਹੇ ਮਨ! ਹੋਰ।੧।');
-assert.ok(hukamnamaExcerpt(updated.original, updated.translation.replace('।੧।ਰਹਾਉ।', '।੨।ਰਹਾਉ।').replace('।੧।', '।੨।')).error, 'unrelated numbered meanings cannot be accepted');
+assert.ok(hukamnamaExcerpt(updated.original, updated.translation.replace('।੧।ਰਹਾਉ।', '।੨।ਰਹਾਉ।').replace('।੧।', '।੨।')).warning, 'unrelated numbered meanings must be flagged for manual review');
 
 // Read-only responses from SGPC's archive calendar, retrieved 27 October.
 const archive = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/sgpc-archive-oct20-27.json'), 'utf8'));
