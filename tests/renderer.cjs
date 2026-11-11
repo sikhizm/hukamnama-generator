@@ -15,11 +15,12 @@ const { wrapText, measureBalancedAt } = require('../src/lib/hukamnama/text.ts');
 const { buildSocialCaption } = require('../src/lib/hukamnama/socialCaption.ts');
 const { parseSgpcPage, parseSgpcDailyMukhwakPage, parseSikhizmFeed, parseSikhizmLiveArticle, parseSikhizmPunjabiTranslation, findSikhizmPdfUrl, matchGurbaniNowMetadata } = require('../src/lib/hukamnama/liveSource.ts');
 const { referenceComposite, drawReference } = require('../src/lib/hukamnama/reference.ts');
-const { SEPARATOR_OPTIONS, SEPARATOR_SPRITE_GZIP_BASE64 } = require('../src/lib/hukamnama/separatorAssets.ts');
-const { gunzipSync } = require('node:zlib');
-const separatorSvg = gunzipSync(Buffer.from(SEPARATOR_SPRITE_GZIP_BASE64, 'base64')).toString('utf8');
-assert.ok(separatorSvg.includes('viewBox="0 0 1800 1350"'), 'separator sprite keeps its original 1800×1350 coordinate system');
-assert.equal(SEPARATOR_OPTIONS.length, 18, 'all supplied ornamental separators are available');
+const { SEPARATOR_OPTIONS, separatorImagePath } = require('../src/lib/hukamnama/separatorAssets.ts');
+assert.equal(SEPARATOR_OPTIONS.length, 10, 'all supplied PNG separators are available');
+for (let index = 1; index <= 10; index++) {
+  const assetPath = require('node:path').join(__dirname, '..', 'public', separatorImagePath(String(index)));
+  assert.ok(fs.existsSync(assetPath), `separator ${index} exists at its configured public path`);
+}
 // Deterministic measurement tests exercise bounds, not visual font equivalence.
 const ctx = { font: '', measureText(text) {
   const size = Number(this.font.match(/([\d.]+)px/)?.[1] || 16);
