@@ -19,6 +19,7 @@ import {
   Frame,
   RotateCcw,
   CircleCheck,
+  QrCode,
 } from "lucide-react";
 import SocialCaption from "./SocialCaption";
 import Link from "next/link";
@@ -681,6 +682,20 @@ export default function Studio() {
               }`}
             >
               <Frame size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => patch({ showQrCode: !state.showQrCode })}
+              title={state.showQrCode ? "Hide QR code on artwork" : "Show QR code on artwork"}
+              aria-label={state.showQrCode ? "Hide QR code" : "Show QR code"}
+              aria-pressed={state.showQrCode}
+              className={`grid h-8 w-8 place-items-center rounded-lg border backdrop-blur transition ${
+                state.showQrCode
+                  ? "border-amber-300/60 bg-amber-400/20 text-amber-300"
+                  : "border-white/10 bg-black/40 text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              <QrCode size={14} />
             </button>
           </div>
 
