@@ -139,11 +139,21 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
 }
 
 /** Reference PNGs preserve all fixed artwork. Clear every variable region before drawing new text. */
-export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImageElement | null, id: string, layout: LayoutResult, separatorImages: HTMLImageElement[], separatorId: string, separatorScale: number) {
+export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImageElement | null, id: string, layout: LayoutResult, separatorImages: HTMLImageElement[], separatorId: string, separatorScale: number, showQrCode = true) {
   const c = referenceConfig(id);
   ctx.fillStyle = "#fbd58c";
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  if (img) ctx.drawImage(img, 0, 0);
+  if (img) {
+    ctx.drawImage(img, 0, 0);
+    if (!showQrCode && img.complete && img.naturalWidth > 0) {
+      // The QR is baked into the reference PNGs. Replace only its top-right
+      // photo area with an adjacent clean crop, preserving the rest of the art.
+      const qr = id === "feed"
+        ? { x: 914, y: 33, size: 126, sourceX: 788 }
+        : { x: 712, y: 47, size: 134, sourceX: 578 };
+      ctx.drawImage(img, qr.sourceX, qr.y, qr.size, qr.size, qr.x, qr.y, qr.size, qr.size);
+    }
+  }
   // Clear the complete variable body so both text blocks and the separator
   // can be positioned from the measured content instead of fixed PSD boxes.
   ctx.fillStyle = "#fbd58c";
