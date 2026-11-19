@@ -13,6 +13,7 @@ export function defaultState(): StudioState {
     design: "reference",
     presetId: "vertical",
     safeArea: false,
+    showQrCode: true,
     bg: {
       mode: "image",
       dataUrl: null,
