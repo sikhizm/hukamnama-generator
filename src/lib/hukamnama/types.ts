@@ -155,6 +155,8 @@ export interface StudioState {
   design: "reference";
   presetId: string;
   safeArea: boolean;
+  /** Show the QR code embedded in the Sikhizm reference artwork. */
+  showQrCode: boolean;
   bg: BgSettings;
   header: HeaderSettings;
   dateISO: string;
