@@ -85,6 +85,12 @@ export function FontSection(p: PanelProps) {
       title="Font"
       subtitle={fontStatus === "ready" ? `${def.label} active` : `${def.label} — export requires this font`}
     >
+      <ToggleRow
+        label="Show QR code on Hukamnama image"
+        desc="Show or hide the QR code in the top-right corner of both image sizes."
+        checked={state.showQrCode}
+        onChange={(v) => patch({ showQrCode: v })}
+      />
       <div className="grid grid-cols-2 gap-2">
         {FONT_OPTIONS.map((f) => {
           const active = f.id === state.fontId;
