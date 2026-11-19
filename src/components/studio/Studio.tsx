@@ -347,6 +347,7 @@ export default function Studio() {
       (state.bg.dataUrl || "").length,
       L.blocks[0]?.dividerY,
       state.typo.separatorId,
+      state.showQrCode,
       separatorVersion,
       bgVersion,
     ].join("|");
