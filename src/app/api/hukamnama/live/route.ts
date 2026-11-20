@@ -1,5 +1,6 @@
 import { readSourceSelection } from "@/lib/hukamnama/sourceSelection";
 import { lookupPunjabiTranslation } from "@/lib/hukamnama/translationLookup";
+import { hukamnamaExcerpt } from "@/lib/hukamnama/excerpt";
 import { NextResponse } from "next/server";
 import { parseHukamnamaSahib, parseDekhoJi, parseSikhNet, headingAuthor } from "@/lib/hukamnama/fallbackSources";
 import { parseSgpcDailyMukhwakPage, parseSgpcPage, parseSikhizmFeed, parseSikhizmLiveArticle, type LiveHukamnama } from "@/lib/hukamnama/liveSource";
@@ -108,7 +109,8 @@ export async function GET(request: Request) {
       // Such text cannot be aligned safely with the Gurbani excerpt, so use
       // BaniDB only when the translation has no Rahao/numbered stanza markers.
       const hasStanzaMarkers = /(?:ਰਹਾਉ|ਠਹਿਰਾਉ)\s*[॥।]+|[॥।]\s*[੦-੯0-9]+(?:\s*[॥।]\s*[੦-੯0-9]+)*\s*[॥।]/u.test(record.translation);
-      if ((!record.translation || !hasStanzaMarkers) && (selection?.translation ?? true)) {
+      const excerptAlignment = hukamnamaExcerpt(record.original, record.translation);
+      if ((!record.translation || !hasStanzaMarkers || !!excerptAlignment.warning) && (selection?.translation ?? true)) {
         try {
           const translation = await lookupPunjabiTranslation(record);
           if (translation) {
