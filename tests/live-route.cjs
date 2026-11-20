@@ -126,6 +126,19 @@ async function run(responses, query = "?refresh=1") {
   const sikhizmEnriched = await run({ [urls.feed]: feed, [urls.article]: sikhizmNoMeaning, [urls.baniAng]: JSON.stringify(baniAng), [urls.baniShabad]: JSON.stringify(baniShabad) });
   assert.equal(sikhizmEnriched.data.translation, meaning);
   assert.deepEqual(sikhizmEnriched.calls, [urls.feed, urls.article, urls.baniAng, urls.baniShabad]);
+  // A Sikhizm translation can be present but lack all stanza-ending markers.
+  // Replace it with the exact BaniDB match so the excerpt can align meanings.
+  const sikhizmUnmarked = html.replace(
+    /(<h3>[\\s\\S]*?Punjabi Translation<\\/h3>)([\\s\\S]*?)(<h3>Hindi Translation<\\/h3>)/,
+    (_, heading, body, next) => heading + body.replace(/(?:[।॥]\\s*(?:[੦-੯0-9]+\\s*[।॥]|ਰਹਾਉ\\s*[।॥]))/gu, "") + next
+  );
+  const unmarkedParsed = parseSikhizmLiveArticle(sikhizmUnmarked, { publishedAt: 'Sun, 25 Oct 2026 00:00:11 +0000', localDateISO: day }, day);
+  assert.ok(unmarkedParsed.translation.length > 300);
+  assert.ok(!/(?:ਰਹਾਉ|ਠਹਿਰਾਉ)\\s*[॥।]+|[॥।]\\s*[੦-੯0-9]+[॥।]/u.test(unmarkedParsed.translation));
+  const sikhizmMarkerFallback = await run({ [urls.feed]: feed, [urls.article]: sikhizmUnmarked, [urls.baniAng]: JSON.stringify(baniAng), [urls.baniShabad]: JSON.stringify(baniShabad) });
+  assert.equal(sikhizmMarkerFallback.data.translation, meaning);
+  assert.ok(sikhizmMarkerFallback.data.sourceName.includes('matched BaniDB'));
+  assert.deepEqual(sikhizmMarkerFallback.calls, [urls.feed, urls.article, urls.baniAng, urls.baniShabad]);
   const sikhizmUnavailableMeaning = await run({ [urls.feed]: feed, [urls.article]: sikhizmNoMeaning, [urls.sahib]: sahibHtml });
   assert.equal(sikhizmUnavailableMeaning.data.translation, '');
   assert.deepEqual(sikhizmUnavailableMeaning.calls, [urls.feed, urls.article, urls.baniAng], 'failed meaning lookup cannot cause a daily-source switch');
