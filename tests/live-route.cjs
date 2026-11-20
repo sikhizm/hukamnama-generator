@@ -139,6 +139,20 @@ async function run(responses, query = "?refresh=1") {
   assert.equal(sikhizmMarkerFallback.data.translation, meaning);
   assert.ok(sikhizmMarkerFallback.data.sourceName.includes('matched BaniDB'));
   assert.deepEqual(sikhizmMarkerFallback.calls, [urls.feed, urls.article, urls.baniAng, urls.baniShabad]);
+
+  // Markers can exist but still disagree with the Gurbani stanza sequence.
+  // A marker mismatch must also trigger the verified BaniDB translation.
+  const sikhizmMisaligned = html.replace(
+    /(<h3>[\s\S]*?Punjabi Translation<\/h3>)([\s\S]*?)(<h3>Hindi Translation<\/h3>)/,
+    (_, heading, body, next) => heading + body.replace(/([।॥]\s*)[੦-੯0-9]+(\s*[।॥])/gu, '$1੯$2') + next
+  );
+  const misalignedParsed = parseSikhizmLiveArticle(sikhizmMisaligned, { publishedAt: 'Sun, 25 Oct 2026 00:00:11 +0000', localDateISO: day }, day);
+  assert.ok(/(?:ਰਹਾਉ|ਠਹਿਰਾਉ)\s*[॥।]+|[॥।]\s*[੦-੯0-9]+[॥।]/u.test(misalignedParsed.translation), 'the test translation still contains markers');
+  const misalignedFallback = await run({ [urls.feed]: feed, [urls.article]: sikhizmMisaligned, [urls.baniAng]: JSON.stringify(baniAng), [urls.baniShabad]: JSON.stringify(baniShabad) });
+  assert.equal(misalignedFallback.data.translation, meaning);
+  assert.ok(misalignedFallback.data.sourceName.includes('matched BaniDB'));
+  assert.deepEqual(misalignedFallback.calls, [urls.feed, urls.article, urls.baniAng, urls.baniShabad]);
+
   const sikhizmUnavailableMeaning = await run({ [urls.feed]: feed, [urls.article]: sikhizmNoMeaning, [urls.sahib]: sahibHtml });
   assert.equal(sikhizmUnavailableMeaning.data.translation, '');
   assert.deepEqual(sikhizmUnavailableMeaning.calls, [urls.feed, urls.article, urls.baniAng], 'failed meaning lookup cannot cause a daily-source switch');
