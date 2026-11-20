@@ -29,26 +29,16 @@ export function hukamnamaExcerpt(original: string, translation: string): Hukamna
   if (count(original.trim()) <= 250) return full;
   const source = original.trim();
   const markers = endings(source);
-  const safe = markers.filter(marker => marker.length <= 250);
-  const firstOne = markers.findIndex(marker => marker.key === "1");
-  // A complete rahau takes priority even beyond the usual 250-character budget.
-  const rahau = markers.find(marker => marker.key === "rahau" && (marker.length > 200
-    || (firstOne >= 0 && firstOne < markers.indexOf(marker))));
-  const numbered = safe.filter(marker => marker.key !== "rahau");
-  const preferred = numbered.filter(marker => marker.length >= 220 && marker.length <= 230);
-  const nearest = (items: typeof markers) => [...items].sort((a, b) => Math.abs(a.length - 225) - Math.abs(b.length - 225) || b.length - a.length)[0];
-  let chosen = rahau ?? nearest(preferred) ?? nearest(numbered) ?? markers.find(marker => marker.key === "rahau") ?? markers[0];
-  // When no complete pause appears in the first 600 characters, use the
-  // first complete ending (number or pause) rather than preferring a later one.
-  const hasEarlyRahau = markers.some(marker => marker.key === "rahau" && marker.length <= 600);
-  if (!hasEarlyRahau) chosen = markers[0] ?? null;
-  // Fill the useful range after an early selected pause without splitting a
-  // verse. This overrides stanza-1-before-rahau priority only below 200.
-  if (chosen?.key === "rahau" && chosen.length < 200) {
-    const pauseEnd = chosen.end;
-    const later = numbered.filter(marker => marker.end > pauseEnd && marker.length >= 200);
-    chosen = nearest(later.filter(marker => marker.length >= 220 && marker.length <= 230)) ?? nearest(later) ?? chosen;
-  }
+  // Rahao is the preferred media boundary whenever its complete marker
+  // appears within the first 600 characters. Do not extend beyond it to
+  // satisfy a target character count: later stanzas are not part of the
+  // Rahao excerpt.
+  const chosen = markers.find(marker => marker.key === "rahau" && marker.length <= 600)
+    // If no early Rahao exists, use the first complete numbered stanza.
+    // This fallback is intentionally independent of the 220–230 character
+    // layout preference, which must never override stanza order.
+    ?? markers.find(marker => marker.key !== "rahau");
+
   if (!chosen) return { ...full, warning: "No complete stanza ending was found within the 250-character excerpt limit. The full source remains editable; shorten it manually before exporting." };
 
   // Match the complete marker sequence, so a repeated ੧ or a final ੩।੧।੨੯। cannot pick the wrong stanza.
