@@ -104,11 +104,18 @@ export async function GET(request: Request) {
       record = { ...candidate };
       // Once a dated daily source is selected, do not query lower-priority daily
       // providers. A missing meaning can only come from an exact scripture match.
-      if (!record.translation && (selection?.translation ?? true)) {
+      // Sikhizm's translation can be present but lack stanza-ending markers.
+      // Such text cannot be aligned safely with the Gurbani excerpt, so use
+      // BaniDB only when the translation has no Rahao/numbered stanza markers.
+      const hasStanzaMarkers = /(?:ਰਹਾਉ|ਠਹਿਰਾਉ)\\s*[॥।]+|[॥।]\\s*[੦-੯0-9]+(?:\\s*[॥।]\\s*[੦-੯0-9]+)*\\s*[॥।]/u.test(record.translation);
+      if ((!record.translation || !hasStanzaMarkers) && (selection?.translation ?? true)) {
         try {
           const translation = await lookupPunjabiTranslation(record);
-          if (translation) { record.translation = translation; record.sourceName += " + matched BaniDB Punjabi translation"; }
-        } catch { /* Keep missing meaning visible for manual completion. */ }
+          if (translation) {
+            record.translation = translation;
+            record.sourceName += " + matched BaniDB Punjabi translation";
+          }
+        } catch { /* Keep the original text editable if the exact BaniDB match is unavailable. */ }
       }
       break;
     }
