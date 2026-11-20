@@ -41,7 +41,7 @@ import {
   type StudioState,
   type TypoSettings,
 } from "@/lib/hukamnama/types";
-import { isReference, referenceConfig } from "@/lib/hukamnama/reference";
+import { isReference, referenceImageSrc } from "@/lib/hukamnama/reference";
 import { separatorImagePath } from "@/lib/hukamnama/separatorAssets";
 import { defaultState } from "@/lib/hukamnama/defaults";
 import { computeLayout, type LayoutResult } from "@/lib/hukamnama/layout";
@@ -210,11 +210,11 @@ export default function Studio() {
   }, [state, loaded]);
 
   /* ---------------------------------------------------- background img */
+  const backgroundSrc = referenceMode ? referenceImageSrc(state.presetId, state.showQrCode) : state.bg.dataUrl || DEFAULT_BG;
   useEffect(() => {
     let alive = true;
     setBackgroundReady(false);
     bgImgRef.current = null;
-    const src = referenceMode ? referenceConfig(state.presetId).src : state.bg.dataUrl || DEFAULT_BG;
     const img = new Image();
     img.onload = () => {
       if (!alive) return;
@@ -228,9 +228,9 @@ export default function Studio() {
       bgImgRef.current = null;
       setBgVersion((v) => v + 1);
     };
-    img.src = src;
+    img.src = backgroundSrc;
     return () => { alive = false; };
-  }, [state.bg.dataUrl, state.presetId, referenceMode]);
+  }, [backgroundSrc]);
 
   /* --------------------------------------------------------- logo imgs */
   useEffect(() => {
@@ -412,7 +412,7 @@ export default function Studio() {
       bg = await new Promise<HTMLImageElement>((resolve, reject) => {
         const img = new Image(); img.onload = () => resolve(img);
         img.onerror = () => reject(new Error("Template artwork could not load. Please retry."));
-        img.src = referenceConfig(p.id).src;
+        img.src = referenceImageSrc(p.id, exportState.showQrCode);
       });
     }
     const comp = buildComposite(p.w, p.h, exportState, bg, L, separatorImgRef.current);

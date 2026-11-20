@@ -6,7 +6,8 @@ import { fontFor, setActiveFontStack, type PresetDef, type StudioState } from ".
 /** Coordinates measured from the supplied 1080×1350 and 1080×1920 artwork. */
 export const REFERENCE = {
   feed: {
-    src: "/images/templates/1080.png", stripe: [0, 343, 1080, 36],
+    src: "/images/templates/1080.png", withoutQr: "/images/templates/1080-no-qr.png",
+    stripe: [0, 343, 1080, 36],
     original: [39, 394, 1002, 326], translation: [41, 725, 998, 506],
     date: [379, 1256, 659, 60], originalPx: 53, translationPx: 38,
     bodyTop: 379, bodyBottom: 1231, separatorY: 0, // dynamically positioned from measured text
@@ -14,7 +15,8 @@ export const REFERENCE = {
     authorX: 41, metaY: 369, metaPx: 24, rightX: 1029,
   },
   vertical: {
-    src: "/images/templates/1920.png", stripe: [0, 429, 1080, 54],
+    src: "/images/templates/1920.png", withoutQr: "/images/templates/1920-no-qr.png",
+    stripe: [0, 429, 1080, 54],
     original: [88, 508, 904, 420], translation: [88, 1037, 904, 546],
     date: [90, 1644, 902, 57], originalPx: 56, translationPx: 37,
     bodyTop: 483, bodyBottom: 1583, separatorY: 974,
@@ -29,6 +31,12 @@ export function isReference(state: StudioState, presetId = state.presetId): bool
 
 export function referenceConfig(id: string) {
   return id === "feed" ? REFERENCE.feed : REFERENCE.vertical;
+}
+
+/** The alternate PNG restores the PSD artwork beneath the clipped QR layer. */
+export function referenceImageSrc(id: string, showQrCode = true) {
+  const template = referenceConfig(id);
+  return showQrCode ? template.src : template.withoutQr;
 }
 
 function rect(a: readonly number[]): Rect {
@@ -139,20 +147,12 @@ export function referenceLayout(state: StudioState, preset: PresetDef, ctx: Canv
 }
 
 /** Reference PNGs preserve all fixed artwork. Clear every variable region before drawing new text. */
-export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImageElement | null, id: string, layout: LayoutResult, separatorImages: HTMLImageElement[], separatorId: string, separatorScale: number, showQrCode = true) {
+export function referenceComposite(ctx: CanvasRenderingContext2D, img: HTMLImageElement | null, id: string, layout: LayoutResult, separatorImages: HTMLImageElement[], separatorId: string, separatorScale: number) {
   const c = referenceConfig(id);
   ctx.fillStyle = "#fbd58c";
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   if (img) {
     ctx.drawImage(img, 0, 0);
-    if (!showQrCode && img.complete && img.naturalWidth > 0) {
-      // The QR is baked into the reference PNGs. Replace only its top-right
-      // photo area with an adjacent clean crop, preserving the rest of the art.
-      const qr = id === "feed"
-        ? { x: 914, y: 33, size: 126, sourceX: 788 }
-        : { x: 712, y: 47, size: 134, sourceX: 578 };
-      ctx.drawImage(img, qr.sourceX, qr.y, qr.size, qr.size, qr.x, qr.y, qr.size, qr.size);
-    }
   }
   // Clear the complete variable body so both text blocks and the separator
   // can be positioned from the measured content instead of fixed PSD boxes.
