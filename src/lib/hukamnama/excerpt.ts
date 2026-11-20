@@ -29,15 +29,23 @@ export function hukamnamaExcerpt(original: string, translation: string): Hukamna
   if (count(original.trim()) <= 250) return full;
   const source = original.trim();
   const markers = endings(source);
-  // Rahao is the preferred media boundary whenever its complete marker
-  // appears within the first 600 characters. Do not extend beyond it to
-  // satisfy a target character count: later stanzas are not part of the
-  // Rahao excerpt.
-  const chosen = markers.find(marker => marker.key === "rahau" && marker.length <= 600)
-    // If no early Rahao exists, use the first complete numbered stanza.
-    // This fallback is intentionally independent of the 220–230 character
-    // layout preference, which must never override stanza order.
-    ?? markers.find(marker => marker.key !== "rahau");
+  // A Rahao in the first 200 characters can be only an opening pause.
+  // In that case, continue to a complete numbered stanza ending between
+  // 200 and 250 characters (prefer 220–230, otherwise the nearest to 225).
+  // At 200 characters or later, Rahao is the final boundary even when a
+  // numbered marker appeared before it. If no qualifying Rahao exists,
+  // retain the first complete numbered ending as the fallback.
+  const rahau = markers.find(marker => marker.key === "rahau" && marker.length <= 600);
+  const laterNumbered = rahau
+    ? markers.filter(marker => marker.key !== "rahau" && marker.end > rahau.end
+      && marker.length >= 200 && marker.length <= 250)
+    : [];
+  const preferredNumbered = laterNumbered.filter(marker => marker.length >= 220 && marker.length <= 230);
+  const earlyPauseExtension = (preferredNumbered.length ? preferredNumbered : laterNumbered)
+    .sort((a, b) => Math.abs(a.length - 225) - Math.abs(b.length - 225))[0];
+  const chosen = rahau && rahau.length < 200
+    ? earlyPauseExtension ?? rahau
+    : rahau ?? markers.find(marker => marker.key !== "rahau");
 
   if (!chosen) return { ...full, warning: "No complete stanza ending was found within the 250-character excerpt limit. The full source remains editable; shorten it manually before exporting." };
 
