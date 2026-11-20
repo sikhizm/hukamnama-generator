@@ -132,12 +132,12 @@ assert.ok(firstEnding.original.endsWith('॥੧॥'));
 const extend = atPositions([[77, '॥੧॥'], [145, '॥੧॥ ਰਹਾਉ ॥'], [200, '॥੨॥'], [266, '॥੩॥']]);
 const extended = hukamnamaExcerpt(extend, 'ਵਿਰਾਮ।ਠਹਿਰਾਉ। ਪਹਿਲਾ।੧। ਦੂਜਾ।੨। ਤੀਜਾ।੩।');
 assert.equal(extended.error, null);
-assert.equal([...extended.original].length, 145, 'stop immediately after the early rahao marker');
+assert.equal([...extended.original].length, 200, 'early Rahao extends to the next qualifying numbered ending');
 assert.equal(extended.translation, 'ਪਹਿਲਾ।੧। ਵਿਰਾਮ।ਠਹਿਰਾਉ। ਦੂਜਾ।੨।');
 for (const [positions, expected] of [
-  [[200, 225, 250], 145],
-  [[210, 250], 145],
-  [[250], 145],
+  [[200, 225, 250], 225],
+  [[210, 250], 210],
+  [[250], 250],
   [[199, 251], 145],
 ]) {
   const entries = [[77, '॥੧॥'], [145, '॥੧॥ ਰਹਾਉ ॥'], ...positions.map((pos, i) => [pos, `॥${i + 2}॥`]), [330, '॥੯॥']];
@@ -148,8 +148,8 @@ for (const [positions, expected] of [
   assert.equal([...selected.original].length, expected);
 }
 const boundaryPause = atPositions([[77, '॥੧॥'], [200, '॥੧॥ ਰਹਾਉ ॥'], [225, '॥੨॥'], [310, '॥੩॥']]);
-assert.equal([...hukamnamaExcerpt(boundaryPause, 'ਪਹਿਲਾ।੧। ਵਿਰਾਮ।ਰਹਾਉ। ਦੂਜਾ।੨। ਅੰਤ।੩।').original].length, 200, 'pause at exactly 200 keeps existing priority');
+assert.equal([...hukamnamaExcerpt(boundaryPause, 'ਪਹਿਲਾ।੧। ਵਿਰਾਮ।ਰਹਾਉ। ਦੂਜਾ।੨। ਅੰਤ।੩।').original].length, 200, 'Rahao at exactly 200 is the final boundary');
 const missingExtension = { original: extend, translation: 'ਪਹਿਲਾ।੧। ਵਿਰਾਮ।ਰਹਾਉ। ਗਲਤ।੩।' };
 assert.ok(hukamnamaExcerpt(missingExtension.original, missingExtension.translation).warning);
 assert.deepEqual(loadedContent(missingExtension), { ...missingExtension, fullOriginal: undefined, fullTranslation: undefined }, 'unmatched added stanza retains full editable fields');
-console.log('Rahao boundary passed: early Rahao always wins over later numbered endings; numbered fallback remains first-marker only.');
+console.log('Rahao boundary passed: pauses before 200 may extend to a nearby numbered ending (max 250); Rahao from 200 onward is final.');
