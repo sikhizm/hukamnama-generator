@@ -257,8 +257,17 @@ export function isCompleteGurbani(text: string): boolean {
   const ending = /[॥।]\s*[੦-੯0-9]+(?:\s*[॥।]\s*[੦-੯0-9]+)*\s*[॥।]\s*$/u;
   if (!ending.test(text) || !/[\u0A00-\u0A7F]/u.test(text) || /(?:[A-Za-z]|\p{Script=Devanagari})/u.test(text)) return false;
   if (text.includes("ੴ") && /ਸਤਿਗੁਰ\s*ਪ੍ਰਸਾਦਿ/u.test(text)) return true;
-  // Headerless passages need multiple stanza markers and a closing stanza/count.
-  return !/[(),:!?=]/u.test(text) && [...text.matchAll(/[॥।]\s*[੦-੯0-9]+\s*[॥।]/gu)].length >= 2
+  // A Hukamnama can begin with ਸਲੋਕ rather than a mangal and end with
+  // a single numbered stanza (e.g. ॥੩॥). Require a clear opening and
+  // multiple consecutively numbered complete stanzas; do not accept
+  // arbitrary Punjabi explanation text with a number at the end.
+  const numbered = [...text.matchAll(/[॥।]\s*([੦-੯0-9]+)\s*[॥।]/gu)].map(match =>
+    Number(match[1].replace(/[੦-੯]/gu, digit => GURMUKHI_DIGITS[digit] ?? digit)));
+  const slokOpening = /^ਸਲੋਕੁ?\s*[॥।]/u.test(text.trim());
+  const sequential = numbered.length >= 2 && numbered.every((value, index) => value === index + 1);
+  if (slokOpening && sequential && !/[(),:!?=]/u.test(text)) return true;
+  // Other headerless passages retain the stricter double-numbered ending.
+  return !/[(),:!?=]/u.test(text) && numbered.length >= 2
     && /[॥।]\s*[੦-੯0-9]+\s*[॥।]\s*[੦-੯0-9]+\s*[॥।]\s*$/u.test(text);
 }
 
@@ -308,6 +317,16 @@ export function readSikhizmAng(html: string): string | null {
   for (const row of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr\s*>/gi)) {
     const cells = [...row[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]\s*>/gi)];
     if (cells.length === 2 && label.test(htmlToLines(cells[0][1]).join(" "))) values.push(number(htmlToLines(cells[1][1]).join(" ")));
+  }
+  // Sikhizm's Source row can link "Sri Guru Granth Sahib Page" and place
+  // the Ang immediately after that link (e.g. "Source | ... Page 706").
+  // Read only the labelled table cell, not SEO text or sidebar matches.
+  for (const row of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr\s*>/gi)) {
+    const cells = [...row[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]\s*>/gi)];
+    if (cells.length !== 2 || !/^Source$/iu.test(htmlToLines(cells[0][1]).join(" "))) continue;
+    const source = htmlToLines(cells[1][1]).join(" ");
+    const page = source.match(/(?:Sri\s+Guru\s+Granth\s+Sahib\s+)?(?:Page|Ang)\s*[:：]?\s*([੦-੯0-9]{1,4})\b/iu);
+    if (page) values.push(number(page[1]));
   }
   // Also support explicit standalone metadata in older article markup.
   if (!values.length) {
