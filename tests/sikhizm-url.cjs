@@ -11,6 +11,22 @@ const { verifyFreshMorningState } = require('../src/lib/morningPlan.ts');
 const { defaultState } = require('../src/lib/hukamnama/defaults.ts');
 const html = fs.readFileSync('tests/fixtures/sikhizm-2026-10-28.html', 'utf8');
 const content = parseSikhizmArticleContent(html);
+// Regression: 21 Nov 2026 starts at ਸਲੋਕ, not ੴ, and ends in a single ॥੩॥.
+// Reproduces the article's Source | Sri Guru Granth Sahib Page 706 format.
+const slok = 'ਸਲੋਕ ॥ ਮਨ ਇਛਾ ਦਾਨ ਕਰਣੰ ਸਰਬਤ੍ਰ ਆਸਾ ਪੂਰਨਹ ॥ ਖੰਡਣੰ ਕਲਿ ਕਲੇਸਹ ਪ੍ਰਭ ਸਿਮਰਿ ਨਾਨਕ ਨਹ ਦੂਰਣਹ ॥੧॥ ਹਭਿ ਰੰਗ ਮਾਣਹਿ ਜਿਸੁ ਸੰਗਿ ਤੈ ਸਿਉ ਲਾਈਐ ਨੇਹੁ ॥ ਸੋ ਸਹੁ ਬਿੰਦ ਨ ਵਿਸਰਉ ਨਾਨਕ ਜਿਨਿ ਸੁੰਦਰੁ ਰਚਿਆ ਦੇਹੁ ॥੨॥ ਪਉੜੀ ॥ ਜੀਉ ਪ੍ਰਾਨ ਤਨੁ ਧਨੁ ਦੀਆ ਦੀਨੇ ਰਸ ਭੋਗ ॥ ਗ੍ਰਿਹ ਮੰਦਰ ਰਥ ਅਸੁ ਦੀਏ ਰਚਿ ਭਲੇ ਸੰਜੋਗ ॥ ਸੁਤ ਬਨਿਤਾ ਸਾਜਨ ਸੇਵਕ ਦੀਏ ਪ੍ਰਭ ਦੇਵਨ ਜੋਗ ॥ ਹਰਿ ਸਿਮਰਤ ਤਨੁ ਮਨੁ ਹਰਿਆ ਲਹਿ ਜਾਹਿ ਵਿਜੋਗ ॥ ਸਾਧਸੰਗਿ ਹਰਿ ਗੁਣ ਰਮਹੁ ਬਿਨਸੇ ਸਭਿ ਰੋਗ ॥੩॥';
+const slokHtml = '<meta property="article:published_time" content="2026-11-21T00:05:00+05:30" />'
+  + '<table><tr><td>Source</td><td><a href="/guru-granth-sahib/">Sri Guru Granth Sahib Page</a> 706</td></tr>'
+  + '<tr><td>Creator</td><td>Guru Arjan Dev Ji</td></tr></table>'
+  + '<div class="su-box"><div class="su-box-title">Hukamnama Darbar Sahib, Amritsar</div>'
+  + '<div class="su-box-content">' + slok + '</div></div>'
+  + '<h3>Translation in Punjabi</h3><p>ਹੇ ਨਾਨਕ ਜੀ! ਪ੍ਰਭੂ ਸਭ ਥਾਂ ਆਸਾਂ ਪੂਰੀਆਂ ਕਰਦਾ ਹੈ ॥੧॥</p>';
+const slokContent = parseSikhizmArticleContent(slokHtml);
+assert.equal(slokContent.original, slok);
+assert.equal(slokContent.ang, '706');
+assert.equal(slokContent.matchedAuthor, 'Guru Arjan Dev Ji');
+assert.equal(parseSikhizmLiveArticle(slokHtml, { publishedAt: '2026-11-20T18:35:00Z', localDateISO: '2026-11-21' }, '2026-11-21').isToday, true);
+assert.equal(parseSikhizmArticleContent(slokHtml.replace('॥੩॥', '')).original, slok.replace('॥੩॥', ''), false);
+
 const url = 'https://sikhizm.com/man-re-prabh-ki-saran-bichaaro/';
 const request = body => new Request('https://app.example/api/hukamnama/sikhizm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 const page = (text = html) => new Response(text, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
@@ -19,6 +35,14 @@ class FixedDate extends realDate { constructor(value) { super(value === undefine
 (async () => {
   global.Date = FixedDate;
   let calls = [];
+  global.fetch = async (url, options) => { calls.push([String(url), options]); return page(); };
+  // The same ਸਲੋਕ-first article must work through the authenticated manual import.
+  global.fetch = async () => page(slokHtml);
+  const slokResponse = await POST(request({ url: 'https://sikhizm.com/man-ichha-daan-karnang/', translation: false }));
+  assert.equal(slokResponse.status, 200);
+  const importedSlok = await slokResponse.json();
+  assert.equal(importedSlok.original, slok); assert.equal(importedSlok.ang, '706');
+  assert.equal(importedSlok.isToday, false, 'manual URL is not proof of today');
   global.fetch = async (url, options) => { calls.push([String(url), options]); return page(); };
   const response = await POST(request({ url, translation: false }));
   assert.equal(response.status, 200);
