@@ -42,7 +42,7 @@ export default function SocialCaption({ autoTarget, reelTarget, state, notify, c
   const [findingLinks, setFindingLinks] = useState(false);
   const [clipboardActivity, setClipboardActivity] = useState<"image" | "text" | "share" | null>(null);
   const clipboardBusy = useRef(false);
-  const [includeHashtags, setIncludeHashtags] = useState(true);
+  const [includeHashtags, setIncludeHashtags] = useState(false);
   const preparedShare = useRef<{ file: File; state: StudioState } | null>(null);
   const latestState = useRef(state);
   useEffect(() => {
