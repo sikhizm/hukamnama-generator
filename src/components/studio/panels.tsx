@@ -33,7 +33,6 @@ import {
 import { useState } from "react";
 import { publishedSgpcDate } from "@/lib/hukamnama/sgpcCalendar";
 import { SEPARATOR_OPTIONS } from "@/lib/hukamnama/separatorAssets";
-import { formatSgpcCalendarDate } from "@/lib/hukamnama/sgpcDate";
 import { AUTHOR_OPTIONS, normalizeAuthor } from "@/lib/hukamnama/authors";
 import { Section, SliderRow, ToggleRow, SegRow, FieldLabel, TextInput, TextArea } from "./controls";
 import {
@@ -382,8 +381,7 @@ export function HeaderSection(p: PanelProps) {
 
 export function DateSection(p: PanelProps) {
   const { state, patch } = p;
-  const [sgpcDate, setSgpcDate] = useState("");
-  const [dateMessage, setDateMessage] = useState("");
+  const [copyMessage, setCopyMessage] = useState("");
   return (
     <Section icon={CalendarDays} title="Date row" subtitle="Punjabi + Gregorian date line">
       <FieldLabel>Pick a date</FieldLabel>
@@ -393,41 +391,21 @@ export function DateSection(p: PanelProps) {
         onChange={(e) => {
           if (!e.target.value) return;
           patch({ dateISO: e.target.value, dateManual: false, dateText: formatHukamDate(isoToDate(e.target.value)) });
-          setDateMessage("");
         }}
         className="u-date w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[12.5px] text-zinc-100 outline-none transition focus:border-amber-300/50"
       />
       <div className="mt-2">
         <FieldLabel
           right={
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() =>
-                  patch({ dateManual: false, dateText: formatHukamDate(isoToDate(state.dateISO)) })
-                }
-                className="flex items-center gap-1 text-[10px] font-medium text-amber-300/90 transition hover:text-amber-200"
-              >
-                <RotateCcw size={10} /> {publishedSgpcDate(state.dateISO) ? "Use SGPC calendar" : "Use calendar estimate"}
-              </button>
-              <button
-                type="button"
-                disabled={!state.dateText.trim()}
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(state.dateText);
-                    setDateMessage("SGPC date copied to clipboard.");
-                  } catch {
-                    setDateMessage("Could not copy the date. Check clipboard permission and try again.");
-                  }
-                }}
-                className="flex items-center gap-1 text-[10px] font-medium text-emerald-300 transition hover:text-emerald-200 disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="Copy SGPC date"
-                title="Copy complete date line"
-              >
-                <ClipboardCopy size={11} /> Copy date
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() =>
+                patch({ dateManual: false, dateText: formatHukamDate(isoToDate(state.dateISO)) })
+              }
+              className="flex items-center gap-1 text-[10px] font-medium text-amber-300/90 transition hover:text-amber-200"
+            >
+              <RotateCcw size={10} /> {publishedSgpcDate(state.dateISO) ? "Use SGPC calendar" : "Use calendar estimate"}
+            </button>
           }
         >
           Date line {state.dateManual ? "(source / manual)" : publishedSgpcDate(state.dateISO) ? "(published SGPC calendar)" : "(estimate · verify with SGPC)"}
@@ -435,24 +413,28 @@ export function DateSection(p: PanelProps) {
         <TextArea
           rows={2}
           value={state.dateText}
-          onChange={(v) => patch({ dateText: v, dateManual: true })}
+          onChange={(v) => { patch({ dateText: v, dateManual: true }); setCopyMessage(""); }}
           gurmukhi
         />
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            type="button"
+            disabled={!state.dateText.trim()}
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(state.dateText);
+                setCopyMessage("Date line copied.");
+              } catch {
+                setCopyMessage("Could not copy. Check clipboard permission and try again.");
+              }
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300/25 px-3 py-2 text-[11px] font-semibold text-emerald-300 transition hover:bg-emerald-300/10 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ClipboardCopy size={12} /> Copy text
+          </button>
+          {copyMessage && <span role="status" className="text-[10px] text-zinc-400">{copyMessage}</span>}
+        </div>
       </div>
-      <details className="rounded-lg border border-white/10 p-3 text-xs text-zinc-300">
-        <summary className="cursor-pointer font-semibold text-amber-200">Use a date copied from SGPC</summary>
-        <p className="mt-2 text-[11px] leading-5 text-zinc-400">If SGPC fetch is blocked, copy its Punjabi or English Nanakshahi date line here. Check the Gregorian date selected above first.</p>
-        <label className="mt-2 block">SGPC calendar line
-          <textarea rows={3} value={sgpcDate} onChange={event => setSgpcDate(event.target.value)} placeholder="ਐਤਵਾਰ, ੯ ਕੱਤਕ (ਸੰਮਤ ੫੫੮ ਨਾਨਕਸ਼ਾਹੀ)" className="font-pa mt-1 w-full rounded-lg border border-white/10 bg-black/20 p-2" />
-        </label>
-        <button type="button" onClick={() => {
-          const dateText = formatSgpcCalendarDate(sgpcDate, state.dateISO);
-          if (!dateText) { setDateMessage("Could not match this SGPC calendar line to the selected weekday. Check the date, day, month and Samvat year."); return; }
-          patch({ dateText, dateManual: true });
-          setDateMessage("SGPC date formatted. Confirm it belongs to the selected Gregorian date before sharing.");
-        }} className="mt-2 rounded-lg border border-amber-300/30 px-3 py-2 font-semibold text-amber-200">Apply SGPC date</button>
-        {dateMessage && <p role="status" className="mt-2 text-[11px] leading-5">{dateMessage}</p>}
-      </details>
     </Section>
   );
 }
