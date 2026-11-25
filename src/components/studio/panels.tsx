@@ -28,6 +28,7 @@ import {
   PanelBottom,
   CornerUpLeft,
   CornerUpRight,
+  ClipboardCopy,
 } from "lucide-react";
 import { useState } from "react";
 import { publishedSgpcDate } from "@/lib/hukamnama/sgpcCalendar";
@@ -389,21 +390,44 @@ export function DateSection(p: PanelProps) {
       <input
         type="date"
         value={state.dateISO}
-        onChange={(e) => e.target.value && patch({ dateISO: e.target.value })}
+        onChange={(e) => {
+          if (!e.target.value) return;
+          patch({ dateISO: e.target.value, dateManual: false, dateText: formatHukamDate(isoToDate(e.target.value)) });
+          setDateMessage("");
+        }}
         className="u-date w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[12.5px] text-zinc-100 outline-none transition focus:border-amber-300/50"
       />
       <div className="mt-2">
         <FieldLabel
           right={
-            <button
-              type="button"
-              onClick={() =>
-                patch({ dateManual: false, dateText: formatHukamDate(isoToDate(state.dateISO)) })
-              }
-              className="flex items-center gap-1 text-[10px] font-medium text-amber-300/90 transition hover:text-amber-200"
-            >
-              <RotateCcw size={10} /> {publishedSgpcDate(state.dateISO) ? "Use SGPC calendar" : "Use calendar estimate"}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  patch({ dateManual: false, dateText: formatHukamDate(isoToDate(state.dateISO)) })
+                }
+                className="flex items-center gap-1 text-[10px] font-medium text-amber-300/90 transition hover:text-amber-200"
+              >
+                <RotateCcw size={10} /> {publishedSgpcDate(state.dateISO) ? "Use SGPC calendar" : "Use calendar estimate"}
+              </button>
+              <button
+                type="button"
+                disabled={!state.dateText.trim()}
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(state.dateText);
+                    setDateMessage("SGPC date copied to clipboard.");
+                  } catch {
+                    setDateMessage("Could not copy the date. Check clipboard permission and try again.");
+                  }
+                }}
+                className="flex items-center gap-1 text-[10px] font-medium text-emerald-300 transition hover:text-emerald-200 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Copy SGPC date"
+                title="Copy complete date line"
+              >
+                <ClipboardCopy size={11} /> Copy date
+              </button>
+            </div>
           }
         >
           Date line {state.dateManual ? "(source / manual)" : publishedSgpcDate(state.dateISO) ? "(published SGPC calendar)" : "(estimate · verify with SGPC)"}
